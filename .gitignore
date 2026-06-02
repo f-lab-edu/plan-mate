@@ -6,6 +6,9 @@
 .gradle/
 build/
 
+# Frontend cache
+frontend/.vite/
+
 # Environment
 backend/.env
 backend/.env.*

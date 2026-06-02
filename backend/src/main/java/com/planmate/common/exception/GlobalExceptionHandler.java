@@ -1,6 +1,8 @@
 package com.planmate.common.exception;
 
 import com.planmate.auth.exception.DuplicateEmailException;
+import com.planmate.auth.exception.InactiveUserException;
+import com.planmate.auth.exception.InvalidCredentialsException;
 import java.util.List;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -30,6 +32,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(ApiErrorResponse.of("DUPLICATE_EMAIL", exception.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidCredentials(InvalidCredentialsException exception) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(ApiErrorResponse.of("INVALID_CREDENTIALS", exception.getMessage()));
+    }
+
+    @ExceptionHandler(InactiveUserException.class)
+    public ResponseEntity<ApiErrorResponse> handleInactiveUser(InactiveUserException exception) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ApiErrorResponse.of("INACTIVE_USER", exception.getMessage()));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
