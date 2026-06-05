@@ -217,11 +217,9 @@ class AuthControllerSignupTest {
     void logoutRevokesRefreshToken() throws Exception {
         signupAndVerify("logoutUser", "logout@example.com");
         MvcResult loginResult = login("logoutUser");
-        String accessToken = readAccessToken(loginResult);
         Cookie refreshCookie = refreshCookie(loginResult);
 
         mockMvc.perform(post("/api/auth/logout")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                         .cookie(refreshCookie))
                 .andExpect(status().isNoContent())
                 .andExpect(cookie().maxAge("refreshToken", 0));
