@@ -60,10 +60,7 @@ public class SecurityConfig {
                                 "/api/auth/email-verifications/confirm",
                                 "/api/auth/email-verifications/resend",
                                 "/api/auth/login",
-                                "/api/auth/refresh",
-                                "/api/auth/login-id/request",
-                                "/api/auth/password-reset/request",
-                                "/api/auth/password-reset/confirm"
+                                "/api/auth/refresh"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

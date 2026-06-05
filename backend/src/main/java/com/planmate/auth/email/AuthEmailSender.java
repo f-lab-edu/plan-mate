@@ -6,10 +6,4 @@ public interface AuthEmailSender {
 
     void sendSignupVerification(UserEntity user, String rawToken);
 
-    void sendLoginIdGuide(UserEntity user, String loginId);
-
-    void sendPasswordReset(UserEntity user, String rawToken);
-
-    void sendSocialAccountGuide(String email);
-
 }

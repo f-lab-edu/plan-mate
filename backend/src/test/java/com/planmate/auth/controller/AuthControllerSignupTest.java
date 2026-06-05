@@ -305,18 +305,6 @@ class AuthControllerSignupTest {
             this.signupVerificationToken = rawToken;
         }
 
-        @Override
-        public void sendLoginIdGuide(UserEntity user, String loginId) {
-        }
-
-        @Override
-        public void sendPasswordReset(UserEntity user, String rawToken) {
-        }
-
-        @Override
-        public void sendSocialAccountGuide(String email) {
-        }
-
         String signupVerificationToken() {
             return signupVerificationToken;
         }
