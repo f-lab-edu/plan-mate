@@ -35,20 +35,50 @@ public class GmailSmtpAuthEmailSender implements AuthEmailSender {
     public void sendSignupVerification(UserEntity user, String rawToken) {
         validateFromAddress();
         String verificationUrl = frontendBaseUrl + "/auth/email-verification?token=" + rawToken;
+        sendPlainText(user.getEmail(), "[PlanMate] Verify your email", """
+                Complete your PlanMate email verification using the link below.
+
+                %s
+
+                If you did not request this email, you can ignore it.
+                """.formatted(verificationUrl));
+    }
+
+    @Override
+    public void sendLoginIdRecovery(UserEntity user, String rawToken) {
+        validateFromAddress();
+        String recoveryUrl = frontendBaseUrl + "/auth/find-login-id?token=" + rawToken;
+        sendPlainText(user.getEmail(), "[PlanMate] Find your login ID", """
+                Complete verification using the link below to view your PlanMate login ID.
+
+                %s
+
+                If you did not request this email, you can ignore it.
+                """.formatted(recoveryUrl));
+    }
+
+    @Override
+    public void sendPasswordReset(UserEntity user, String rawToken) {
+        validateFromAddress();
+        String resetUrl = frontendBaseUrl + "/auth/reset-password?token=" + rawToken;
+        sendPlainText(user.getEmail(), "[PlanMate] Reset your password", """
+                Use the link below to set a new PlanMate password.
+
+                %s
+
+                If you did not request this email, you can ignore it.
+                """.formatted(resetUrl));
+    }
+
+    private void sendPlainText(String to, String subject, String text) {
         MimeMessage message = mailSender.createMimeMessage();
 
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
             helper.setFrom(from);
-            helper.setTo(user.getEmail());
-            helper.setSubject("[PlanMate] Verify your email");
-            helper.setText("""
-                    Complete your PlanMate email verification using the link below.
-
-                    %s
-
-                    If you did not request this email, you can ignore it.
-                    """.formatted(verificationUrl), false);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(text, false);
 
             mailSender.send(message);
         } catch (MessagingException | MailException exception) {

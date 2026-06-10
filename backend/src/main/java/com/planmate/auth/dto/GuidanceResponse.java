@@ -6,4 +6,8 @@ public record GuidanceResponse(String message) {
         return new GuidanceResponse("인증 메일 발송이 가능한 경우 메일을 발송했습니다.");
     }
 
+    public static GuidanceResponse recoverySentIfPossible() {
+        return new GuidanceResponse("Recovery email will be sent if the account information is valid.");
+    }
+
 }

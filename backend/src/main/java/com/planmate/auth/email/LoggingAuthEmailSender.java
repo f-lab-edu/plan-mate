@@ -25,4 +25,16 @@ public class LoggingAuthEmailSender implements AuthEmailSender {
                 user.getId(), frontendBaseUrl, rawToken);
     }
 
+    @Override
+    public void sendLoginIdRecovery(UserEntity user, String rawToken) {
+        log.info("Login id recovery email prepared. userId={}, url={}/auth/find-login-id?token={}",
+                user.getId(), frontendBaseUrl, rawToken);
+    }
+
+    @Override
+    public void sendPasswordReset(UserEntity user, String rawToken) {
+        log.info("Password reset email prepared. userId={}, url={}/auth/reset-password?token={}",
+                user.getId(), frontendBaseUrl, rawToken);
+    }
+
 }
