@@ -35,12 +35,14 @@ public class GmailSmtpAuthEmailSender implements AuthEmailSender {
     public void sendSignupVerification(UserEntity user, String rawToken) {
         validateFromAddress();
         String verificationUrl = frontendBaseUrl + "/auth/email-verification?token=" + rawToken;
-        sendPlainText(user.getEmail(), "[PlanMate] Verify your email", """
-                Complete your PlanMate email verification using the link below.
+        sendPlainText(user.getEmail(), "[PlanMate] 이메일 인증을 완료해 주세요", """
+                안녕하세요, PlanMate입니다.
+
+                회원가입을 완료하려면 아래 링크를 클릭해 이메일 인증을 진행해 주세요.
 
                 %s
 
-                If you did not request this email, you can ignore it.
+                본인이 요청하지 않은 메일이라면 이 메일을 무시해 주세요.
                 """.formatted(verificationUrl));
     }
 
@@ -48,12 +50,14 @@ public class GmailSmtpAuthEmailSender implements AuthEmailSender {
     public void sendLoginIdRecovery(UserEntity user, String rawToken) {
         validateFromAddress();
         String recoveryUrl = frontendBaseUrl + "/auth/find-login-id?token=" + rawToken;
-        sendPlainText(user.getEmail(), "[PlanMate] Find your login ID", """
-                Complete verification using the link below to view your PlanMate login ID.
+        sendPlainText(user.getEmail(), "[PlanMate] 아이디 찾기 인증 안내", """
+                안녕하세요, PlanMate입니다.
+
+                아이디를 확인하려면 아래 링크를 클릭해 이메일 인증을 진행해 주세요.
 
                 %s
 
-                If you did not request this email, you can ignore it.
+                본인이 요청하지 않은 메일이라면 이 메일을 무시해 주세요.
                 """.formatted(recoveryUrl));
     }
 
@@ -61,12 +65,14 @@ public class GmailSmtpAuthEmailSender implements AuthEmailSender {
     public void sendPasswordReset(UserEntity user, String rawToken) {
         validateFromAddress();
         String resetUrl = frontendBaseUrl + "/auth/reset-password?token=" + rawToken;
-        sendPlainText(user.getEmail(), "[PlanMate] Reset your password", """
-                Use the link below to set a new PlanMate password.
+        sendPlainText(user.getEmail(), "[PlanMate] 비밀번호 재설정 안내", """
+                안녕하세요, PlanMate입니다.
+
+                비밀번호를 재설정하려면 아래 링크를 클릭해 주세요.
 
                 %s
 
-                If you did not request this email, you can ignore it.
+                본인이 요청하지 않은 메일이라면 이 메일을 무시해 주세요.
                 """.formatted(resetUrl));
     }
 
