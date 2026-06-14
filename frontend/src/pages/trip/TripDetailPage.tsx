@@ -152,40 +152,24 @@ function TripPlanningWorkspace({
   onBackToMain: () => void
   onLogout: () => void
 }) {
-  const days = trip.itinerary?.days ?? []
+  const days = useMemo(() => trip.itinerary?.days ?? [], [trip.itinerary])
   const firstDay = days[0]?.day ?? 1
   const [activeDay, setActiveDay] = useState(firstDay)
   const [selectedPlaceId, setSelectedPlaceId] = useState('')
   const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null)
+  const resolvedActiveDay = days.some((day) => day.day === activeDay) ? activeDay : firstDay
 
   const activeDayPlan = useMemo(
-    () => days.find((day) => day.day === activeDay) ?? days[0] ?? null,
-    [activeDay, days],
+    () => days.find((day) => day.day === resolvedActiveDay) ?? days[0] ?? null,
+    [resolvedActiveDay, days],
   )
-  const activeItems = activeDayPlan?.items ?? []
-  const selectedPlace = activeItems.find((place) => place.id === selectedPlaceId) ?? null
+  const activeItems = useMemo(() => activeDayPlan?.items ?? [], [activeDayPlan])
+  const fallbackSelectedPlace = activeItems.find(isMapVisibleItem) ?? activeItems[0] ?? null
+  const selectedPlace = activeItems.find((place) => place.id === selectedPlaceId) ?? fallbackSelectedPlace
+  const effectiveSelectedPlaceId = selectedPlace?.id ?? ''
   const editingPlace = activeItems.find((place) => place.id === editingPlaceId) ?? null
   const activeVote: VoteProposal | null = null
   const requiresInitialSetup = false
-
-  useEffect(() => {
-    if (days.length === 0) {
-      return
-    }
-    if (!days.some((day) => day.day === activeDay)) {
-      setActiveDay(days[0].day)
-    }
-  }, [activeDay, days])
-
-  useEffect(() => {
-    if (activeItems.length === 0) {
-      setSelectedPlaceId('')
-      return
-    }
-    if (!activeItems.some((item) => item.id === selectedPlaceId)) {
-      setSelectedPlaceId(activeItems.find(isMapVisibleItem)?.id ?? activeItems[0].id)
-    }
-  }, [activeItems, selectedPlaceId])
 
   function handleDayChange(day: number) {
     const nextDay = days.find((candidate) => candidate.day === day)
@@ -201,16 +185,16 @@ function TripPlanningWorkspace({
       <div className="planning-layout">
         <ItinerarySidebar
           days={days}
-          activeDay={activeDay}
+          activeDay={resolvedActiveDay}
           activeDayPlan={activeDayPlan}
           items={activeItems}
-          selectedPlaceId={selectedPlaceId}
+          selectedPlaceId={effectiveSelectedPlaceId}
           budgetSummary={trip.itinerary?.budgetSummary ?? null}
           onDayChange={handleDayChange}
           onSelectPlace={setSelectedPlaceId}
         />
         <MapStage
-          activeDay={activeDay}
+          activeDay={resolvedActiveDay}
           items={activeItems}
           selectedPlace={selectedPlace}
           editingPlace={editingPlace}
