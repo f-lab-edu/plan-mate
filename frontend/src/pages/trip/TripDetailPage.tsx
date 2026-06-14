@@ -1,8 +1,8 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AuthUser } from '../../api/auth'
 import { API_BASE_URL, ApiError } from '../../api/client'
 import { getTripDetail } from '../../api/trips'
-import type { TripDetail, TripMember } from '../../api/trips'
+import type { BudgetSummary, ItineraryDay, ItineraryItem, TripDetail, TripMember } from '../../api/trips'
 import './TripDetailPage.css'
 
 type TripDetailPageProps = {
@@ -15,25 +15,6 @@ type TripDetailPageProps = {
 
 type AsyncStatus = 'idle' | 'loading' | 'success' | 'error'
 
-type ItineraryPlace = {
-  id: string
-  day: number
-  order: number
-  title: string
-  category: string
-  time: string
-  duration: string
-  memo?: string
-  x: number
-  y: number
-  hours: string
-  parking: string
-  price: string
-  rating: string
-  contentSummary: string
-  photoTip: string
-}
-
 type VoteProposal = {
   title: string
   description: string
@@ -41,136 +22,45 @@ type VoteProposal = {
   disagreeCount: number
 }
 
-const DAY_OPTIONS = [1, 2, 3]
+type GoogleMapsLike = {
+  maps: {
+    Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance
+    Marker: new (options: Record<string, unknown>) => GoogleMarkerInstance
+    Polyline: new (options: Record<string, unknown>) => unknown
+    LatLngBounds: new () => GoogleBoundsInstance
+    Size: new (width: number, height: number) => unknown
+    SymbolPath: { CIRCLE: unknown }
+  }
+}
 
-const PLANNED_PLACES_PREVIEW: ItineraryPlace[] = [
-  {
-    id: 'day1-1',
-    day: 1,
-    order: 1,
-    title: '성산일출봉',
-    category: '관광',
-    time: '09:00',
-    duration: '2시간',
-    x: 67,
-    y: 58,
-    hours: '07:00 - 20:00, 계절별 변동 확인 필요',
-    parking: '전용 주차장 있음, 성수기에는 주변 공영주차장 후보 필요',
-    price: '성인 입장료 확인 예정',
-    rating: '평점/리뷰 API 연동 예정',
-    contentSummary: '일출 시간, 등반 난이도, 혼잡 시간대 블로그 요약을 제공할 예정입니다.',
-    photoTip: '정상 전망, 해안 산책로, 일출 역광 구도 정보를 요약할 예정입니다.',
-  },
-  {
-    id: 'day1-2',
-    day: 1,
-    order: 2,
-    title: '섭지코지',
-    category: '관광',
-    time: '12:00',
-    duration: '1.5시간',
-    x: 71,
-    y: 61,
-    hours: '상시 개방 여부 확인 예정',
-    parking: '입구 주차장과 도보 거리 비교 예정',
-    price: '무료 또는 주차 비용 확인 예정',
-    rating: '외부 장소 API 연동 예정',
-    contentSummary: '바람, 산책 동선, 사진 명소 관련 후기를 요약할 예정입니다.',
-    photoTip: '등대 방향, 해안 절벽, 말 조형물 주변 포즈 정보를 제공할 예정입니다.',
-  },
-  {
-    id: 'day1-3',
-    day: 1,
-    order: 3,
-    title: '해녀의 집',
-    category: '식당',
-    time: '14:00',
-    duration: '1시간',
-    memo: '해산물 정식 예약 완료',
-    x: 63,
-    y: 67,
-    hours: '11:00 - 20:00, 브레이크 타임 확인 필요',
-    parking: '식당 앞 주차 가능 여부 확인 필요',
-    price: '1인 18,000 - 30,000원 예상',
-    rating: '평점/리뷰 API 연동 예정',
-    contentSummary: '대표 메뉴, 웨이팅, 회전율을 요약할 예정입니다.',
-    photoTip: '해산물 한상 구도와 바다 배경 테이블샷 정보를 제공할 예정입니다.',
-  },
-  {
-    id: 'day1-4',
-    day: 1,
-    order: 4,
-    title: '우도',
-    category: '관광',
-    time: '16:00',
-    duration: '3시간',
-    x: 80,
-    y: 54,
-    hours: '배 운항 시간 확인 필요',
-    parking: '선착장 주차장과 차량 반입 여부 확인 필요',
-    price: '왕복 승선료 확인 예정',
-    rating: '콘텐츠 기반 만족도 요약 예정',
-    contentSummary: '배 시간, 이동수단, 체류 시간 관련 후기를 요약할 예정입니다.',
-    photoTip: '검멀레 해변, 등대, 전기차 인증샷 정보를 제공할 예정입니다.',
-  },
-  {
-    id: 'day2-1',
-    day: 2,
-    order: 1,
-    title: '협재해수욕장',
-    category: '관광',
-    time: '10:00',
-    duration: '2시간',
-    x: 24,
-    y: 50,
-    hours: '상시 개방, 안전 통제 여부 확인 필요',
-    parking: '해변 공영주차장 추천 예정',
-    price: '무료',
-    rating: '외부 장소 API 연동 예정',
-    contentSummary: '물때, 날씨, 혼잡도 관련 후기를 요약할 예정입니다.',
-    photoTip: '비양도 배경, 낮은 파도, 백사장 구도 정보를 제공할 예정입니다.',
-  },
-  {
-    id: 'day2-2',
-    day: 2,
-    order: 2,
-    title: '오설록 티뮤지엄',
-    category: '카페',
-    time: '13:30',
-    duration: '1.5시간',
-    x: 39,
-    y: 58,
-    hours: '09:00 - 18:00',
-    parking: '전용 주차장 있음',
-    price: '음료/디저트 7,000 - 15,000원 예상',
-    rating: '평점/리뷰 API 연동 예정',
-    contentSummary: '대표 메뉴, 굿즈, 대기 시간 후기를 요약할 예정입니다.',
-    photoTip: '녹차밭 배경, 아이스크림 손샷, 건물 외관 구도 정보를 제공할 예정입니다.',
-  },
-  {
-    id: 'day3-1',
-    day: 3,
-    order: 1,
-    title: '동문시장',
-    category: '식당',
-    time: '11:00',
-    duration: '2시간',
-    x: 52,
-    y: 42,
-    hours: '매장별 상이',
-    parking: '시장 공영주차장 혼잡도 확인 예정',
-    price: '1인 10,000 - 25,000원 예상',
-    rating: '리뷰/블로그 요약 예정',
-    contentSummary: '야시장, 포장 메뉴, 웨이팅 정보를 요약할 예정입니다.',
-    photoTip: '시장 입구, 먹거리 손샷, 야시장 네온 구도 정보를 제공할 예정입니다.',
-  },
-]
+type GoogleMapInstance = {
+  fitBounds: (bounds: GoogleBoundsInstance, padding?: number) => void
+  setCenter: (position: MapPoint) => void
+  setZoom: (zoom: number) => void
+}
 
-const CHAT_MESSAGES_PREVIEW = [
-  { id: 1, author: '이영희', avatar: '이', time: '10:30', message: '성산일출봉 일출 보러 가는 거 시간 앞당길까요?' },
-  { id: 2, author: '박민수', avatar: '박', time: '10:32', message: '좋아요! 새벽 5시에 출발하면 될 것 같아요' },
-  { id: 3, author: '김철수', avatar: '김', time: '11:15', message: '해녀의 집 예약 완료했습니다' },
-]
+type GoogleMarkerInstance = {
+  addListener: (eventName: string, handler: () => void) => void
+}
+
+type GoogleBoundsInstance = {
+  extend: (position: MapPoint) => void
+}
+
+type MapPoint = {
+  lat: number
+  lng: number
+}
+
+declare global {
+  interface Window {
+    google?: GoogleMapsLike
+    initPlanMateGoogleMaps?: () => void
+  }
+}
+
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? ''
+let googleMapsScriptPromise: Promise<void> | null = null
 
 export function TripDetailPage({
   accessToken,
@@ -231,7 +121,7 @@ export function TripDetailPage({
       {accessToken && status !== 'success' && (
         <DetailStateCard
           title={status === 'error' ? '여행 상세를 불러오지 못했습니다' : '여행 상세를 불러오는 중'}
-          description={status === 'error' ? errorMessage : '여행 기본 정보와 참여자 정보를 조회하고 있습니다.'}
+          description={status === 'error' ? errorMessage : '여행 기본 정보와 AI 생성 일정을 조회하고 있습니다.'}
           actionLabel={status === 'error' ? '다시 시도' : undefined}
           onAction={status === 'error' ? () => setReloadKey((value) => value + 1) : undefined}
           secondaryActionLabel="메인으로 돌아가기"
@@ -262,20 +152,46 @@ function TripPlanningWorkspace({
   onBackToMain: () => void
   onLogout: () => void
 }) {
-  const [activeDay, setActiveDay] = useState(1)
-  const [selectedPlaceId, setSelectedPlaceId] = useState('day1-2')
+  const days = trip.itinerary?.days ?? []
+  const firstDay = days[0]?.day ?? 1
+  const [activeDay, setActiveDay] = useState(firstDay)
+  const [selectedPlaceId, setSelectedPlaceId] = useState('')
   const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null)
 
-  const activePlaces = useMemo(() => PLANNED_PLACES_PREVIEW.filter((place) => place.day === activeDay), [activeDay])
-  const selectedPlace = activePlaces.find((place) => place.id === selectedPlaceId) ?? null
-  const editingPlace = PLANNED_PLACES_PREVIEW.find((place) => place.id === editingPlaceId) ?? null
+  const activeDayPlan = useMemo(
+    () => days.find((day) => day.day === activeDay) ?? days[0] ?? null,
+    [activeDay, days],
+  )
+  const activeItems = activeDayPlan?.items ?? []
+  const selectedPlace = activeItems.find((place) => place.id === selectedPlaceId) ?? null
+  const editingPlace = activeItems.find((place) => place.id === editingPlaceId) ?? null
   const activeVote: VoteProposal | null = null
   const requiresInitialSetup = false
 
+  useEffect(() => {
+    if (days.length === 0) {
+      return
+    }
+    if (!days.some((day) => day.day === activeDay)) {
+      setActiveDay(days[0].day)
+    }
+  }, [activeDay, days])
+
+  useEffect(() => {
+    if (activeItems.length === 0) {
+      setSelectedPlaceId('')
+      return
+    }
+    if (!activeItems.some((item) => item.id === selectedPlaceId)) {
+      setSelectedPlaceId(activeItems.find(isMapVisibleItem)?.id ?? activeItems[0].id)
+    }
+  }, [activeItems, selectedPlaceId])
+
   function handleDayChange(day: number) {
-    const firstPlace = PLANNED_PLACES_PREVIEW.find((place) => place.day === day)
+    const nextDay = days.find((candidate) => candidate.day === day)
+    const nextPlace = nextDay?.items.find(isMapVisibleItem) ?? nextDay?.items[0]
     setActiveDay(day)
-    setSelectedPlaceId(firstPlace?.id ?? '')
+    setSelectedPlaceId(nextPlace?.id ?? '')
     setEditingPlaceId(null)
   }
 
@@ -284,15 +200,18 @@ function TripPlanningWorkspace({
       <PlanningHeader trip={trip} members={trip.members} onBackToMain={onBackToMain} onLogout={onLogout} />
       <div className="planning-layout">
         <ItinerarySidebar
+          days={days}
           activeDay={activeDay}
-          places={activePlaces}
+          activeDayPlan={activeDayPlan}
+          items={activeItems}
           selectedPlaceId={selectedPlaceId}
+          budgetSummary={trip.itinerary?.budgetSummary ?? null}
           onDayChange={handleDayChange}
           onSelectPlace={setSelectedPlaceId}
         />
         <MapStage
           activeDay={activeDay}
-          places={activePlaces}
+          items={activeItems}
           selectedPlace={selectedPlace}
           editingPlace={editingPlace}
           onSelectPlace={setSelectedPlaceId}
@@ -303,6 +222,7 @@ function TripPlanningWorkspace({
         />
         <TripChatPanel members={trip.members} currentUser={currentUser} />
       </div>
+      {trip.itinerary && <VerificationWarnings warnings={trip.itinerary.verificationWarnings} />}
       {requiresInitialSetup && <InitialSetupFloatingPanel />}
     </section>
   )
@@ -327,7 +247,7 @@ function PlanningHeader({
       <div className="planning-title-block">
         <span className="planning-kicker">PlanMate itinerary</span>
         <h1>{trip.title}</h1>
-        <p>{formatDate(trip.startDate)} - {formatDate(trip.endDate)}</p>
+        <p>{formatDate(trip.startDate)} - {formatDate(trip.endDate)} · {trip.destination}</p>
       </div>
       <div className="planning-header-actions">
         <div className="member-avatar-stack" aria-label="참여자 목록">
@@ -352,36 +272,45 @@ function PlanningHeader({
 }
 
 function ItinerarySidebar({
+  days,
   activeDay,
-  places,
+  activeDayPlan,
+  items,
   selectedPlaceId,
+  budgetSummary,
   onDayChange,
   onSelectPlace,
 }: {
+  days: ItineraryDay[]
   activeDay: number
-  places: ItineraryPlace[]
+  activeDayPlan: ItineraryDay | null
+  items: ItineraryItem[]
   selectedPlaceId: string
+  budgetSummary: BudgetSummary | null
   onDayChange: (day: number) => void
   onSelectPlace: (placeId: string) => void
 }) {
+  const visibleItems = items.filter(isMapVisibleItem)
+  const transportMinutes = items.reduce((sum, item) => sum + item.transport.fromPreviousMinutes, 0)
+
   return (
     <aside className="itinerary-sidebar" aria-label="일차별 일정 목록">
       <div className="sidebar-heading">
         <span>AI route</span>
         <h2>{activeDay}일차 동선</h2>
-        <p>마커를 누르면 장소 정보와 일정 수정 요청을 열 수 있습니다.</p>
+        <p>{activeDayPlan?.theme ?? '선택한 샘플 일정이 없습니다.'}</p>
       </div>
       <div className="day-tab-list" role="tablist" aria-label="일차 선택">
-        {DAY_OPTIONS.map((day) => (
+        {days.map((day) => (
           <button
-            className={activeDay === day ? 'active' : ''}
-            key={day}
+            className={activeDay === day.day ? 'active' : ''}
+            key={day.day}
             type="button"
             role="tab"
-            aria-selected={activeDay === day}
-            onClick={() => onDayChange(day)}
+            aria-selected={activeDay === day.day}
+            onClick={() => onDayChange(day.day)}
           >
-            {day}일차
+            {day.day}일차
           </button>
         ))}
       </div>
@@ -390,23 +319,30 @@ function ItinerarySidebar({
       </button>
       <div className="route-summary-card">
         <span>예상 이동</span>
-        <strong>4곳 · 약 42km</strong>
-        <p>실제 이동 시간은 지도 API 연결 후 교통수단 기준으로 계산됩니다.</p>
+        <strong>{visibleItems.length}개 마커 · 약 {transportMinutes}분</strong>
+        <p>현재는 샘플 좌표를 직선으로 연결합니다. 실제 도로 경로는 Routes API 연동 후 교체합니다.</p>
       </div>
+      {budgetSummary && (
+        <div className="route-summary-card budget-summary-card">
+          <span>예상 예산</span>
+          <strong>{formatMoneyRange(budgetSummary.totalMin, budgetSummary.totalMax)}</strong>
+          <p>1인 기준 {formatMoneyRange(budgetSummary.perPersonMin, budgetSummary.perPersonMax)}</p>
+        </div>
+      )}
       <div className="itinerary-card-list">
-        {places.map((place) => (
+        {items.map((item) => (
           <button
-            className={`itinerary-card ${selectedPlaceId === place.id ? 'active' : ''}`}
-            key={place.id}
+            className={`itinerary-card ${selectedPlaceId === item.id ? 'active' : ''}`}
+            key={item.id}
             type="button"
-            onClick={() => onSelectPlace(place.id)}
+            onClick={() => onSelectPlace(item.id)}
           >
-            <span className="itinerary-order">{place.order}</span>
+            <span className="itinerary-order">{item.order}</span>
             <span className="itinerary-content">
-              <strong>{place.title}</strong>
-              <span className="itinerary-time">{place.time} · {place.duration}</span>
-              <span className="category-chip">{place.category}</span>
-              {place.memo && <span className="itinerary-memo">{place.memo}</span>}
+              <strong>{item.placeName}</strong>
+              <span className="itinerary-time">{item.startTime} - {item.endTime} · {durationLabel(item.startTime, item.endTime)}</span>
+              <span className="category-chip">{item.category}</span>
+              {item.needsVerification && <span className="itinerary-memo">방문 전 확인 필요</span>}
             </span>
           </button>
         ))}
@@ -417,7 +353,7 @@ function ItinerarySidebar({
 
 function MapStage({
   activeDay,
-  places,
+  items,
   selectedPlace,
   editingPlace,
   onSelectPlace,
@@ -427,45 +363,29 @@ function MapStage({
   activeVote,
 }: {
   activeDay: number
-  places: ItineraryPlace[]
-  selectedPlace: ItineraryPlace | null
-  editingPlace: ItineraryPlace | null
+  items: ItineraryItem[]
+  selectedPlace: ItineraryItem | null
+  editingPlace: ItineraryItem | null
   onSelectPlace: (placeId: string) => void
   onClosePlace: () => void
   onOpenAiEdit: (placeId: string) => void
   onCloseAiEdit: () => void
   activeVote: VoteProposal | null
 }) {
+  const mapItems = useMemo(() => items.filter(isMapVisibleItem), [items])
+
   return (
     <section className="map-stage" aria-label={`${activeDay}일차 지도`}>
-      <div className="map-tiles" aria-hidden="true" />
+      <GoogleRouteMap items={mapItems} selectedPlaceId={selectedPlace?.id ?? ''} onSelectPlace={onSelectPlace} />
       <div className="map-status-pill">
         <span>{activeDay}일차</span>
-        <strong>{places.length}개 장소 표시 중</strong>
+        <strong>{mapItems.length}개 장소 표시 중</strong>
       </div>
       <div className="map-layer-selector" aria-label="지도 레이어">
         <button type="button" disabled>일정</button>
         <button type="button" disabled>주차</button>
         <button type="button" disabled>혼잡</button>
       </div>
-      <div className="map-zoom-control" aria-label="지도 확대 축소">
-        <button type="button" disabled>+</button>
-        <button type="button" disabled>−</button>
-      </div>
-      <div className="map-route-line" aria-hidden="true" />
-      {places.map((place) => (
-        <button
-          className={`map-pin ${selectedPlace?.id === place.id ? 'active' : ''}`}
-          key={place.id}
-          type="button"
-          style={{ left: `${place.x}%`, top: `${place.y}%` }}
-          onClick={() => onSelectPlace(place.id)}
-          aria-label={`${place.order}번째 장소 ${place.title}`}
-        >
-          <span>{place.order}</span>
-          <small>{place.title}</small>
-        </button>
-      ))}
       {selectedPlace && (
         <PlaceFloatingCard
           place={selectedPlace}
@@ -479,45 +399,164 @@ function MapStage({
   )
 }
 
+function GoogleRouteMap({
+  items,
+  selectedPlaceId,
+  onSelectPlace,
+}: {
+  items: ItineraryItem[]
+  selectedPlaceId: string
+  onSelectPlace: (placeId: string) => void
+}) {
+  const mapRef = useRef<HTMLDivElement | null>(null)
+  const [mapStatus, setMapStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+
+  useEffect(() => {
+    const element = mapRef.current
+    if (!element || items.length === 0 || !GOOGLE_MAPS_API_KEY) {
+      return
+    }
+
+    let cancelled = false
+    setMapStatus('loading')
+
+    loadGoogleMapsScript(GOOGLE_MAPS_API_KEY)
+      .then(() => {
+        if (cancelled || !window.google || !element) {
+          return
+        }
+
+        const maps = window.google.maps
+        const first = toMapPoint(items[0])
+        const map = new maps.Map(element, {
+          center: first,
+          zoom: 13,
+          disableDefaultUI: true,
+          zoomControl: true,
+          mapId: import.meta.env.VITE_GOOGLE_MAP_ID || undefined,
+        })
+        const bounds = new maps.LatLngBounds()
+        const path = items.map(toMapPoint)
+
+        path.forEach((point) => bounds.extend(point))
+
+        new maps.Polyline({
+          path,
+          geodesic: true,
+          strokeColor: '#1b4e42',
+          strokeOpacity: 0.88,
+          strokeWeight: 5,
+          map,
+        })
+
+        items.forEach((item) => {
+          const active = item.id === selectedPlaceId
+          const marker = new maps.Marker({
+            position: toMapPoint(item),
+            map,
+            title: item.placeName,
+            label: {
+              text: String(item.order),
+              color: active ? '#ffffff' : '#1b4e42',
+              fontWeight: '900',
+            },
+            icon: {
+              path: maps.SymbolPath.CIRCLE,
+              scale: active ? 14 : 11,
+              fillColor: active ? '#e9672b' : '#fff8e7',
+              fillOpacity: 1,
+              strokeColor: active ? '#fff8e7' : '#1b4e42',
+              strokeWeight: 3,
+            },
+          })
+          marker.addListener('click', () => onSelectPlace(item.id))
+        })
+
+        if (items.length === 1) {
+          map.setCenter(first)
+          map.setZoom(14)
+        } else {
+          map.fitBounds(bounds, 76)
+        }
+        setMapStatus('ready')
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMapStatus('error')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [items, onSelectPlace, selectedPlaceId])
+
+  if (!GOOGLE_MAPS_API_KEY) {
+    return (
+      <div className="google-map-fallback">
+        <strong>Google Maps API 키가 필요합니다.</strong>
+        <p>frontend/.env.local에 VITE_GOOGLE_MAPS_API_KEY를 추가한 뒤 프론트 dev 서버를 재시작하세요.</p>
+      </div>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="google-map-fallback">
+        <strong>표시할 지도 좌표가 없습니다.</strong>
+        <p>이동 항목만 있는 일정은 마커와 동선에서 제외됩니다.</p>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="google-map-canvas" ref={mapRef} aria-label="Google 지도" />
+      {mapStatus === 'loading' && <div className="google-map-loading">지도를 불러오는 중입니다.</div>}
+      {mapStatus === 'error' && <div className="google-map-loading error">Google 지도를 불러오지 못했습니다.</div>}
+    </>
+  )
+}
+
 function PlaceFloatingCard({
   place,
   onClose,
   onOpenAiEdit,
 }: {
-  place: ItineraryPlace
+  place: ItineraryItem
   onClose: () => void
   onOpenAiEdit: () => void
 }) {
   return (
-    <article className="place-floating-card" style={{ left: `${Math.min(Math.max(place.x - 12, 10), 46)}%`, top: `${Math.min(Math.max(place.y - 28, 12), 42)}%` }}>
+    <article className="place-floating-card api-place-card">
       <button className="floating-close" type="button" onClick={onClose} aria-label="장소 정보 닫기">×</button>
       <span className="place-index">{place.order}번째 장소</span>
-      <h2>{place.title}</h2>
-      <p>{place.category} · {place.time} · {place.duration}</p>
+      <h2>{place.placeName}</h2>
+      <p>{place.category} · {place.startTime} - {place.endTime} · {place.areaHint}</p>
       <dl className="place-info-list">
         <div>
           <dt>운영시간</dt>
-          <dd>{place.hours}</dd>
+          <dd>{place.needsVerification ? '방문 전 확인 필요' : '샘플 데이터 기준 별도 확인 없음'}</dd>
         </div>
         <div>
           <dt>주차</dt>
-          <dd>{place.parking}</dd>
+          <dd>{place.parking.required ? place.parking.notes : '주차 필요 없음'}</dd>
         </div>
         <div>
           <dt>비용</dt>
-          <dd>{place.price}</dd>
+          <dd>{formatMoneyRange(place.estimatedCost.min, place.estimatedCost.max)} {formatIncluded(place.estimatedCost.included)}</dd>
         </div>
         <div>
-          <dt>평점/후기</dt>
-          <dd>{place.rating}</dd>
+          <dt>이동</dt>
+          <dd>{place.transport.mode} · 이전 일정에서 약 {place.transport.fromPreviousMinutes}분</dd>
         </div>
         <div>
-          <dt>콘텐츠 요약</dt>
-          <dd>{place.contentSummary}</dd>
+          <dt>추천 이유</dt>
+          <dd>{place.whyRecommended}</dd>
         </div>
         <div>
-          <dt>사진 스팟</dt>
-          <dd>{place.photoTip}</dd>
+          <dt>장소 요약</dt>
+          <dd>{place.description}</dd>
         </div>
       </dl>
       <button className="ai-edit-open-button" type="button" onClick={onOpenAiEdit}>
@@ -527,12 +566,12 @@ function PlaceFloatingCard({
   )
 }
 
-function AiEditFloatingPanel({ place, onClose }: { place: ItineraryPlace; onClose: () => void }) {
+function AiEditFloatingPanel({ place, onClose }: { place: ItineraryItem; onClose: () => void }) {
   return (
     <section className="ai-edit-floating-panel" aria-label="AI 일정 수정 요청">
       <button className="floating-close" type="button" onClick={onClose} aria-label="AI 수정 요청 닫기">×</button>
       <p className="floating-eyebrow">AI edit request</p>
-      <h2>{place.title} 수정 요청</h2>
+      <h2>{place.placeName} 수정 요청</h2>
       <p>AI가 짜준 일정 중 선택한 슬롯을 어떻게 바꿀지 입력하는 영역입니다.</p>
       <textarea placeholder="예: 이 장소 대신 반경 2km 안에서 주차 가능한 카페 3개 추천해줘." disabled />
       <div className="radius-chip-row">
@@ -585,21 +624,33 @@ function TripChatPanel({
         ))}
         {currentUser && <span className="current-user-label">{currentUser.nickname} 접속 중</span>}
       </div>
-      <div className="chat-message-list">
-        {CHAT_MESSAGES_PREVIEW.map((message) => (
-          <article className="chat-message" key={message.id}>
-            <span className="chat-avatar">{message.avatar}</span>
-            <div>
-              <p className="chat-meta"><strong>{message.author}</strong><time>{message.time}</time></p>
-              <p className="chat-bubble">{message.message}</p>
-            </div>
-          </article>
-        ))}
+      <div className="chat-message-list pending-chat-list">
+        <article className="chat-message">
+          <span className="chat-avatar">PM</span>
+          <div>
+            <p className="chat-meta"><strong>PlanMate</strong><time>준비 중</time></p>
+            <p className="chat-bubble">실시간 채팅과 변경 투표는 다음 단계에서 연결합니다.</p>
+          </div>
+        </article>
       </div>
       <form className="chat-input-row">
         <input type="text" placeholder="메시지를 입력하세요..." disabled />
         <button type="button" disabled aria-label="메시지 전송">전송</button>
       </form>
+    </aside>
+  )
+}
+
+function VerificationWarnings({ warnings }: { warnings: string[] }) {
+  if (warnings.length === 0) {
+    return null
+  }
+
+  return (
+    <aside className="verification-warning-strip" aria-label="검증 필요 안내">
+      {warnings.slice(0, 4).map((warning) => (
+        <span key={warning}>{warning}</span>
+      ))}
     </aside>
   )
 }
@@ -649,8 +700,79 @@ function DetailStateCard({
   )
 }
 
+function loadGoogleMapsScript(apiKey: string) {
+  if (window.google?.maps) {
+    return Promise.resolve()
+  }
+  if (googleMapsScriptPromise) {
+    return googleMapsScriptPromise
+  }
+
+  googleMapsScriptPromise = new Promise<void>((resolve, reject) => {
+    window.initPlanMateGoogleMaps = () => resolve()
+    const script = document.createElement('script')
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&callback=initPlanMateGoogleMaps&v=weekly`
+    script.async = true
+    script.defer = true
+    script.dataset.planmateGoogleMaps = 'true'
+    script.onerror = () => reject(new Error('Google Maps script load failed'))
+    document.head.appendChild(script)
+  })
+
+  return googleMapsScriptPromise
+}
+
+function isMapVisibleItem(item: ItineraryItem) {
+  return item.mapVisible && item.lat !== null && item.lng !== null
+}
+
+function toMapPoint(item: ItineraryItem): MapPoint {
+  return { lat: item.lat ?? 0, lng: item.lng ?? 0 }
+}
+
 function formatDate(value: string) {
   return value.replaceAll('-', '.')
+}
+
+function durationLabel(startTime: string, endTime: string) {
+  const startMinutes = toMinutes(startTime)
+  const endMinutes = toMinutes(endTime)
+  if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+    return '시간 확인 필요'
+  }
+
+  const diff = endMinutes - startMinutes
+  const hours = Math.floor(diff / 60)
+  const minutes = diff % 60
+  if (hours > 0 && minutes > 0) {
+    return `${hours}시간 ${minutes}분`
+  }
+  if (hours > 0) {
+    return `${hours}시간`
+  }
+  return `${minutes}분`
+}
+
+function toMinutes(value: string) {
+  const [hour, minute] = value.split(':').map(Number)
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return null
+  }
+  return hour * 60 + minute
+}
+
+function formatMoneyRange(min: number, max: number) {
+  if (min === 0 && max === 0) {
+    return '무료 또는 별도 비용 없음'
+  }
+  return `${min.toLocaleString('ko-KR')}원 - ${max.toLocaleString('ko-KR')}원`
+}
+
+function formatIncluded(included: string[]) {
+  if (included.length === 0) {
+    return ''
+  }
+  return `(${included.join(', ')})`
 }
 
 function resolveBackendAssetUrl(path: string) {

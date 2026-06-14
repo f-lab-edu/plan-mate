@@ -1,5 +1,6 @@
 package com.planmate.trip.service;
 
+import com.planmate.itinerary.service.ItineraryService;
 import com.planmate.trip.dto.TripCreateRequest;
 import com.planmate.trip.dto.TripDetailResponse;
 import com.planmate.trip.dto.TripMemberResponse;
@@ -26,17 +27,20 @@ public class TripService {
     private final TripRepository tripRepository;
     private final TripMemberRepository tripMemberRepository;
     private final UserRepository userRepository;
+    private final ItineraryService itineraryService;
     private final Clock clock;
 
     public TripService(
             TripRepository tripRepository,
             TripMemberRepository tripMemberRepository,
             UserRepository userRepository,
+            ItineraryService itineraryService,
             Clock clock
     ) {
         this.tripRepository = tripRepository;
         this.tripMemberRepository = tripMemberRepository;
         this.userRepository = userRepository;
+        this.itineraryService = itineraryService;
         this.clock = clock;
     }
 
@@ -54,6 +58,9 @@ public class TripService {
                 now
         ));
         tripMemberRepository.save(TripMemberEntity.owner(trip, owner, now));
+        if (hasText(request.mockSampleId())) {
+            itineraryService.createFromMockSample(trip, request.mockSampleId().trim(), now);
+        }
 
         return toSummaryResponse(trip, 1);
     }
@@ -92,7 +99,8 @@ public class TripService {
                 statusOf(trip),
                 members.size(),
                 trip.getCreatedAt(),
-                memberResponses
+                memberResponses,
+                itineraryService.findResponseByTripId(trip.getId())
         );
     }
 
@@ -118,6 +126,10 @@ public class TripService {
             return TripStatus.UPCOMING;
         }
         return TripStatus.PLANNING;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
 }

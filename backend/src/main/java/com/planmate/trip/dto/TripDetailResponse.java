@@ -1,5 +1,6 @@
 package com.planmate.trip.dto;
 
+import com.planmate.itinerary.dto.ItineraryResponse;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -13,6 +14,7 @@ public record TripDetailResponse(
         TripStatus status,
         long memberCount,
         Instant createdAt,
-        List<TripMemberResponse> members
+        List<TripMemberResponse> members,
+        ItineraryResponse itinerary
 ) {
 }

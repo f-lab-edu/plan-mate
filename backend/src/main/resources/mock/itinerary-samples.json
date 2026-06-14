@@ -1,0 +1,3339 @@
+[
+  {
+    "tripTitle": "강릉 바다 보러 가는 2박 3일",
+    "summary": "강릉 세인트존스호텔을 중심으로 바다, 카페, 맛집, 사진 명소를 여유롭게 즐기는 커플 여행 일정입니다.",
+    "budgetSummary": {
+      "currency": "KRW",
+      "totalMin": 320000,
+      "totalMax": 560000,
+      "perPersonMin": 160000,
+      "perPersonMax": 280000,
+      "notes": [
+        "숙박비 제외",
+        "서울-강릉 왕복 유류비 및 통행료 포함",
+        "식비, 카페, 관광 및 주차비는 예상 범위"
+      ]
+    },
+    "days": [
+      {
+        "day": 1,
+        "dateLabel": "2026-07-10",
+        "theme": "안목해변과 바다 카페",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:00",
+            "endTime": "13:00",
+            "placeName": "서울 → 강릉 이동",
+            "category": "이동",
+            "areaHint": "서울-강릉",
+            "description": "자가용으로 강릉 이동",
+            "estimatedCost": {
+              "min": 30000,
+              "max": 50000,
+              "included": [
+                "유류비",
+                "통행료"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "자가용",
+              "fromPreviousMinutes": 0,
+              "estimatedCostMin": 30000,
+              "estimatedCostMax": 50000,
+              "notes": "고속도로 이용"
+            },
+            "whyRecommended": "여유로운 오전 출발",
+            "needsVerification": false,
+            "lat": null,
+            "lng": null,
+            "mapVisible": false
+          },
+          {
+            "order": 2,
+            "startTime": "13:00",
+            "endTime": "14:00",
+            "placeName": "엄지네포장마차 본점",
+            "category": "식당",
+            "areaHint": "강릉 시내",
+            "description": "꼬막비빔밥 점심",
+            "estimatedCost": {
+              "min": 25000,
+              "max": 40000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "주변 공영주차장"
+            },
+            "transport": {
+              "mode": "자가용",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 2000,
+              "notes": "시내 이동"
+            },
+            "whyRecommended": "강릉 대표 맛집",
+            "needsVerification": true,
+            "lat": 37.7559,
+            "lng": 128.8996,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "14:20",
+            "endTime": "15:00",
+            "placeName": "강릉 세인트존스호텔",
+            "category": "숙소",
+            "areaHint": "강문해변",
+            "description": "체크인 및 휴식",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "숙소 주차장 이용"
+            },
+            "transport": {
+              "mode": "자가용",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "호텔 이동"
+            },
+            "whyRecommended": "숙소 기준 동선 시작",
+            "needsVerification": false,
+            "lat": 37.7917,
+            "lng": 128.9216,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "16:00",
+            "endTime": "18:00",
+            "placeName": "안목해변",
+            "category": "관광",
+            "areaHint": "안목해변",
+            "description": "산책 및 사진 촬영",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "입장료 없음"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "공영주차장"
+            },
+            "transport": {
+              "mode": "자가용",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 2000,
+              "notes": "해변 이동"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": false,
+            "lat": 37.7715,
+            "lng": 128.9483,
+            "mapVisible": true
+          },
+          {
+            "order": 5,
+            "startTime": "18:00",
+            "endTime": "19:30",
+            "placeName": "보사노바 커피 안목점",
+            "category": "카페",
+            "areaHint": "안목해변",
+            "description": "바다뷰 카페",
+            "estimatedCost": {
+              "min": 15000,
+              "max": 25000,
+              "included": [
+                "음료"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "주변 주차장"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 5,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해변 인근"
+            },
+            "whyRecommended": "바다뷰와 사진 명소",
+            "needsVerification": true,
+            "lat": 37.7712,
+            "lng": 128.949,
+            "mapVisible": true
+          },
+          {
+            "order": 6,
+            "startTime": "19:40",
+            "endTime": "21:00",
+            "placeName": "초당할머니순두부",
+            "category": "식당",
+            "areaHint": "초당동",
+            "description": "저녁 식사",
+            "estimatedCost": {
+              "min": 20000,
+              "max": 35000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "주차 가능"
+            },
+            "transport": {
+              "mode": "자가용",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 2000,
+              "notes": "근거리 이동"
+            },
+            "whyRecommended": "웨이팅이 비교적 짧은 현지 맛집",
+            "needsVerification": true,
+            "lat": 37.7907,
+            "lng": 128.9144,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "dateLabel": "2026-07-11",
+        "theme": "경포대와 여유로운 바다 감성",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:00",
+            "endTime": "11:30",
+            "placeName": "경포대",
+            "category": "관광",
+            "areaHint": "경포호",
+            "description": "산책 및 사진 촬영",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "입장료 없음"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "공영주차장"
+            },
+            "transport": {
+              "mode": "자가용",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "숙소 출발"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": false,
+            "lat": 37.7955,
+            "lng": 128.8966,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "12:00",
+            "endTime": "13:30",
+            "placeName": "동화가든",
+            "category": "식당",
+            "areaHint": "초당동",
+            "description": "짬뽕순두부 점심",
+            "estimatedCost": {
+              "min": 25000,
+              "max": 40000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "전용 주차장"
+            },
+            "transport": {
+              "mode": "자가용",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "근거리 이동"
+            },
+            "whyRecommended": "강릉 대표 음식",
+            "needsVerification": true,
+            "lat": 37.7914,
+            "lng": 128.9142,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "14:00",
+            "endTime": "16:00",
+            "placeName": "아르떼뮤지엄 강릉",
+            "category": "관광",
+            "areaHint": "강릉",
+            "description": "실내 전시와 사진 촬영",
+            "estimatedCost": {
+              "min": 34000,
+              "max": 50000,
+              "included": [
+                "입장료"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "무료 주차"
+            },
+            "transport": {
+              "mode": "자가용",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "이동"
+            },
+            "whyRecommended": "커플 사진 명소",
+            "needsVerification": true,
+            "lat": 37.7822,
+            "lng": 128.9035,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "16:20",
+            "endTime": "18:00",
+            "placeName": "테라로사 커피공장 강릉본점",
+            "category": "카페",
+            "areaHint": "구정면",
+            "description": "커피와 휴식",
+            "estimatedCost": {
+              "min": 15000,
+              "max": 25000,
+              "included": [
+                "음료",
+                "디저트"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "주차 가능"
+            },
+            "transport": {
+              "mode": "자가용",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 2000,
+              "notes": "이동"
+            },
+            "whyRecommended": "강릉 대표 카페",
+            "needsVerification": true,
+            "lat": 37.696,
+            "lng": 128.8922,
+            "mapVisible": true
+          },
+          {
+            "order": 5,
+            "startTime": "18:30",
+            "endTime": "20:30",
+            "placeName": "강문해변",
+            "category": "휴식",
+            "areaHint": "강문해변",
+            "description": "노을 감상",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "산책"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "공영주차장"
+            },
+            "transport": {
+              "mode": "자가용",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 2000,
+              "notes": "해변 이동"
+            },
+            "whyRecommended": "여유로운 저녁 분위기",
+            "needsVerification": false,
+            "lat": 37.7952,
+            "lng": 128.9176,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 3,
+        "dateLabel": "2026-07-12",
+        "theme": "마지막 바다와 서울 복귀",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:00",
+            "endTime": "11:00",
+            "placeName": "강릉 세인트존스호텔",
+            "category": "숙소",
+            "areaHint": "강문해변",
+            "description": "체크아웃",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "숙소 주차"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 0,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "체크아웃"
+            },
+            "whyRecommended": "여유로운 출발",
+            "needsVerification": false,
+            "lat": 37.7917,
+            "lng": 128.9216,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "11:20",
+            "endTime": "13:00",
+            "placeName": "중앙시장",
+            "category": "쇼핑",
+            "areaHint": "강릉 시내",
+            "description": "간식 및 기념품 구매",
+            "estimatedCost": {
+              "min": 10000,
+              "max": 40000,
+              "included": [
+                "간식",
+                "기념품"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "시장 주차장"
+            },
+            "transport": {
+              "mode": "자가용",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "시내 이동"
+            },
+            "whyRecommended": "여행 마무리 코스",
+            "needsVerification": true,
+            "lat": 37.7552,
+            "lng": 128.8982,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "13:00",
+            "endTime": "16:00",
+            "placeName": "강릉 → 서울 이동",
+            "category": "이동",
+            "areaHint": "강릉-서울",
+            "description": "귀가",
+            "estimatedCost": {
+              "min": 30000,
+              "max": 50000,
+              "included": [
+                "유류비",
+                "통행료"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "자가용",
+              "fromPreviousMinutes": 0,
+              "estimatedCostMin": 30000,
+              "estimatedCostMax": 50000,
+              "notes": "고속도로 이용"
+            },
+            "whyRecommended": "무리 없는 귀가 일정",
+            "needsVerification": false,
+            "lat": null,
+            "lng": null,
+            "mapVisible": false
+          }
+        ]
+      }
+    ],
+    "alternativeSuggestions": [
+      {
+        "target": "보사노바 커피 안목점",
+        "reason": "혼잡 시 대체 가능",
+        "candidates": [
+          "카페 툇마루",
+          "테라로사 경포호점"
+        ]
+      },
+      {
+        "target": "엄지네포장마차",
+        "reason": "대기시간 발생 가능",
+        "candidates": [
+          "해미가",
+          "강릉불고기"
+        ]
+      }
+    ],
+    "verificationWarnings": [
+      "영업시간 및 휴무일은 방문 전 확인 필요",
+      "성수기 주차 요금 및 혼잡도는 변동될 수 있음",
+      "맛집 대기시간은 실제 상황에 따라 달라질 수 있음"
+    ],
+    "mockSampleId": "gangneung-couple-car-3d",
+    "destination": "Gangneung"
+  },
+  {
+    "tripTitle": "부모님 모시고 제주 3박 4일",
+    "summary": "부모님과 함께하는 4인 가족 여행으로, 무리한 이동과 긴 도보를 피하고 제주 동부·서부·시내 권역별로 나누어 여유롭게 둘러보는 일정입니다.",
+    "budgetSummary": {
+      "currency": "KRW",
+      "totalMin": 650000,
+      "totalMax": 1100000,
+      "perPersonMin": 162500,
+      "perPersonMax": 275000,
+      "notes": [
+        "숙박비 제외",
+        "렌트카 비용, 유류비 포함",
+        "식비, 카페, 관광 입장료, 주차비 포함",
+        "실제 성수기 가격에 따라 변동 가능"
+      ]
+    },
+    "days": [
+      {
+        "day": 1,
+        "dateLabel": "2026-08-03",
+        "theme": "제주 도착과 시내 여유 일정",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "09:30",
+            "endTime": "10:30",
+            "placeName": "제주공항 렌터카 인수",
+            "category": "이동",
+            "areaHint": "제주공항",
+            "description": "렌터카 수령 및 출발 준비",
+            "estimatedCost": {
+              "min": 90000,
+              "max": 130000,
+              "included": [
+                "렌트카 1일 비용"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 0,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "공항 출발"
+            },
+            "whyRecommended": "가족 여행 이동 편의성 확보",
+            "needsVerification": true,
+            "lat": 33.5113,
+            "lng": 126.493,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "11:00",
+            "endTime": "12:30",
+            "placeName": "자매국수 본점",
+            "category": "식당",
+            "areaHint": "제주시",
+            "description": "고기국수 점심",
+            "estimatedCost": {
+              "min": 50000,
+              "max": 80000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "주변 주차장"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 2000,
+              "notes": "공항 인근"
+            },
+            "whyRecommended": "부모님도 부담 없이 즐길 수 있는 제주 향토 음식",
+            "needsVerification": true,
+            "lat": 33.5003,
+            "lng": 126.5147,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "13:00",
+            "endTime": "14:30",
+            "placeName": "용두암",
+            "category": "관광",
+            "areaHint": "제주시",
+            "description": "짧은 산책과 바다 풍경 감상",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "입장료 없음"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 2000,
+              "notes": "주차 가능"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "근거리 이동"
+            },
+            "whyRecommended": "긴 도보 없이 즐길 수 있는 관광지",
+            "needsVerification": false,
+            "lat": 33.5161,
+            "lng": 126.5118,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "16:00",
+            "endTime": "17:00",
+            "placeName": "제주시 연동 숙소",
+            "category": "숙소",
+            "areaHint": "연동",
+            "description": "체크인 및 휴식",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "숙소 주차"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "숙소 이동"
+            },
+            "whyRecommended": "도착 당일 무리 없는 일정",
+            "needsVerification": false,
+            "lat": 33.489,
+            "lng": 126.4935,
+            "mapVisible": true
+          },
+          {
+            "order": 5,
+            "startTime": "18:00",
+            "endTime": "19:30",
+            "placeName": "동문시장",
+            "category": "쇼핑",
+            "areaHint": "제주시",
+            "description": "저녁 식사와 시장 구경",
+            "estimatedCost": {
+              "min": 60000,
+              "max": 100000,
+              "included": [
+                "식비",
+                "간식"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 1000,
+              "estimatedCostMax": 4000,
+              "notes": "시장 공영주차장"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "시내 이동"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": true,
+            "lat": 33.5133,
+            "lng": 126.526,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "dateLabel": "2026-08-04",
+        "theme": "동부권 자연과 성산",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "09:30",
+            "endTime": "11:00",
+            "placeName": "섭지코지",
+            "category": "관광",
+            "areaHint": "서귀포 성산",
+            "description": "해안 풍경 감상",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "입장료 없음"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "주차 가능"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 80,
+              "estimatedCostMin": 5000,
+              "estimatedCostMax": 10000,
+              "notes": "동부 이동"
+            },
+            "whyRecommended": "경사가 심하지 않아 부모님 동반 적합",
+            "needsVerification": false,
+            "lat": 33.4245,
+            "lng": 126.9306,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "11:20",
+            "endTime": "13:00",
+            "placeName": "성산일출봉",
+            "category": "관광",
+            "areaHint": "성산",
+            "description": "주변 산책 및 전망 감상",
+            "estimatedCost": {
+              "min": 0,
+              "max": 12000,
+              "included": [
+                "입장료"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "주차장 이용"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "근거리 이동"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": true,
+            "lat": 33.458,
+            "lng": 126.9425,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "13:20",
+            "endTime": "14:30",
+            "placeName": "맛나식당",
+            "category": "식당",
+            "areaHint": "성산",
+            "description": "갈치조림 점심",
+            "estimatedCost": {
+              "min": 70000,
+              "max": 120000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 2000,
+              "notes": "주차 가능"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "이동"
+            },
+            "whyRecommended": "제주 대표 향토 음식",
+            "needsVerification": true,
+            "lat": 33.4488,
+            "lng": 126.9145,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "15:00",
+            "endTime": "16:30",
+            "placeName": "카페 더클리프 성산권",
+            "category": "카페",
+            "areaHint": "동부권",
+            "description": "휴식과 커피",
+            "estimatedCost": {
+              "min": 20000,
+              "max": 35000,
+              "included": [
+                "음료",
+                "디저트"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "주차 가능"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "이동"
+            },
+            "whyRecommended": "좌석이 편하고 쉬기 좋은 공간",
+            "needsVerification": true,
+            "lat": 33.45,
+            "lng": 126.92,
+            "mapVisible": true
+          },
+          {
+            "order": 5,
+            "startTime": "18:00",
+            "endTime": "19:30",
+            "placeName": "연동 한정식 전문점",
+            "category": "식당",
+            "areaHint": "제주시",
+            "description": "한식 저녁",
+            "estimatedCost": {
+              "min": 70000,
+              "max": 120000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "주차 가능"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 70,
+              "estimatedCostMin": 5000,
+              "estimatedCostMax": 10000,
+              "notes": "숙소 복귀"
+            },
+            "whyRecommended": "부모님 취향 고려",
+            "needsVerification": true,
+            "lat": 33.489,
+            "lng": 126.49,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 3,
+        "dateLabel": "2026-08-05",
+        "theme": "서부권 오설록과 휴식",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:00",
+            "endTime": "12:00",
+            "placeName": "오설록 티뮤지엄",
+            "category": "관광",
+            "areaHint": "서귀포 안덕",
+            "description": "녹차밭과 전시 관람",
+            "estimatedCost": {
+              "min": 0,
+              "max": 10000,
+              "included": [
+                "체험"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "무료 주차"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 70,
+              "estimatedCostMin": 5000,
+              "estimatedCostMax": 10000,
+              "notes": "서부 이동"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": true,
+            "lat": 33.3059,
+            "lng": 126.2895,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "12:20",
+            "endTime": "13:40",
+            "placeName": "중문색달통갈치",
+            "category": "식당",
+            "areaHint": "중문",
+            "description": "갈치구이 점심",
+            "estimatedCost": {
+              "min": 80000,
+              "max": 140000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "주차 가능"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "근거리 이동"
+            },
+            "whyRecommended": "가족 단위 방문이 많은 식당",
+            "needsVerification": true,
+            "lat": 33.2515,
+            "lng": 126.412,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "14:00",
+            "endTime": "15:30",
+            "placeName": "카멜리아힐",
+            "category": "관광",
+            "areaHint": "안덕",
+            "description": "꽃과 자연 감상",
+            "estimatedCost": {
+              "min": 30000,
+              "max": 50000,
+              "included": [
+                "입장료"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "무료 주차"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "이동"
+            },
+            "whyRecommended": "무리 없는 산책 코스",
+            "needsVerification": true,
+            "lat": 33.289,
+            "lng": 126.3709,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "16:00",
+            "endTime": "17:30",
+            "placeName": "스타벅스 제주송악산점",
+            "category": "카페",
+            "areaHint": "서부권",
+            "description": "바다 전망 카페 휴식",
+            "estimatedCost": {
+              "min": 20000,
+              "max": 35000,
+              "included": [
+                "음료"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "주차 가능"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "이동"
+            },
+            "whyRecommended": "오래 앉아 쉬기 좋은 카페",
+            "needsVerification": true,
+            "lat": 33.2056,
+            "lng": 126.29,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 4,
+        "dateLabel": "2026-08-06",
+        "theme": "마지막 제주와 귀가",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "09:30",
+            "endTime": "10:30",
+            "placeName": "숙소 체크아웃",
+            "category": "숙소",
+            "areaHint": "연동",
+            "description": "짐 정리 및 출발 준비",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "숙소 주차"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 0,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "체크아웃"
+            },
+            "whyRecommended": "여유로운 마지막 일정",
+            "needsVerification": false,
+            "lat": 33.489,
+            "lng": 126.4935,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "11:00",
+            "endTime": "12:30",
+            "placeName": "이호테우해변",
+            "category": "관광",
+            "areaHint": "제주시",
+            "description": "짧은 산책과 사진 촬영",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "입장료 없음"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "주차 가능"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "이동"
+            },
+            "whyRecommended": "공항 접근성이 좋음",
+            "needsVerification": false,
+            "lat": 33.4977,
+            "lng": 126.4529,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "13:00",
+            "endTime": "14:30",
+            "placeName": "제주공항 인근 해물뚝배기 전문점",
+            "category": "식당",
+            "areaHint": "공항 근처",
+            "description": "마지막 점심",
+            "estimatedCost": {
+              "min": 60000,
+              "max": 100000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": true,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 3000,
+              "notes": "주차 가능"
+            },
+            "transport": {
+              "mode": "렌트카",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 1000,
+              "notes": "공항 이동"
+            },
+            "whyRecommended": "귀가 전 부담 없는 식사",
+            "needsVerification": true,
+            "lat": 33.506,
+            "lng": 126.492,
+            "mapVisible": true
+          }
+        ]
+      }
+    ],
+    "alternativeSuggestions": [
+      {
+        "target": "성산일출봉",
+        "reason": "날씨가 좋지 않은 경우",
+        "candidates": [
+          "광치기해변",
+          "섭지코지"
+        ]
+      },
+      {
+        "target": "카멜리아힐",
+        "reason": "더운 날씨 또는 혼잡",
+        "candidates": [
+          "한림공원",
+          "여미지식물원"
+        ]
+      }
+    ],
+    "verificationWarnings": [
+      "성수기에는 관광지 및 식당 대기시간이 길어질 수 있음",
+      "영업시간과 휴무일은 방문 전 확인 필요",
+      "입장료 및 렌터카 비용은 시즌에 따라 변동 가능"
+    ],
+    "mockSampleId": "jeju-family-rentcar-4d",
+    "destination": "Jeju"
+  },
+  {
+    "tripTitle": "부산 친구들이랑 먹방 여행",
+    "summary": "해운대 숙소를 거점으로 해운대·광안리·서면을 중심으로 맛집, 카페, 야경, 술집을 즐기는 친구 4명의 2박 3일 먹방 여행 일정이다. 대중교통 위주로 이동하며 늦은 아침 시작과 밤 분위기를 살린 일정으로 구성했다.",
+    "budgetSummary": {
+      "currency": "KRW",
+      "totalMin": 520000,
+      "totalMax": 920000,
+      "perPersonMin": 130000,
+      "perPersonMax": 230000,
+      "notes": [
+        "숙박비 제외",
+        "부산역 기준 대중교통 비용 포함",
+        "식비, 카페, 주류 비용 포함",
+        "주차비 제외",
+        "주류 주문량에 따라 실제 비용 차이가 클 수 있음"
+      ]
+    },
+    "days": [
+      {
+        "day": 1,
+        "dateLabel": "2026-09-18",
+        "theme": "해운대와 첫날 먹방",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "11:00",
+            "endTime": "12:00",
+            "placeName": "해운대암소갈비집",
+            "category": "식당",
+            "areaHint": "해운대",
+            "description": "부산 대표 맛집에서 점심 식사",
+            "estimatedCost": {
+              "min": 100000,
+              "max": 180000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "대중교통 이용"
+            },
+            "transport": {
+              "mode": "지하철+도보",
+              "fromPreviousMinutes": 0,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 5000,
+              "notes": "부산역 출발"
+            },
+            "whyRecommended": "첫날부터 부산 대표 맛집 경험",
+            "needsVerification": true,
+            "lat": 35.1632,
+            "lng": 129.1667,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "12:20",
+            "endTime": "14:00",
+            "placeName": "해운대해수욕장",
+            "category": "관광",
+            "areaHint": "해운대",
+            "description": "산책 및 사진 촬영",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "입장료 없음"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "인근 이동"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": false,
+            "lat": 35.1587,
+            "lng": 129.1604,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "14:20",
+            "endTime": "16:00",
+            "placeName": "웨이브온 커피",
+            "category": "카페",
+            "areaHint": "기장",
+            "description": "오션뷰 카페에서 휴식",
+            "estimatedCost": {
+              "min": 25000,
+              "max": 50000,
+              "included": [
+                "음료",
+                "디저트"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "대중교통 이용"
+            },
+            "transport": {
+              "mode": "버스",
+              "fromPreviousMinutes": 30,
+              "estimatedCostMin": 6000,
+              "estimatedCostMax": 10000,
+              "notes": "기장 이동"
+            },
+            "whyRecommended": "사진이 잘 나오는 부산 대표 카페",
+            "needsVerification": true,
+            "lat": 35.2161,
+            "lng": 129.2269,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "18:00",
+            "endTime": "20:00",
+            "placeName": "해운대암소갈비 인근 포장마차 거리",
+            "category": "식당",
+            "areaHint": "해운대",
+            "description": "해산물과 술 한잔",
+            "estimatedCost": {
+              "min": 80000,
+              "max": 160000,
+              "included": [
+                "식비",
+                "주류"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "버스",
+              "fromPreviousMinutes": 40,
+              "estimatedCostMin": 6000,
+              "estimatedCostMax": 10000,
+              "notes": "해운대 복귀"
+            },
+            "whyRecommended": "친구들과 분위기 즐기기 좋음",
+            "needsVerification": true,
+            "lat": 35.1606,
+            "lng": 129.1623,
+            "mapVisible": true
+          },
+          {
+            "order": 5,
+            "startTime": "21:00",
+            "endTime": "23:30",
+            "placeName": "해운대 해변 포차 거리",
+            "category": "휴식",
+            "areaHint": "해운대",
+            "description": "야경과 함께 가벼운 술자리",
+            "estimatedCost": {
+              "min": 50000,
+              "max": 120000,
+              "included": [
+                "주류",
+                "안주"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "부산 밤 분위기를 즐기기 좋음",
+            "needsVerification": true,
+            "lat": 35.1606,
+            "lng": 129.1623,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "dateLabel": "2026-09-19",
+        "theme": "광안리와 야경",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "11:30",
+            "endTime": "12:30",
+            "placeName": "합천국밥집",
+            "category": "식당",
+            "areaHint": "수영구",
+            "description": "돼지국밥 점심",
+            "estimatedCost": {
+              "min": 40000,
+              "max": 70000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "대중교통 이용"
+            },
+            "transport": {
+              "mode": "지하철",
+              "fromPreviousMinutes": 30,
+              "estimatedCostMin": 6000,
+              "estimatedCostMax": 10000,
+              "notes": "광안리 이동"
+            },
+            "whyRecommended": "부산 로컬 음식 체험",
+            "needsVerification": true,
+            "lat": 35.1664,
+            "lng": 129.115,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "13:00",
+            "endTime": "15:00",
+            "placeName": "광안리해수욕장",
+            "category": "관광",
+            "areaHint": "광안리",
+            "description": "해변 산책과 사진 촬영",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "입장료 없음"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "근거리 이동"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": false,
+            "lat": 35.1532,
+            "lng": 129.1186,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "15:20",
+            "endTime": "17:00",
+            "placeName": "민락더마켓",
+            "category": "카페",
+            "areaHint": "광안리",
+            "description": "바다 전망 카페와 디저트",
+            "estimatedCost": {
+              "min": 30000,
+              "max": 50000,
+              "included": [
+                "음료",
+                "디저트"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "사진 명소",
+            "needsVerification": true,
+            "lat": 35.1544,
+            "lng": 129.1295,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "18:00",
+            "endTime": "20:00",
+            "placeName": "민락회센터",
+            "category": "식당",
+            "areaHint": "광안리",
+            "description": "회와 해산물 저녁",
+            "estimatedCost": {
+              "min": 100000,
+              "max": 180000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "부산다운 저녁 메뉴",
+            "needsVerification": true,
+            "lat": 35.1549,
+            "lng": 129.1279,
+            "mapVisible": true
+          },
+          {
+            "order": 5,
+            "startTime": "21:00",
+            "endTime": "23:50",
+            "placeName": "광안리 술집 거리",
+            "category": "휴식",
+            "areaHint": "광안리",
+            "description": "광안대교 야경과 술집 투어",
+            "estimatedCost": {
+              "min": 60000,
+              "max": 140000,
+              "included": [
+                "주류",
+                "안주"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 5,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "부산 대표 야경 명소",
+            "needsVerification": true,
+            "lat": 35.1533,
+            "lng": 129.1195,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 3,
+        "dateLabel": "2026-09-20",
+        "theme": "서면 먹방과 마무리",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "11:30",
+            "endTime": "13:00",
+            "placeName": "송정3대국밥",
+            "category": "식당",
+            "areaHint": "서면",
+            "description": "부산식 돼지국밥 점심",
+            "estimatedCost": {
+              "min": 40000,
+              "max": 70000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "대중교통 이용"
+            },
+            "transport": {
+              "mode": "지하철",
+              "fromPreviousMinutes": 40,
+              "estimatedCostMin": 6000,
+              "estimatedCostMax": 10000,
+              "notes": "서면 이동"
+            },
+            "whyRecommended": "마지막 부산 음식 코스",
+            "needsVerification": true,
+            "lat": 35.1585,
+            "lng": 129.0598,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "13:20",
+            "endTime": "16:00",
+            "placeName": "전포카페거리",
+            "category": "카페",
+            "areaHint": "전포동",
+            "description": "카페 투어 및 기념사진",
+            "estimatedCost": {
+              "min": 30000,
+              "max": 60000,
+              "included": [
+                "음료",
+                "디저트"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "젊은 분위기와 사진 명소",
+            "needsVerification": true,
+            "lat": 35.1579,
+            "lng": 129.0644,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "17:00",
+            "endTime": "19:00",
+            "placeName": "서면 포차 거리",
+            "category": "식당",
+            "areaHint": "서면",
+            "description": "마지막 술자리와 저녁",
+            "estimatedCost": {
+              "min": 70000,
+              "max": 150000,
+              "included": [
+                "식비",
+                "주류"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "친구 여행의 마지막 분위기를 살리기 좋음",
+            "needsVerification": true,
+            "lat": 35.1577,
+            "lng": 129.0585,
+            "mapVisible": true
+          }
+        ]
+      }
+    ],
+    "alternativeSuggestions": [
+      {
+        "target": "민락회센터",
+        "reason": "웨이팅이 긴 경우",
+        "candidates": [
+          "해운대 가성비 횟집",
+          "광안리 수변공원 회센터"
+        ]
+      },
+      {
+        "target": "해운대암소갈비집",
+        "reason": "대기시간 발생 가능",
+        "candidates": [
+          "해성막창",
+          "거대갈비"
+        ]
+      }
+    ],
+    "verificationWarnings": [
+      "주말 및 연휴에는 맛집 대기시간이 길어질 수 있음",
+      "영업시간과 휴무일은 방문 전 확인 필요",
+      "주류 비용은 주문량에 따라 큰 차이가 발생할 수 있음",
+      "카페 및 술집 운영시간은 변동될 수 있음"
+    ],
+    "mockSampleId": "busan-friends-food-public-3d",
+    "destination": "Busan"
+  },
+  {
+    "tripTitle": "도쿄 첫 해외여행 3박 4일",
+    "summary": "신주쿠역 근처 호텔을 거점으로 신주쿠, 시부야, 아사쿠사, 긴자를 중심으로 이동하는 초보 해외여행 일정이다. 복잡한 환승과 장거리 이동을 최소화하고 쇼핑, 맛집, 카페, 야경을 균형 있게 배치했다.",
+    "budgetSummary": {
+      "currency": "KRW",
+      "totalMin": 700000,
+      "totalMax": 1450000,
+      "perPersonMin": 350000,
+      "perPersonMax": 725000,
+      "notes": [
+        "숙박비 제외",
+        "대중교통 비용 포함",
+        "식비 및 카페 비용 포함",
+        "쇼핑 비용은 제외",
+        "환율 및 시즌에 따라 실제 비용은 달라질 수 있음"
+      ]
+    },
+    "days": [
+      {
+        "day": 1,
+        "dateLabel": "2026-12-12",
+        "theme": "신주쿠 적응과 야경",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:00",
+            "endTime": "11:30",
+            "placeName": "Haneda Airport → Shinjuku",
+            "category": "이동",
+            "areaHint": "Tokyo",
+            "description": "공항에서 호텔 주변 이동",
+            "estimatedCost": {
+              "min": 12000,
+              "max": 20000,
+              "included": [
+                "전철 요금"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "전철",
+              "fromPreviousMinutes": 0,
+              "estimatedCostMin": 12000,
+              "estimatedCostMax": 20000,
+              "notes": "환승 1회 이내"
+            },
+            "whyRecommended": "초보 여행자도 접근이 쉬움",
+            "needsVerification": true,
+            "lat": 35.6896,
+            "lng": 139.7006,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "12:00",
+            "endTime": "13:30",
+            "placeName": "Ichiran Shinjuku",
+            "category": "식당",
+            "areaHint": "Shinjuku",
+            "description": "첫날 일본 라멘 점심",
+            "estimatedCost": {
+              "min": 25000,
+              "max": 45000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "대중교통 이용"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "신주쿠역 주변"
+            },
+            "whyRecommended": "첫 일본 여행자에게 친숙한 맛",
+            "needsVerification": true,
+            "lat": 35.6938,
+            "lng": 139.7014,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "14:00",
+            "endTime": "16:00",
+            "placeName": "Shinjuku Gyoen",
+            "category": "관광",
+            "areaHint": "Shinjuku",
+            "description": "공원 산책과 휴식",
+            "estimatedCost": {
+              "min": 5000,
+              "max": 10000,
+              "included": [
+                "입장료"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "도심 속 여유로운 분위기",
+            "needsVerification": true,
+            "lat": 35.6852,
+            "lng": 139.71,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "17:30",
+            "endTime": "19:00",
+            "placeName": "Tokyo Metropolitan Government Building Observatory",
+            "category": "관광",
+            "areaHint": "Shinjuku",
+            "description": "무료 전망대에서 야경 감상",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "무료"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "첫날 야경 명소",
+            "needsVerification": true,
+            "lat": 35.6895,
+            "lng": 139.6917,
+            "mapVisible": true
+          },
+          {
+            "order": 5,
+            "startTime": "19:30",
+            "endTime": "22:00",
+            "placeName": "Omoide Yokocho",
+            "category": "식당",
+            "areaHint": "Shinjuku",
+            "description": "이자카야 분위기와 저녁 식사",
+            "estimatedCost": {
+              "min": 50000,
+              "max": 90000,
+              "included": [
+                "식비",
+                "주류"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "일본 분위기를 느끼기 좋은 장소",
+            "needsVerification": true,
+            "lat": 35.6933,
+            "lng": 139.7006,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "dateLabel": "2026-12-13",
+        "theme": "시부야와 쇼핑",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:00",
+            "endTime": "12:00",
+            "placeName": "Shibuya Crossing",
+            "category": "관광",
+            "areaHint": "Shibuya",
+            "description": "도쿄 대표 거리 체험",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "입장료 없음"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "JR 야마노테선",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 3000,
+              "estimatedCostMax": 5000,
+              "notes": "환승 없이 이동"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": false,
+            "lat": 35.6595,
+            "lng": 139.7005,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "12:20",
+            "endTime": "13:30",
+            "placeName": "Uobei Shibuya Dogenzaka",
+            "category": "식당",
+            "areaHint": "Shibuya",
+            "description": "가성비 회전초밥 점심",
+            "estimatedCost": {
+              "min": 25000,
+              "max": 50000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "시부야 중심"
+            },
+            "whyRecommended": "초보 여행자가 접근하기 쉬움",
+            "needsVerification": true,
+            "lat": 35.6584,
+            "lng": 139.6967,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "14:00",
+            "endTime": "18:00",
+            "placeName": "Shibuya PARCO 및 Miyashita Park",
+            "category": "쇼핑",
+            "areaHint": "Shibuya",
+            "description": "쇼핑과 산책",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "쇼핑과 트렌드를 즐기기 좋음",
+            "needsVerification": true,
+            "lat": 35.6619,
+            "lng": 139.7007,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "19:00",
+            "endTime": "21:30",
+            "placeName": "Gyukatsu Motomura Shibuya",
+            "category": "식당",
+            "areaHint": "Shibuya",
+            "description": "규카츠 저녁 식사",
+            "estimatedCost": {
+              "min": 40000,
+              "max": 70000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "인기 있는 일본식 메뉴",
+            "needsVerification": true,
+            "lat": 35.6599,
+            "lng": 139.7002,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 3,
+        "dateLabel": "2026-12-14",
+        "theme": "아사쿠사와 긴자",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:00",
+            "endTime": "12:00",
+            "placeName": "Senso-ji Temple",
+            "category": "관광",
+            "areaHint": "Asakusa",
+            "description": "전통 분위기와 거리 산책",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "입장료 없음"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "지하철",
+              "fromPreviousMinutes": 35,
+              "estimatedCostMin": 4000,
+              "estimatedCostMax": 7000,
+              "notes": "환승 1회"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": false,
+            "lat": 35.7148,
+            "lng": 139.7967,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "12:10",
+            "endTime": "13:30",
+            "placeName": "Asakusa Imahan",
+            "category": "식당",
+            "areaHint": "Asakusa",
+            "description": "스키야키 점심",
+            "estimatedCost": {
+              "min": 60000,
+              "max": 120000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 5,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "너무 고가가 아닌 일본식 식사",
+            "needsVerification": true,
+            "lat": 35.7118,
+            "lng": 139.7941,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "15:00",
+            "endTime": "18:00",
+            "placeName": "Ginza",
+            "category": "쇼핑",
+            "areaHint": "Ginza",
+            "description": "백화점과 거리 구경",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "지하철",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 3000,
+              "estimatedCostMax": 5000,
+              "notes": "직접 이동"
+            },
+            "whyRecommended": "필수 방문 지역",
+            "needsVerification": false,
+            "lat": 35.6719,
+            "lng": 139.7658,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 4,
+        "dateLabel": "2026-12-15",
+        "theme": "마지막 신주쿠 산책",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:00",
+            "endTime": "11:00",
+            "placeName": "신주쿠역 근처 호텔",
+            "category": "숙소",
+            "areaHint": "Shinjuku",
+            "description": "체크아웃",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 0,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "체크아웃"
+            },
+            "whyRecommended": "마지막 일정 준비",
+            "needsVerification": false,
+            "lat": 35.6896,
+            "lng": 139.7006,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "11:20",
+            "endTime": "13:00",
+            "placeName": "Takashimaya Times Square",
+            "category": "쇼핑",
+            "areaHint": "Shinjuku",
+            "description": "기념품 구매",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "귀국 전 쇼핑",
+            "needsVerification": true,
+            "lat": 35.6875,
+            "lng": 139.7024,
+            "mapVisible": true
+          }
+        ]
+      }
+    ],
+    "alternativeSuggestions": [
+      {
+        "target": "Ichiran Shinjuku",
+        "reason": "대기시간이 긴 경우",
+        "candidates": [
+          "Afuri Ramen",
+          "Menya Musashi"
+        ]
+      },
+      {
+        "target": "Gyukatsu Motomura",
+        "reason": "웨이팅 발생",
+        "candidates": [
+          "Maisen Tonkatsu",
+          "Katsukura"
+        ]
+      }
+    ],
+    "verificationWarnings": [
+      "환율 변동에 따라 비용이 달라질 수 있음",
+      "영업시간과 휴무일은 방문 전 확인 필요",
+      "인기 식당은 대기시간이 발생할 수 있음",
+      "전철 요금은 이용 노선에 따라 달라질 수 있음"
+    ],
+    "mockSampleId": "tokyo-friends-public-4d",
+    "destination": "Tokyo"
+  },
+  {
+    "tripTitle": "부모님과 오사카 교토 4박 5일",
+    "summary": "난바역 근처 호텔을 거점으로 오사카와 교토를 여유롭게 둘러보는 가족 여행이다. 부모님 동반 여행인 만큼 환승 횟수를 줄이고 긴 도보나 계단이 많은 코스를 피했으며, 역사·맛집·쇼핑을 균형 있게 배치했다.",
+    "budgetSummary": {
+      "currency": "KRW",
+      "totalMin": 1000000,
+      "totalMax": 2200000,
+      "perPersonMin": 250000,
+      "perPersonMax": 550000,
+      "notes": [
+        "숙박비 제외",
+        "간사이공항 왕복 교통비 포함",
+        "식비, 카페, 관광 입장료 포함",
+        "쇼핑 비용 제외",
+        "환율 및 시즌에 따라 실제 비용은 달라질 수 있음"
+      ]
+    },
+    "days": [
+      {
+        "day": 1,
+        "dateLabel": "2026-11-02",
+        "theme": "난바 적응과 도톤보리",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "09:30",
+            "endTime": "11:30",
+            "placeName": "Kansai International Airport → Namba Station",
+            "category": "이동",
+            "areaHint": "Osaka",
+            "description": "라피트 또는 공항철도로 난바 이동",
+            "estimatedCost": {
+              "min": 45000,
+              "max": 90000,
+              "included": [
+                "공항철도 요금"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "공항철도",
+              "fromPreviousMinutes": 0,
+              "estimatedCostMin": 45000,
+              "estimatedCostMax": 90000,
+              "notes": "환승 최소화"
+            },
+            "whyRecommended": "부모님과 이동하기 편리함",
+            "needsVerification": true,
+            "lat": 34.6663,
+            "lng": 135.5006,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "12:00",
+            "endTime": "13:20",
+            "placeName": "Hariju Dotonbori",
+            "category": "식당",
+            "areaHint": "Namba",
+            "description": "스키야키와 샤브샤브 점심",
+            "estimatedCost": {
+              "min": 90000,
+              "max": 180000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "대중교통 이용"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "난바 중심"
+            },
+            "whyRecommended": "부모님이 드시기 편한 메뉴",
+            "needsVerification": true,
+            "lat": 34.6687,
+            "lng": 135.5013,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "14:00",
+            "endTime": "16:00",
+            "placeName": "Dotonbori",
+            "category": "관광",
+            "areaHint": "Namba",
+            "description": "글리코상과 강변 산책",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "입장료 없음"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": false,
+            "lat": 34.6687,
+            "lng": 135.5016,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "17:30",
+            "endTime": "19:00",
+            "placeName": "Hozenji Yokocho",
+            "category": "식당",
+            "areaHint": "난바",
+            "description": "오코노미야키와 저녁 식사",
+            "estimatedCost": {
+              "min": 70000,
+              "max": 140000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "근거리 이동"
+            },
+            "whyRecommended": "오사카 분위기를 느끼기 좋음",
+            "needsVerification": true,
+            "lat": 34.6686,
+            "lng": 135.5024,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "dateLabel": "2026-11-03",
+        "theme": "교토 동부",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "09:30",
+            "endTime": "11:00",
+            "placeName": "Kiyomizu-dera",
+            "category": "관광",
+            "areaHint": "Kyoto",
+            "description": "교토 대표 사찰 관람",
+            "estimatedCost": {
+              "min": 12000,
+              "max": 20000,
+              "included": [
+                "입장료"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "JR + 택시",
+              "fromPreviousMinutes": 80,
+              "estimatedCostMin": 15000,
+              "estimatedCostMax": 30000,
+              "notes": "환승 최소화"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": true,
+            "lat": 34.9949,
+            "lng": 135.785,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "11:20",
+            "endTime": "13:00",
+            "placeName": "기온 거리",
+            "category": "관광",
+            "areaHint": "Kyoto",
+            "description": "전통 거리 산책",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "택시",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 5000,
+              "estimatedCostMax": 10000,
+              "notes": "이동 거리 최소화"
+            },
+            "whyRecommended": "부모님과 걷기 좋은 분위기",
+            "needsVerification": false,
+            "lat": 35.0037,
+            "lng": 135.7788,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "13:10",
+            "endTime": "14:30",
+            "placeName": "Omen Kyoto",
+            "category": "식당",
+            "areaHint": "Kyoto",
+            "description": "우동 점심",
+            "estimatedCost": {
+              "min": 50000,
+              "max": 90000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "근거리 이동"
+            },
+            "whyRecommended": "부모님이 드시기 편한 음식",
+            "needsVerification": true,
+            "lat": 35.027,
+            "lng": 135.794,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "15:00",
+            "endTime": "17:00",
+            "placeName": "Nishiki Market",
+            "category": "쇼핑",
+            "areaHint": "Kyoto",
+            "description": "먹거리와 기념품 구경",
+            "estimatedCost": {
+              "min": 10000,
+              "max": 50000,
+              "included": [
+                "간식"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "택시",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 5000,
+              "estimatedCostMax": 10000,
+              "notes": "교토 시내 이동"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": true,
+            "lat": 35.005,
+            "lng": 135.7649,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 3,
+        "dateLabel": "2026-11-04",
+        "theme": "후시미이나리와 말차",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:00",
+            "endTime": "12:00",
+            "placeName": "Fushimi Inari Taisha",
+            "category": "관광",
+            "areaHint": "Kyoto",
+            "description": "초입 위주 산책과 사진 촬영",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "입장료 없음"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "JR",
+              "fromPreviousMinutes": 70,
+              "estimatedCostMin": 12000,
+              "estimatedCostMax": 20000,
+              "notes": "환승 최소화"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": true,
+            "lat": 34.9671,
+            "lng": 135.7727,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "13:00",
+            "endTime": "14:20",
+            "placeName": "Tsuen Tea",
+            "category": "카페",
+            "areaHint": "Uji",
+            "description": "말차 디저트와 휴식",
+            "estimatedCost": {
+              "min": 20000,
+              "max": 40000,
+              "included": [
+                "음료",
+                "디저트"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "JR",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 5000,
+              "estimatedCostMax": 10000,
+              "notes": "우지 이동"
+            },
+            "whyRecommended": "편하게 쉴 수 있는 카페",
+            "needsVerification": true,
+            "lat": 34.8916,
+            "lng": 135.8062,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "18:00",
+            "endTime": "20:00",
+            "placeName": "Daimaru Shinsaibashi",
+            "category": "쇼핑",
+            "areaHint": "Osaka",
+            "description": "쇼핑과 저녁 산책",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "JR + 지하철",
+              "fromPreviousMinutes": 80,
+              "estimatedCostMin": 15000,
+              "estimatedCostMax": 25000,
+              "notes": "난바 복귀"
+            },
+            "whyRecommended": "무리 없이 오사카 일정 연결",
+            "needsVerification": true,
+            "lat": 34.6746,
+            "lng": 135.5003,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 4,
+        "dateLabel": "2026-11-05",
+        "theme": "오사카 성과 여유로운 하루",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:00",
+            "endTime": "12:00",
+            "placeName": "Osaka Castle",
+            "category": "관광",
+            "areaHint": "Osaka",
+            "description": "성 주변 산책과 역사 관람",
+            "estimatedCost": {
+              "min": 15000,
+              "max": 25000,
+              "included": [
+                "입장료"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "지하철",
+              "fromPreviousMinutes": 25,
+              "estimatedCostMin": 5000,
+              "estimatedCostMax": 10000,
+              "notes": "직접 이동"
+            },
+            "whyRecommended": "부모님 세대가 좋아하는 역사 명소",
+            "needsVerification": true,
+            "lat": 34.6873,
+            "lng": 135.5262,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "13:00",
+            "endTime": "14:30",
+            "placeName": "Katsukura Umeda",
+            "category": "식당",
+            "areaHint": "Umeda",
+            "description": "돈카츠 점심",
+            "estimatedCost": {
+              "min": 50000,
+              "max": 90000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "지하철",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 5000,
+              "estimatedCostMax": 10000,
+              "notes": "우메다 이동"
+            },
+            "whyRecommended": "부모님과 함께 먹기 좋은 메뉴",
+            "needsVerification": true,
+            "lat": 34.7031,
+            "lng": 135.4967,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "15:00",
+            "endTime": "17:00",
+            "placeName": "Grand Front Osaka",
+            "category": "쇼핑",
+            "areaHint": "Umeda",
+            "description": "실내 쇼핑과 휴식",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 5,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "부모님 휴식과 쇼핑을 동시에 만족",
+            "needsVerification": true,
+            "lat": 34.7053,
+            "lng": 135.4948,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 5,
+        "dateLabel": "2026-11-06",
+        "theme": "귀국 전 마지막 일정",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "09:30",
+            "endTime": "10:30",
+            "placeName": "난바역 근처 호텔",
+            "category": "숙소",
+            "areaHint": "Namba",
+            "description": "체크아웃",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 0,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "체크아웃"
+            },
+            "whyRecommended": "여유로운 출발",
+            "needsVerification": false,
+            "lat": 34.6663,
+            "lng": 135.5006,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "11:00",
+            "endTime": "13:00",
+            "placeName": "Kuromon Market",
+            "category": "쇼핑",
+            "areaHint": "Namba",
+            "description": "기념품과 마지막 먹거리",
+            "estimatedCost": {
+              "min": 15000,
+              "max": 60000,
+              "included": [
+                "간식"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "난바 도보 이동"
+            },
+            "whyRecommended": "귀국 전 부담 없는 일정",
+            "needsVerification": true,
+            "lat": 34.6654,
+            "lng": 135.5065,
+            "mapVisible": true
+          }
+        ]
+      }
+    ],
+    "alternativeSuggestions": [
+      {
+        "target": "Fushimi Inari Taisha",
+        "reason": "계단이 부담되는 경우",
+        "candidates": [
+          "Byodo-in Temple",
+          "Kyoto Gyoen National Garden"
+        ]
+      },
+      {
+        "target": "Kiyomizu-dera",
+        "reason": "혼잡도가 높은 경우",
+        "candidates": [
+          "Sanjusangendo",
+          "Nijo Castle"
+        ]
+      }
+    ],
+    "verificationWarnings": [
+      "교토 주요 관광지는 단풍 시즌에 혼잡할 수 있음",
+      "영업시간과 휴무일은 방문 전 확인 필요",
+      "환율에 따라 실제 비용이 달라질 수 있음",
+      "JR 및 지하철 요금은 이용 노선에 따라 달라질 수 있음"
+    ],
+    "mockSampleId": "osaka-kyoto-family-public-5d",
+    "destination": "Osaka/Kyoto"
+  },
+  {
+    "tripTitle": "후쿠오카 커플 먹고 쉬는 2박 3일",
+    "summary": "하카타역 근처 호텔을 중심으로 하카타·텐진·오호리공원 일대를 여유롭게 둘러보는 커플 힐링 여행이다. 긴 이동과 복잡한 환승을 피하고 맛집, 카페, 야경, 쇼핑을 중심으로 구성했다.",
+    "budgetSummary": {
+      "currency": "KRW",
+      "totalMin": 420000,
+      "totalMax": 920000,
+      "perPersonMin": 210000,
+      "perPersonMax": 460000,
+      "notes": [
+        "숙박비 제외",
+        "대중교통 비용 포함",
+        "식비, 카페, 관광 비용 포함",
+        "쇼핑 비용 제외",
+        "환율 및 시즌에 따라 실제 비용은 달라질 수 있음"
+      ]
+    },
+    "days": [
+      {
+        "day": 1,
+        "dateLabel": "2026-10-09",
+        "theme": "하카타와 나카스 야경",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:30",
+            "endTime": "11:30",
+            "placeName": "Fukuoka Airport → Hakata Station",
+            "category": "이동",
+            "areaHint": "Hakata",
+            "description": "공항에서 하카타역 이동 후 짐 보관",
+            "estimatedCost": {
+              "min": 4000,
+              "max": 8000,
+              "included": [
+                "지하철 요금"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "지하철",
+              "fromPreviousMinutes": 0,
+              "estimatedCostMin": 4000,
+              "estimatedCostMax": 8000,
+              "notes": "공항에서 약 10분"
+            },
+            "whyRecommended": "초보 여행자도 이동이 편리함",
+            "needsVerification": true,
+            "lat": 33.5903,
+            "lng": 130.4206,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "12:00",
+            "endTime": "13:20",
+            "placeName": "Ichiran Main Shop",
+            "category": "식당",
+            "areaHint": "Nakasu",
+            "description": "하카타 라멘 점심",
+            "estimatedCost": {
+              "min": 20000,
+              "max": 40000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "대중교통 이용"
+            },
+            "transport": {
+              "mode": "지하철",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 2000,
+              "estimatedCostMax": 4000,
+              "notes": "하카타 → 나카스 이동"
+            },
+            "whyRecommended": "후쿠오카 대표 음식",
+            "needsVerification": true,
+            "lat": 33.5929,
+            "lng": 130.405,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "14:00",
+            "endTime": "17:00",
+            "placeName": "Canal City Hakata",
+            "category": "쇼핑",
+            "areaHint": "Hakata",
+            "description": "쇼핑과 분수쇼 관람",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": true,
+            "lat": 33.5898,
+            "lng": 130.4107,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "18:30",
+            "endTime": "20:00",
+            "placeName": "Motsunabe Rakutenchi",
+            "category": "식당",
+            "areaHint": "Tenjin",
+            "description": "모츠나베 저녁 식사",
+            "estimatedCost": {
+              "min": 40000,
+              "max": 70000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "지하철",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 2000,
+              "estimatedCostMax": 4000,
+              "notes": "텐진 이동"
+            },
+            "whyRecommended": "후쿠오카 대표 메뉴",
+            "needsVerification": true,
+            "lat": 33.5909,
+            "lng": 130.3995,
+            "mapVisible": true
+          },
+          {
+            "order": 5,
+            "startTime": "20:20",
+            "endTime": "22:00",
+            "placeName": "Nakasu Yatai",
+            "category": "휴식",
+            "areaHint": "Nakasu",
+            "description": "포장마차 거리와 야경",
+            "estimatedCost": {
+              "min": 20000,
+              "max": 50000,
+              "included": [
+                "주류",
+                "간식"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "필수 방문 장소",
+            "needsVerification": true,
+            "lat": 33.5917,
+            "lng": 130.4085,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "dateLabel": "2026-10-10",
+        "theme": "오호리공원과 텐진 감성",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:30",
+            "endTime": "12:30",
+            "placeName": "Ohori Park",
+            "category": "관광",
+            "areaHint": "Chuo Ward",
+            "description": "호수 산책과 여유로운 시간",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": [
+                "입장료 없음"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "지하철",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 2000,
+              "estimatedCostMax": 4000,
+              "notes": "환승 없이 이동"
+            },
+            "whyRecommended": "힐링 여행에 적합",
+            "needsVerification": false,
+            "lat": 33.586,
+            "lng": 130.3763,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "13:00",
+            "endTime": "14:20",
+            "placeName": "Sushi Zanmai Tenjin",
+            "category": "식당",
+            "areaHint": "Tenjin",
+            "description": "초밥 점심",
+            "estimatedCost": {
+              "min": 35000,
+              "max": 70000,
+              "included": [
+                "식비"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "지하철",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 2000,
+              "estimatedCostMax": 4000,
+              "notes": "텐진 이동"
+            },
+            "whyRecommended": "부담 없는 초밥 식사",
+            "needsVerification": true,
+            "lat": 33.5896,
+            "lng": 130.3997,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "15:00",
+            "endTime": "17:00",
+            "placeName": "NO COFFEE",
+            "category": "카페",
+            "areaHint": "Tenjin",
+            "description": "감성 카페와 디저트",
+            "estimatedCost": {
+              "min": 12000,
+              "max": 25000,
+              "included": [
+                "음료",
+                "디저트"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "커플 사진 명소",
+            "needsVerification": true,
+            "lat": 33.5806,
+            "lng": 130.3971,
+            "mapVisible": true
+          },
+          {
+            "order": 4,
+            "startTime": "18:30",
+            "endTime": "20:00",
+            "placeName": "Yakitori Hachibei",
+            "category": "식당",
+            "areaHint": "Tenjin",
+            "description": "야키토리 저녁 식사",
+            "estimatedCost": {
+              "min": 40000,
+              "max": 80000,
+              "included": [
+                "식비",
+                "주류"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 15,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "근거리 이동"
+            },
+            "whyRecommended": "현지 분위기를 즐기기 좋음",
+            "needsVerification": true,
+            "lat": 33.5895,
+            "lng": 130.397,
+            "mapVisible": true
+          }
+        ]
+      },
+      {
+        "day": 3,
+        "dateLabel": "2026-10-11",
+        "theme": "마지막 쇼핑과 귀국",
+        "items": [
+          {
+            "order": 1,
+            "startTime": "10:30",
+            "endTime": "11:00",
+            "placeName": "하카타역 근처 호텔",
+            "category": "숙소",
+            "areaHint": "Hakata",
+            "description": "체크아웃",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 0,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "체크아웃"
+            },
+            "whyRecommended": "여유로운 마지막 날",
+            "needsVerification": false,
+            "lat": 33.5903,
+            "lng": 130.4206,
+            "mapVisible": true
+          },
+          {
+            "order": 2,
+            "startTime": "11:30",
+            "endTime": "14:00",
+            "placeName": "JR Hakata City",
+            "category": "쇼핑",
+            "areaHint": "Hakata",
+            "description": "기념품 쇼핑",
+            "estimatedCost": {
+              "min": 0,
+              "max": 0,
+              "included": []
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "도보",
+              "fromPreviousMinutes": 10,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "도보 이동"
+            },
+            "whyRecommended": "공항 이동 전 마지막 쇼핑",
+            "needsVerification": true,
+            "lat": 33.5903,
+            "lng": 130.4206,
+            "mapVisible": true
+          },
+          {
+            "order": 3,
+            "startTime": "14:20",
+            "endTime": "15:30",
+            "placeName": "Fukuoka Airport",
+            "category": "이동",
+            "areaHint": "Fukuoka",
+            "description": "공항 이동 및 출국 준비",
+            "estimatedCost": {
+              "min": 4000,
+              "max": 8000,
+              "included": [
+                "지하철 요금"
+              ]
+            },
+            "parking": {
+              "required": false,
+              "estimatedCostMin": 0,
+              "estimatedCostMax": 0,
+              "notes": "해당 없음"
+            },
+            "transport": {
+              "mode": "지하철",
+              "fromPreviousMinutes": 20,
+              "estimatedCostMin": 4000,
+              "estimatedCostMax": 8000,
+              "notes": "공항 이동"
+            },
+            "whyRecommended": "후쿠오카 공항 접근성이 뛰어남",
+            "needsVerification": true,
+            "lat": 33.5902,
+            "lng": 130.4467,
+            "mapVisible": true
+          }
+        ]
+      }
+    ],
+    "alternativeSuggestions": [
+      {
+        "target": "Ichiran Main Shop",
+        "reason": "대기시간이 긴 경우",
+        "candidates": [
+          "ShinShin Ramen",
+          "Hakata Issou"
+        ]
+      },
+      {
+        "target": "Nakasu Yatai",
+        "reason": "비가 오거나 혼잡한 경우",
+        "candidates": [
+          "Mentaiju",
+          "Hakata Station Restaurant Zone"
+        ]
+      }
+    ],
+    "verificationWarnings": [
+      "환율에 따라 실제 비용이 달라질 수 있음",
+      "식당 및 카페 영업시간은 변동될 수 있음",
+      "인기 식당은 대기시간이 길 수 있음",
+      "대중교통 요금은 이용 노선에 따라 달라질 수 있음"
+    ],
+    "mockSampleId": "fukuoka-couple-public-3d",
+    "destination": "Fukuoka"
+  }
+]

@@ -403,7 +403,8 @@
 }
 
 .nickname-form input,
-.create-trip-form input {
+.create-trip-form input,
+.create-trip-form select {
   width: 100%;
   border: 1px solid rgba(24, 33, 31, 0.16);
   border-radius: 16px;
@@ -414,9 +415,73 @@
 }
 
 .nickname-form input:focus,
-.create-trip-form input:focus {
+.create-trip-form input:focus,
+.create-trip-form select:focus {
   border-color: var(--dash-green);
   box-shadow: 0 0 0 4px rgba(27, 78, 66, 0.12);
+}
+
+.sample-trip-preview {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(27, 78, 66, 0.14);
+  border-radius: 22px;
+  padding: 18px;
+  background:
+    linear-gradient(135deg, rgba(247, 215, 153, 0.42), rgba(255, 250, 240, 0.88)),
+    #fffaf0;
+}
+
+.sample-trip-preview > span {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: var(--dash-green);
+  font-size: 0.72rem;
+  font-weight: 950;
+  background: rgba(27, 78, 66, 0.1);
+}
+
+.sample-trip-preview strong {
+  color: var(--dash-ink);
+  font-size: 1.12rem;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+}
+
+.sample-trip-preview p {
+  margin: 0;
+  color: var(--dash-muted);
+  line-height: 1.6;
+}
+
+.sample-trip-preview dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.sample-trip-preview dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid rgba(27, 78, 66, 0.12);
+  padding-top: 8px;
+}
+
+.sample-trip-preview dt {
+  color: var(--dash-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.sample-trip-preview dd {
+  margin: 0;
+  color: var(--dash-ink);
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-align: right;
+  word-break: break-word;
 }
 
 .nickname-form input[aria-invalid='true'] {

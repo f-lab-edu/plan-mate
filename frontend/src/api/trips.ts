@@ -22,6 +22,7 @@ export type TripMember = {
 
 export type TripDetail = TripSummary & {
   members: TripMember[]
+  itinerary: TripItinerary | null
 }
 
 export type CreateTripRequest = {
@@ -29,6 +30,79 @@ export type CreateTripRequest = {
   destination: string
   startDate: string
   endDate: string
+  mockSampleId?: string
+}
+
+export type TripItinerary = {
+  sourceType: string
+  sourceSampleId: string | null
+  summary: string
+  budgetSummary: BudgetSummary
+  days: ItineraryDay[]
+  alternativeSuggestions: AlternativeSuggestion[]
+  verificationWarnings: string[]
+}
+
+export type BudgetSummary = {
+  currency: string
+  totalMin: number
+  totalMax: number
+  perPersonMin: number
+  perPersonMax: number
+  notes: string[]
+}
+
+export type ItineraryDay = {
+  day: number
+  dateLabel: string
+  theme: string
+  items: ItineraryItem[]
+}
+
+export type ItineraryItem = {
+  id: string
+  order: number
+  startTime: string
+  endTime: string
+  placeName: string
+  category: string
+  areaHint: string
+  description: string
+  estimatedCost: EstimatedCost
+  parking: ParkingInfo
+  transport: TransportInfo
+  whyRecommended: string
+  needsVerification: boolean
+  lat: number | null
+  lng: number | null
+  mapVisible: boolean
+}
+
+export type EstimatedCost = {
+  min: number
+  max: number
+  included: string[]
+}
+
+export type ParkingInfo = {
+  required: boolean
+  estimatedCostMin: number
+  estimatedCostMax: number
+  notes: string
+}
+
+export type TransportInfo = {
+  mode: string
+  fromPreviousMinutes: number
+  estimatedCostMin: number
+  estimatedCostMax: number
+  notes: string
+}
+
+export type AlternativeSuggestion = {
+  target: string
+  reason: string
+  candidates: string[]
 }
 
 export function listMyTrips(accessToken: string) {

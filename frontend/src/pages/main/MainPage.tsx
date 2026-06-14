@@ -6,6 +6,7 @@ import { createTrip, listMyTrips } from '../../api/trips'
 import type { CreateTripRequest, TripStatus, TripSummary } from '../../api/trips'
 import { clearMyProfileImage, getMe, updateMyNickname, updateMyProfileImage } from '../../api/users'
 import type { MeProfile } from '../../api/users'
+import { MOCK_TRIP_SAMPLES } from '../../data/mockTripSamples'
 import './MainPage.css'
 
 type MainPageProps = {
@@ -167,6 +168,7 @@ export function MainPage({ accessToken, user, onLogout, onOpenTrip }: MainPagePr
       setCreateStatus('success')
       setCreatePanelOpen(false)
       setNotice({ tone: 'success', message: '새 여행을 생성했습니다.' })
+      onOpenTrip(created.id)
     } catch (error: unknown) {
 
       setCreateStatus('error')
@@ -627,25 +629,23 @@ function CreateTripPanel({
   onSubmit: (payload: CreateTripRequest) => Promise<void>
 }) {
   const [formError, setFormError] = useState('')
+  const [selectedSampleId, setSelectedSampleId] = useState(MOCK_TRIP_SAMPLES[0]?.id ?? '')
+  const selectedSample = MOCK_TRIP_SAMPLES.find((sample) => sample.id === selectedSampleId)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    const payload = {
-      title: String(form.get('title') ?? '').trim(),
-      destination: String(form.get('destination') ?? '').trim(),
-      startDate: String(form.get('startDate') ?? ''),
-      endDate: String(form.get('endDate') ?? ''),
-    }
 
-    if (!payload.title || !payload.destination || !payload.startDate || !payload.endDate) {
-      setFormError('모든 항목을 입력하세요.')
+    if (!selectedSample) {
+      setFormError('샘플 여행을 선택해 주세요.')
       return
     }
 
-    if (payload.startDate > payload.endDate) {
-      setFormError('종료일은 시작일 이후여야 합니다.')
-      return
+    const payload: CreateTripRequest = {
+      title: selectedSample.title,
+      destination: selectedSample.destination,
+      startDate: selectedSample.startDate,
+      endDate: selectedSample.endDate,
+      mockSampleId: selectedSample.id,
     }
 
     setFormError('')
@@ -658,7 +658,7 @@ function CreateTripPanel({
         <div className="section-heading">
           <div>
             <p className="eyebrow">New trip</p>
-            <h2 id="create-trip-title">새 여행 만들기</h2>
+            <h2 id="create-trip-title">샘플 여행으로 방 만들기</h2>
           </div>
           <button className="compact-action" type="button" onClick={onClose}>
             닫기
@@ -667,36 +667,51 @@ function CreateTripPanel({
 
         <form className="create-trip-form" onSubmit={handleSubmit}>
           <label>
-            <span>여행 제목</span>
-            <input name="title" type="text" placeholder="예: 강릉 2박 3일" maxLength={60} required />
+            <span>검증할 샘플 데이터</span>
+            <select
+              name="mockSampleId"
+              value={selectedSampleId}
+              onChange={(event) => setSelectedSampleId(event.target.value)}
+              required
+            >
+              {MOCK_TRIP_SAMPLES.map((sample) => (
+                <option key={sample.id} value={sample.id}>
+                  {sample.label}
+                </option>
+              ))}
+            </select>
           </label>
-          <label>
-            <span>대표 여행지</span>
-            <input name="destination" type="text" placeholder="예: 강릉" maxLength={60} required />
-          </label>
-          <div className="date-input-grid">
-            <label>
-              <span>시작일</span>
-              <input name="startDate" type="date" required />
-            </label>
-            <label>
-              <span>종료일</span>
-              <input name="endDate" type="date" required />
-            </label>
-          </div>
+
+          {selectedSample && (
+            <div className="sample-trip-preview">
+              <span>{selectedSample.destination}</span>
+              <strong>{selectedSample.title}</strong>
+              <p>{selectedSample.summary}</p>
+              <dl>
+                <div>
+                  <dt>기간</dt>
+                  <dd>{formatDate(selectedSample.startDate)} - {formatDate(selectedSample.endDate)}</dd>
+                </div>
+                <div>
+                  <dt>mockSampleId</dt>
+                  <dd>{selectedSample.id}</dd>
+                </div>
+              </dl>
+            </div>
+          )}
+
           {formError && <p className="field-error">{formError}</p>}
           <p className="form-guide">
-            숙소, 예산, 이동수단, 취향 입력은 다음 단계의 여행 상세 화면에서 확장합니다.
+            현재는 GPT API를 호출하지 않고 선택한 Mock AI 샘플 데이터를 저장한 뒤 상세 페이지에서 지도 동선을 검증합니다.
           </p>
           <button className="primary-action" type="submit" disabled={status === 'loading'}>
-            여행 카드 생성
+            방 생성 후 상세로 이동
           </button>
         </form>
       </section>
     </div>
   )
 }
-
 
 
 

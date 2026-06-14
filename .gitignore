@@ -9,8 +9,11 @@ build/
 # Environment
 backend/.env
 backend/.env.*
+frontend/.env
+frontend/.env.*
 
 !backend/.env.example
+!frontend/.env.example
 
 # Spring Local Config
 backend/src/main/resources/application-local.yml

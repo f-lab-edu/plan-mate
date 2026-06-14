@@ -125,6 +125,41 @@ class TripControllerTest {
     }
 
     @Test
+    void createTripWithMockSampleStoresItinerary() throws Exception {
+        UserEntity user = createUser();
+        String accessToken = accessToken(user);
+
+        MvcResult result = mockMvc.perform(post("/api/trips")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Tokyo mock trip",
+                                  "destination": "Tokyo",
+                                  "startDate": "2026-12-12",
+                                  "endDate": "2026-12-15",
+                                  "mockSampleId": "tokyo-friends-public-4d"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("Tokyo mock trip"))
+                .andReturn();
+
+        String tripId = objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asText();
+
+        mockMvc.perform(get("/api/trips/{tripId}", tripId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.itinerary.sourceType").value("MOCK"))
+                .andExpect(jsonPath("$.itinerary.sourceSampleId").value("tokyo-friends-public-4d"))
+                .andExpect(jsonPath("$.itinerary.days.length()").value(4))
+                .andExpect(jsonPath("$.itinerary.days[0].items[0].placeName").value("Haneda Airport → Shinjuku"))
+                .andExpect(jsonPath("$.itinerary.days[0].items[0].lat").value(35.6896))
+                .andExpect(jsonPath("$.itinerary.days[0].items[0].lng").value(139.7006))
+                .andExpect(jsonPath("$.itinerary.days[0].items[0].mapVisible").value(true));
+    }
+
+    @Test
     void getDetailReturnsNotFoundForNonMember() throws Exception {
         UserEntity owner = createUser();
         UserEntity other = createUser();

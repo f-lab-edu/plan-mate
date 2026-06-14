@@ -19,7 +19,10 @@ public record TripCreateRequest(
         LocalDate startDate,
 
         @NotNull
-        LocalDate endDate
+        LocalDate endDate,
+
+        @Size(max = 80)
+        String mockSampleId
 ) {
 
     @AssertTrue(message = "endDate must be on or after startDate")
