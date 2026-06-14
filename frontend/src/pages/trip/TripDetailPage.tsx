@@ -475,13 +475,6 @@ function MapStage({
       )}
       {editingPlace && <AiEditFloatingPanel place={editingPlace} onClose={onCloseAiEdit} />}
       {activeVote && <VoteFloatingPanel proposal={activeVote} />}
-      <div className="version-preview-bar" aria-label="일정 버전 미리보기 상태">
-        <span aria-hidden="true">↺</span>
-        <strong>버전 2 미리보는 중</strong>
-        <button type="button" disabled>미리보기 중지</button>
-        <button type="button" disabled>이 버전 복원</button>
-      </div>
-      <span className="map-attribution">Leaflet | OpenStreetMap</span>
     </section>
   )
 }
@@ -496,7 +489,7 @@ function PlaceFloatingCard({
   onOpenAiEdit: () => void
 }) {
   return (
-    <article className="place-floating-card" style={{ left: `${Math.min(place.x + 4, 70)}%`, top: `${Math.max(place.y - 16, 12)}%` }}>
+    <article className="place-floating-card" style={{ left: `${Math.min(Math.max(place.x - 12, 10), 46)}%`, top: `${Math.min(Math.max(place.y - 28, 12), 42)}%` }}>
       <button className="floating-close" type="button" onClick={onClose} aria-label="장소 정보 닫기">×</button>
       <span className="place-index">{place.order}번째 장소</span>
       <h2>{place.title}</h2>
@@ -607,7 +600,6 @@ function TripChatPanel({
         <input type="text" placeholder="메시지를 입력하세요..." disabled />
         <button type="button" disabled aria-label="메시지 전송">전송</button>
       </form>
-      <button className="help-floating-button" type="button" disabled aria-label="도움말">?</button>
     </aside>
   )
 }
