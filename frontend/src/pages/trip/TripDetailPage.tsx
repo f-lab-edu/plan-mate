@@ -2,7 +2,7 @@
 import type { AuthUser } from '../../api/auth'
 import { API_BASE_URL, ApiError } from '../../api/client'
 import { getTripDetail } from '../../api/trips'
-import type { TripDetail, TripMember, TripStatus } from '../../api/trips'
+import type { TripDetail, TripMember } from '../../api/trips'
 import './TripDetailPage.css'
 
 type TripDetailPageProps = {
@@ -15,164 +15,162 @@ type TripDetailPageProps = {
 
 type AsyncStatus = 'idle' | 'loading' | 'success' | 'error'
 
-type QuestionGroup = {
-  title: string
-  description: string
-  items: string[]
-}
-
-type MockPlace = {
+type ItineraryPlace = {
   id: string
   day: number
   order: number
-  time: string
   title: string
   category: string
-  area: string
+  time: string
+  duration: string
+  memo?: string
   x: number
   y: number
   hours: string
   parking: string
   price: string
   rating: string
-  review: string
+  contentSummary: string
   photoTip: string
 }
 
-const QUESTION_GROUPS: QuestionGroup[] = [
-  {
-    title: '동반자와 일정',
-    description: '누구와 언제 움직이는지 먼저 확정합니다.',
-    items: ['동반자 유형', '여행 인원', '출발지', '여행 기간', '다중 숙소 여부'],
-  },
-  {
-    title: '여행 스타일',
-    description: 'AI가 일정 밀도와 장소 성격을 결정하는 기준입니다.',
-    items: ['여유/빡빡함', '관광/맛집/휴식', '실내/실외', '사진 스팟 중요도'],
-  },
-  {
-    title: '예산과 비용',
-    description: '식비, 입장료, 체험 비용의 상한을 정합니다.',
-    items: ['전체 예산', '1인 예산', '식비 범위', '유료 장소 허용 여부'],
-  },
-  {
-    title: '이동수단',
-    description: '동선 현실성을 판단하는 핵심 입력입니다.',
-    items: ['자차', '대중교통', '도보', '택시', '주차 중요도'],
-  },
-  {
-    title: '식사와 제약',
-    description: '피해야 할 조건과 반드시 넣을 장소를 관리합니다.',
-    items: ['선호 음식', '피해야 할 음식', '아이/부모님 동반', '반려동물', '필수 방문지'],
-  },
-]
+type VoteProposal = {
+  title: string
+  description: string
+  agreeCount: number
+  disagreeCount: number
+}
 
-const MOCK_PLACES: MockPlace[] = [
+const DAY_OPTIONS = [1, 2, 3]
+
+const PLANNED_PLACES_PREVIEW: ItineraryPlace[] = [
   {
     id: 'day1-1',
     day: 1,
     order: 1,
-    time: '09:30 - 10:40',
-    title: '도착지 브런치',
-    category: '식사',
-    area: '중심가',
-    x: 22,
-    y: 66,
-    hours: '08:00 - 15:00',
-    parking: '전용 주차 없음, 반경 400m 공영주차장 후보 필요',
-    price: '1인 12,000 - 18,000원 예상',
-    rating: '평점/리뷰 연동 예정',
-    review: '블로그 후기와 방문 팁 요약 영역입니다.',
-    photoTip: '창가 좌석, 매장 입구, 대표 메뉴 구도 정보를 요약할 예정입니다.',
+    title: '성산일출봉',
+    category: '관광',
+    time: '09:00',
+    duration: '2시간',
+    x: 67,
+    y: 58,
+    hours: '07:00 - 20:00, 계절별 변동 확인 필요',
+    parking: '전용 주차장 있음, 성수기에는 주변 공영주차장 후보 필요',
+    price: '성인 입장료 확인 예정',
+    rating: '평점/리뷰 API 연동 예정',
+    contentSummary: '일출 시간, 등반 난이도, 혼잡 시간대 블로그 요약을 제공할 예정입니다.',
+    photoTip: '정상 전망, 해안 산책로, 일출 역광 구도 정보를 요약할 예정입니다.',
   },
   {
     id: 'day1-2',
     day: 1,
     order: 2,
-    time: '11:10 - 12:30',
-    title: '대표 관광지',
+    title: '섭지코지',
     category: '관광',
-    area: '해변/전망',
-    x: 48,
-    y: 38,
+    time: '12:00',
+    duration: '1.5시간',
+    x: 71,
+    y: 61,
     hours: '상시 개방 여부 확인 예정',
-    parking: '주변 주차장과 도보 거리 비교 예정',
-    price: '입장료 확인 예정',
+    parking: '입구 주차장과 도보 거리 비교 예정',
+    price: '무료 또는 주차 비용 확인 예정',
     rating: '외부 장소 API 연동 예정',
-    review: '혼잡 시간, 체류 시간, 날씨 영향을 요약할 예정입니다.',
-    photoTip: '해질녘 역광, 전망 포인트, 인기 포즈 정보를 제공할 예정입니다.',
+    contentSummary: '바람, 산책 동선, 사진 명소 관련 후기를 요약할 예정입니다.',
+    photoTip: '등대 방향, 해안 절벽, 말 조형물 주변 포즈 정보를 제공할 예정입니다.',
   },
   {
     id: 'day1-3',
     day: 1,
     order: 3,
-    time: '13:00 - 14:00',
-    title: '후보 카페',
-    category: '카페',
-    area: '관광지 인근',
-    x: 68,
+    title: '해녀의 집',
+    category: '식당',
+    time: '14:00',
+    duration: '1시간',
+    memo: '해산물 정식 예약 완료',
+    x: 63,
+    y: 67,
+    hours: '11:00 - 20:00, 브레이크 타임 확인 필요',
+    parking: '식당 앞 주차 가능 여부 확인 필요',
+    price: '1인 18,000 - 30,000원 예상',
+    rating: '평점/리뷰 API 연동 예정',
+    contentSummary: '대표 메뉴, 웨이팅, 회전율을 요약할 예정입니다.',
+    photoTip: '해산물 한상 구도와 바다 배경 테이블샷 정보를 제공할 예정입니다.',
+  },
+  {
+    id: 'day1-4',
+    day: 1,
+    order: 4,
+    title: '우도',
+    category: '관광',
+    time: '16:00',
+    duration: '3시간',
+    x: 80,
     y: 54,
-    hours: '10:00 - 21:00',
-    parking: '매장 앞 2대 가능 여부 확인 필요',
-    price: '음료 5,500 - 8,000원 예상',
-    rating: '평점/리뷰 연동 예정',
-    review: '웨이팅, 좌석, 시그니처 메뉴 요약 영역입니다.',
-    photoTip: '테라스, 디저트 테이블샷, 창가 자리 정보를 요약할 예정입니다.',
+    hours: '배 운항 시간 확인 필요',
+    parking: '선착장 주차장과 차량 반입 여부 확인 필요',
+    price: '왕복 승선료 확인 예정',
+    rating: '콘텐츠 기반 만족도 요약 예정',
+    contentSummary: '배 시간, 이동수단, 체류 시간 관련 후기를 요약할 예정입니다.',
+    photoTip: '검멀레 해변, 등대, 전기차 인증샷 정보를 제공할 예정입니다.',
   },
   {
     id: 'day2-1',
     day: 2,
     order: 1,
-    time: '10:00 - 11:40',
-    title: '로컬 산책 코스',
-    category: '산책',
-    area: '구도심',
-    x: 28,
-    y: 42,
-    hours: '상시 가능',
-    parking: '시작 지점 주변 공영주차장 추천 예정',
+    title: '협재해수욕장',
+    category: '관광',
+    time: '10:00',
+    duration: '2시간',
+    x: 24,
+    y: 50,
+    hours: '상시 개방, 안전 통제 여부 확인 필요',
+    parking: '해변 공영주차장 추천 예정',
     price: '무료',
-    rating: '콘텐츠 기반 만족도 요약 예정',
-    review: '코스 난이도와 체류 시간 요약 영역입니다.',
-    photoTip: '골목 간판, 벽화, 길 끝 구도 정보를 요약할 예정입니다.',
+    rating: '외부 장소 API 연동 예정',
+    contentSummary: '물때, 날씨, 혼잡도 관련 후기를 요약할 예정입니다.',
+    photoTip: '비양도 배경, 낮은 파도, 백사장 구도 정보를 제공할 예정입니다.',
   },
   {
     id: 'day2-2',
     day: 2,
     order: 2,
-    time: '12:10 - 13:20',
-    title: '점심 후보지',
-    category: '식사',
-    area: '시장 인근',
-    x: 54,
-    y: 60,
-    hours: '11:00 - 20:00',
-    parking: '시장 공영주차장 혼잡도 확인 예정',
-    price: '1인 10,000 - 16,000원 예상',
-    rating: '평점/리뷰 연동 예정',
-    review: '메뉴 추천, 대기 시간, 회전율을 요약할 예정입니다.',
-    photoTip: '대표 메뉴 근접샷과 시장 입구 인증샷 정보를 제공할 예정입니다.',
+    title: '오설록 티뮤지엄',
+    category: '카페',
+    time: '13:30',
+    duration: '1.5시간',
+    x: 39,
+    y: 58,
+    hours: '09:00 - 18:00',
+    parking: '전용 주차장 있음',
+    price: '음료/디저트 7,000 - 15,000원 예상',
+    rating: '평점/리뷰 API 연동 예정',
+    contentSummary: '대표 메뉴, 굿즈, 대기 시간 후기를 요약할 예정입니다.',
+    photoTip: '녹차밭 배경, 아이스크림 손샷, 건물 외관 구도 정보를 제공할 예정입니다.',
   },
   {
     id: 'day3-1',
     day: 3,
     order: 1,
-    time: '09:30 - 11:00',
-    title: '체크아웃 후 가벼운 코스',
-    category: '휴식',
-    area: '숙소 주변',
-    x: 36,
-    y: 58,
-    hours: '운영시간 확인 예정',
-    parking: '숙소 주차 연장 가능 여부 확인 예정',
-    price: '무료 또는 소액 지출 예상',
-    rating: '외부 장소 API 연동 예정',
-    review: '마지막 날 피로도를 고려한 코스 설명 영역입니다.',
-    photoTip: '짐 들고 이동하기 편한 포토존을 요약할 예정입니다.',
+    title: '동문시장',
+    category: '식당',
+    time: '11:00',
+    duration: '2시간',
+    x: 52,
+    y: 42,
+    hours: '매장별 상이',
+    parking: '시장 공영주차장 혼잡도 확인 예정',
+    price: '1인 10,000 - 25,000원 예상',
+    rating: '리뷰/블로그 요약 예정',
+    contentSummary: '야시장, 포장 메뉴, 웨이팅 정보를 요약할 예정입니다.',
+    photoTip: '시장 입구, 먹거리 손샷, 야시장 네온 구도 정보를 제공할 예정입니다.',
   },
 ]
 
-const DAY_OPTIONS = [1, 2, 3]
+const CHAT_MESSAGES_PREVIEW = [
+  { id: 1, author: '이영희', avatar: '이', time: '10:30', message: '성산일출봉 일출 보러 가는 거 시간 앞당길까요?' },
+  { id: 2, author: '박민수', avatar: '박', time: '10:32', message: '좋아요! 새벽 5시에 출발하면 될 것 같아요' },
+  { id: 3, author: '김철수', avatar: '김', time: '11:15', message: '해녀의 집 예약 완료했습니다' },
+]
 
 export function TripDetailPage({
   accessToken,
@@ -219,13 +217,8 @@ export function TripDetailPage({
     }
   }, [accessToken, tripId, reloadKey])
 
-  const displayName = user?.nickname ?? resolveOwnerNickname(trip?.members) ?? '여행자'
-
   return (
     <main className="trip-detail-page">
-      <div className="trip-detail-grid-bg" aria-hidden="true" />
-      <TripDetailHeader displayName={displayName} onBackToMain={onBackToMain} onLogout={onLogout} />
-
       {!accessToken && (
         <DetailStateCard
           title="로그인 확인 중"
@@ -247,53 +240,371 @@ export function TripDetailPage({
       )}
 
       {accessToken && status === 'success' && trip && (
-        <section className="trip-detail-shell" aria-label="여행 상세 화면">
-          <TripDetailHero trip={trip} />
-          <div className="trip-detail-workspace">
-            <aside className="trip-detail-left-column" aria-label="여행 준비 입력">
-              <PreparationPanel />
-              <PromptPanel />
-            </aside>
-            <section className="trip-detail-center-column" aria-label="지도와 일정">
-              <ItineraryMapWorkspace />
-            </section>
-            <aside className="trip-detail-right-column" aria-label="협업 패널">
-              <MembersPanel members={trip.members} currentUserId={user?.id} />
-              <ProposalPanel />
-              <ChatPanel members={trip.members} />
-            </aside>
-          </div>
-        </section>
+        <TripPlanningWorkspace
+          trip={trip}
+          currentUser={user}
+          onBackToMain={onBackToMain}
+          onLogout={onLogout}
+        />
       )}
     </main>
   )
 }
 
-function TripDetailHeader({
-  displayName,
+function TripPlanningWorkspace({
+  trip,
+  currentUser,
   onBackToMain,
   onLogout,
 }: {
-  displayName: string
+  trip: TripDetail
+  currentUser: AuthUser | null
+  onBackToMain: () => void
+  onLogout: () => void
+}) {
+  const [activeDay, setActiveDay] = useState(1)
+  const [selectedPlaceId, setSelectedPlaceId] = useState('day1-2')
+  const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null)
+
+  const activePlaces = useMemo(() => PLANNED_PLACES_PREVIEW.filter((place) => place.day === activeDay), [activeDay])
+  const selectedPlace = activePlaces.find((place) => place.id === selectedPlaceId) ?? null
+  const editingPlace = PLANNED_PLACES_PREVIEW.find((place) => place.id === editingPlaceId) ?? null
+  const activeVote: VoteProposal | null = null
+  const requiresInitialSetup = false
+
+  function handleDayChange(day: number) {
+    const firstPlace = PLANNED_PLACES_PREVIEW.find((place) => place.day === day)
+    setActiveDay(day)
+    setSelectedPlaceId(firstPlace?.id ?? '')
+    setEditingPlaceId(null)
+  }
+
+  return (
+    <section className="planning-board" aria-label="여행 상세 플래닝 보드">
+      <PlanningHeader trip={trip} members={trip.members} onBackToMain={onBackToMain} onLogout={onLogout} />
+      <div className="planning-layout">
+        <ItinerarySidebar
+          activeDay={activeDay}
+          places={activePlaces}
+          selectedPlaceId={selectedPlaceId}
+          onDayChange={handleDayChange}
+          onSelectPlace={setSelectedPlaceId}
+        />
+        <MapStage
+          activeDay={activeDay}
+          places={activePlaces}
+          selectedPlace={selectedPlace}
+          editingPlace={editingPlace}
+          onSelectPlace={setSelectedPlaceId}
+          onClosePlace={() => setSelectedPlaceId('')}
+          onOpenAiEdit={(placeId) => setEditingPlaceId(placeId)}
+          onCloseAiEdit={() => setEditingPlaceId(null)}
+          activeVote={activeVote}
+        />
+        <TripChatPanel members={trip.members} currentUser={currentUser} />
+      </div>
+      {requiresInitialSetup && <InitialSetupFloatingPanel />}
+    </section>
+  )
+}
+
+function PlanningHeader({
+  trip,
+  members,
+  onBackToMain,
+  onLogout,
+}: {
+  trip: TripDetail
+  members: TripMember[]
   onBackToMain: () => void
   onLogout: () => void
 }) {
   return (
-    <nav className="trip-detail-nav" aria-label="여행 상세 내비게이션">
-      <button className="trip-back-button" type="button" onClick={onBackToMain}>
-        메인으로
+    <header className="planning-header">
+      <button className="icon-back-button" type="button" onClick={onBackToMain} aria-label="메인으로 돌아가기">
+        <span aria-hidden="true">←</span>
       </button>
-      <div className="trip-detail-brand">
-        <span className="trip-detail-brand-mark" aria-hidden="true">PM</span>
-        <strong>PlanMate</strong>
+      <div className="planning-title-block">
+        <h1>{trip.title}</h1>
+        <p>{formatDate(trip.startDate)} - {formatDate(trip.endDate)}</p>
       </div>
-      <div className="trip-detail-user-menu">
-        <span>{displayName}</span>
-        <button className="trip-ghost-button" type="button" onClick={onLogout}>
+      <div className="planning-header-actions">
+        <div className="member-avatar-stack" aria-label="참여자 목록">
+          <span className="member-count-icon" aria-hidden="true">팀</span>
+          {members.slice(0, 3).map((member) => (
+            <MemberAvatar member={member} key={member.userId} />
+          ))}
+        </div>
+        <button className="outline-action" type="button" disabled>
+          공유
+        </button>
+        <button className="solid-action" type="button" disabled>
+          저장
+        </button>
+        <button className="logout-text-button" type="button" onClick={onLogout}>
           로그아웃
         </button>
       </div>
-    </nav>
+    </header>
+  )
+}
+
+function ItinerarySidebar({
+  activeDay,
+  places,
+  selectedPlaceId,
+  onDayChange,
+  onSelectPlace,
+}: {
+  activeDay: number
+  places: ItineraryPlace[]
+  selectedPlaceId: string
+  onDayChange: (day: number) => void
+  onSelectPlace: (placeId: string) => void
+}) {
+  return (
+    <aside className="itinerary-sidebar" aria-label="일차별 일정 목록">
+      <div className="day-tab-list" role="tablist" aria-label="일차 선택">
+        {DAY_OPTIONS.map((day) => (
+          <button
+            className={activeDay === day ? 'active' : ''}
+            key={day}
+            type="button"
+            role="tab"
+            aria-selected={activeDay === day}
+            onClick={() => onDayChange(day)}
+          >
+            {day}일차
+          </button>
+        ))}
+      </div>
+      <button className="add-place-button" type="button" disabled>
+        + 장소 추가
+      </button>
+      <div className="itinerary-card-list">
+        {places.map((place) => (
+          <button
+            className={`itinerary-card ${selectedPlaceId === place.id ? 'active' : ''}`}
+            key={place.id}
+            type="button"
+            onClick={() => onSelectPlace(place.id)}
+          >
+            <span className="itinerary-order">{place.order}</span>
+            <span className="itinerary-content">
+              <strong>{place.title}</strong>
+              <span className="itinerary-time">{place.time} · {place.duration}</span>
+              <span className="category-chip">{place.category}</span>
+              {place.memo && <span className="itinerary-memo">{place.memo}</span>}
+            </span>
+          </button>
+        ))}
+      </div>
+    </aside>
+  )
+}
+
+function MapStage({
+  activeDay,
+  places,
+  selectedPlace,
+  editingPlace,
+  onSelectPlace,
+  onClosePlace,
+  onOpenAiEdit,
+  onCloseAiEdit,
+  activeVote,
+}: {
+  activeDay: number
+  places: ItineraryPlace[]
+  selectedPlace: ItineraryPlace | null
+  editingPlace: ItineraryPlace | null
+  onSelectPlace: (placeId: string) => void
+  onClosePlace: () => void
+  onOpenAiEdit: (placeId: string) => void
+  onCloseAiEdit: () => void
+  activeVote: VoteProposal | null
+}) {
+  return (
+    <section className="map-stage" aria-label={`${activeDay}일차 지도`}>
+      <div className="map-tiles" aria-hidden="true" />
+      <div className="map-zoom-control" aria-label="지도 확대 축소">
+        <button type="button" disabled>+</button>
+        <button type="button" disabled>−</button>
+      </div>
+      <div className="route-line" aria-hidden="true" />
+      {places.map((place) => (
+        <button
+          className={`map-pin ${selectedPlace?.id === place.id ? 'active' : ''}`}
+          key={place.id}
+          type="button"
+          style={{ left: `${place.x}%`, top: `${place.y}%` }}
+          onClick={() => onSelectPlace(place.id)}
+          aria-label={`${place.order}번째 장소 ${place.title}`}
+        >
+          <span>{place.order}</span>
+        </button>
+      ))}
+      {selectedPlace && (
+        <PlaceFloatingCard
+          place={selectedPlace}
+          onClose={onClosePlace}
+          onOpenAiEdit={() => onOpenAiEdit(selectedPlace.id)}
+        />
+      )}
+      {editingPlace && <AiEditFloatingPanel place={editingPlace} onClose={onCloseAiEdit} />}
+      {activeVote && <VoteFloatingPanel proposal={activeVote} />}
+      <div className="version-preview-bar" aria-label="일정 버전 미리보기 상태">
+        <span aria-hidden="true">↺</span>
+        <strong>버전 2 미리보는 중</strong>
+        <button type="button" disabled>미리보기 중지</button>
+        <button type="button" disabled>이 버전 복원</button>
+      </div>
+      <span className="map-attribution">Leaflet | OpenStreetMap</span>
+    </section>
+  )
+}
+
+function PlaceFloatingCard({
+  place,
+  onClose,
+  onOpenAiEdit,
+}: {
+  place: ItineraryPlace
+  onClose: () => void
+  onOpenAiEdit: () => void
+}) {
+  return (
+    <article className="place-floating-card" style={{ left: `${Math.min(place.x + 4, 70)}%`, top: `${Math.max(place.y - 16, 12)}%` }}>
+      <button className="floating-close" type="button" onClick={onClose} aria-label="장소 정보 닫기">×</button>
+      <span className="place-index">{place.order}번째 장소</span>
+      <h2>{place.title}</h2>
+      <p>{place.category} · {place.time} · {place.duration}</p>
+      <dl className="place-info-list">
+        <div>
+          <dt>운영시간</dt>
+          <dd>{place.hours}</dd>
+        </div>
+        <div>
+          <dt>주차</dt>
+          <dd>{place.parking}</dd>
+        </div>
+        <div>
+          <dt>비용</dt>
+          <dd>{place.price}</dd>
+        </div>
+        <div>
+          <dt>평점/후기</dt>
+          <dd>{place.rating}</dd>
+        </div>
+        <div>
+          <dt>콘텐츠 요약</dt>
+          <dd>{place.contentSummary}</dd>
+        </div>
+        <div>
+          <dt>사진 스팟</dt>
+          <dd>{place.photoTip}</dd>
+        </div>
+      </dl>
+      <button className="ai-edit-open-button" type="button" onClick={onOpenAiEdit}>
+        이 일정 AI로 수정 요청
+      </button>
+    </article>
+  )
+}
+
+function AiEditFloatingPanel({ place, onClose }: { place: ItineraryPlace; onClose: () => void }) {
+  return (
+    <section className="ai-edit-floating-panel" aria-label="AI 일정 수정 요청">
+      <button className="floating-close" type="button" onClick={onClose} aria-label="AI 수정 요청 닫기">×</button>
+      <p className="floating-eyebrow">AI edit request</p>
+      <h2>{place.title} 수정 요청</h2>
+      <p>AI가 짜준 일정 중 선택한 슬롯을 어떻게 바꿀지 입력하는 영역입니다.</p>
+      <textarea placeholder="예: 이 장소 대신 반경 2km 안에서 주차 가능한 카페 3개 추천해줘." disabled />
+      <div className="radius-chip-row">
+        <span>1km</span>
+        <span>2km</span>
+        <span>3km</span>
+      </div>
+      <button type="button" disabled>후보 추천 API 연결 예정</button>
+    </section>
+  )
+}
+
+function VoteFloatingPanel({ proposal }: { proposal: VoteProposal }) {
+  return (
+    <section className="vote-floating-panel" aria-label="변경 투표">
+      <p className="floating-eyebrow">Vote</p>
+      <h2>{proposal.title}</h2>
+      <p>{proposal.description}</p>
+      <div className="vote-result-row">
+        <span>찬성 {proposal.agreeCount}</span>
+        <span>반대 {proposal.disagreeCount}</span>
+      </div>
+      <div className="vote-button-row">
+        <button type="button" disabled>찬성</button>
+        <button type="button" disabled>반대</button>
+      </div>
+    </section>
+  )
+}
+
+function TripChatPanel({
+  members,
+  currentUser,
+}: {
+  members: TripMember[]
+  currentUser: AuthUser | null
+}) {
+  return (
+    <aside className="chat-dock" aria-label="팀 채팅">
+      <header className="chat-header">
+        <div>
+          <span aria-hidden="true">팀</span>
+          <h2>팀 채팅</h2>
+        </div>
+        <button type="button" disabled>나가기</button>
+      </header>
+      <div className="online-member-row" aria-label="현재 접속한 유저">
+        {members.map((member) => (
+          <MemberAvatar member={member} key={member.userId} />
+        ))}
+        {currentUser && <span className="current-user-label">{currentUser.nickname} 접속 중</span>}
+      </div>
+      <div className="chat-message-list">
+        {CHAT_MESSAGES_PREVIEW.map((message) => (
+          <article className="chat-message" key={message.id}>
+            <span className="chat-avatar">{message.avatar}</span>
+            <div>
+              <p className="chat-meta"><strong>{message.author}</strong><time>{message.time}</time></p>
+              <p className="chat-bubble">{message.message}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+      <form className="chat-input-row">
+        <input type="text" placeholder="메시지를 입력하세요..." disabled />
+        <button type="button" disabled aria-label="메시지 전송">전송</button>
+      </form>
+      <button className="help-floating-button" type="button" disabled aria-label="도움말">?</button>
+    </aside>
+  )
+}
+
+function InitialSetupFloatingPanel() {
+  return (
+    <section className="initial-setup-floating-panel" aria-label="방 생성자 맞춤 질문">
+      <p className="floating-eyebrow">Initial setup</p>
+      <h2>방 생성자 기본 질문</h2>
+      <p>이 영역은 첫 방 생성 시에만 노출됩니다. 상세페이지 기본 화면에는 상시 노출하지 않습니다.</p>
+    </section>
+  )
+}
+
+function MemberAvatar({ member }: { member: TripMember }) {
+  return (
+    <span className="member-avatar" aria-label={member.nickname}>
+      {member.profileImageUrl ? <img src={resolveBackendAssetUrl(member.profileImageUrl)} alt="" /> : member.nickname.slice(0, 1)}
+    </span>
   )
 }
 
@@ -314,329 +625,18 @@ function DetailStateCard({
 }) {
   return (
     <section className="trip-detail-state-card" aria-live="polite">
-      <p className="trip-eyebrow">Trip detail</p>
       <h1>{title}</h1>
       <p>{description}</p>
       <div className="trip-state-actions">
-        {actionLabel && onAction && (
-          <button className="trip-primary-button" type="button" onClick={onAction}>
-            {actionLabel}
-          </button>
-        )}
-        {secondaryActionLabel && onSecondaryAction && (
-          <button className="trip-secondary-button" type="button" onClick={onSecondaryAction}>
-            {secondaryActionLabel}
-          </button>
-        )}
+        {actionLabel && onAction && <button type="button" onClick={onAction}>{actionLabel}</button>}
+        {secondaryActionLabel && onSecondaryAction && <button type="button" onClick={onSecondaryAction}>{secondaryActionLabel}</button>}
       </div>
     </section>
   )
-}
-
-function TripDetailHero({ trip }: { trip: TripDetail }) {
-  return (
-    <section className="trip-detail-hero">
-      <div>
-        <p className="trip-eyebrow">Collaborative itinerary workspace</p>
-        <h1>{trip.title}</h1>
-        <p>
-          {trip.destination} 여행의 질문, AI 일정, 지도 마커, 장소 상세 정보, 투표와 채팅을 한 화면에서 다루는
-          상세 페이지 구조입니다.
-        </p>
-      </div>
-      <div className="trip-hero-summary" aria-label="여행 요약">
-        <SummaryPill label="여행지" value={trip.destination} />
-        <SummaryPill label="기간" value={`${formatDate(trip.startDate)} - ${formatDate(trip.endDate)}`} />
-        <SummaryPill label="일수" value={durationLabel(trip.startDate, trip.endDate)} />
-        <SummaryPill label="상태" value={tripStatusLabel(trip.status)} tone={trip.status.toLowerCase()} />
-        <SummaryPill label="참여자" value={`${trip.memberCount}명`} />
-      </div>
-    </section>
-  )
-}
-
-function SummaryPill({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  return (
-    <div className={`trip-summary-pill ${tone ?? ''}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  )
-}
-
-function PreparationPanel() {
-  return (
-    <section className="trip-panel trip-preparation-panel" aria-labelledby="preparation-title">
-      <PanelHeading eyebrow="Trip questions" title="맞춤 질문" description="AI 일정 생성 전에 필요한 기본 입력값입니다." />
-      <div className="question-group-list">
-        {QUESTION_GROUPS.map((group) => (
-          <article className="question-group-card" key={group.title}>
-            <div>
-              <h3>{group.title}</h3>
-              <p>{group.description}</p>
-            </div>
-            <div className="question-chip-list" aria-label={`${group.title} 항목`}>
-              {group.items.map((item) => (
-                <span key={item}>{item}</span>
-              ))}
-            </div>
-          </article>
-        ))}
-      </div>
-      <button className="trip-secondary-button full-width" type="button" disabled>
-        질문 저장 API 연결 예정
-      </button>
-    </section>
-  )
-}
-
-function PromptPanel() {
-  return (
-    <section className="trip-panel" aria-labelledby="prompt-title">
-      <PanelHeading eyebrow="Direct prompt" title="AI 직접 요청" description="기본 질문 외에 원하는 조건을 직접 추가하는 영역입니다." />
-      <textarea
-        className="trip-prompt-box"
-        placeholder="예: 부모님이 오래 걷기 힘들어서 이동 거리를 줄이고, 바다 전망 카페를 하루에 하나씩 넣어줘."
-        disabled
-      />
-      <div className="prompt-rule-list">
-        <span>여행 조건만 허용</span>
-        <span>위험/불법 요청 제외</span>
-        <span>이동 가능성 검증 필요</span>
-      </div>
-      <button className="trip-primary-button full-width" type="button" disabled>
-        AI 일정 생성 API 연결 예정
-      </button>
-    </section>
-  )
-}
-
-function ItineraryMapWorkspace() {
-  const [activeDay, setActiveDay] = useState(1)
-  const dayPlaces = useMemo(() => MOCK_PLACES.filter((place) => place.day === activeDay), [activeDay])
-  const [selectedPlaceId, setSelectedPlaceId] = useState(dayPlaces[0]?.id ?? '')
-  const selectedPlace = dayPlaces.find((place) => place.id === selectedPlaceId) ?? dayPlaces[0]
-
-  return (
-    <>
-      <section className="trip-panel trip-map-panel" aria-labelledby="map-title">
-        <div className="map-panel-topline">
-          <PanelHeading eyebrow="Map route" title="일차별 지도" description="선택한 일차의 마커와 이동 순서를 표시합니다." />
-          <DayTabs activeDay={activeDay} onChange={setActiveDay} />
-        </div>
-        <div className="map-canvas" aria-label={`${activeDay}일차 지도 미리보기`}>
-          <div className="map-route-line" aria-hidden="true" />
-          {dayPlaces.map((place) => (
-            <button
-              className={`map-marker ${selectedPlace?.id === place.id ? 'active' : ''}`}
-              key={place.id}
-              type="button"
-              style={{ left: `${place.x}%`, top: `${place.y}%` }}
-              onClick={() => setSelectedPlaceId(place.id)}
-              aria-label={`${place.order}번 마커 ${place.title}`}
-            >
-              <span>{place.order}</span>
-            </button>
-          ))}
-          <div className="map-legend-card">
-            <strong>{activeDay}일차 동선</strong>
-            <span>지도 SDK 연결 전 UI 구조</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="trip-panel itinerary-panel" aria-labelledby="itinerary-title">
-        <PanelHeading eyebrow="AI itinerary" title={`${activeDay}일차 타임라인`} description="AI가 생성할 시간대별 일정 슬롯 구조입니다." />
-        <div className="timeline-list">
-          {dayPlaces.map((place) => (
-            <article className={`timeline-card ${selectedPlace?.id === place.id ? 'active' : ''}`} key={place.id}>
-              <span className="timeline-order">{place.order}</span>
-              <div>
-                <time>{place.time}</time>
-                <h3>{place.title}</h3>
-                <p>{place.category} · {place.area}</p>
-              </div>
-              <button className="slot-change-button" type="button" disabled>
-                후보 찾기
-              </button>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {selectedPlace && <PlaceInsightPanel place={selectedPlace} />}
-    </>
-  )
-}
-
-function DayTabs({ activeDay, onChange }: { activeDay: number; onChange: (day: number) => void }) {
-  return (
-    <div className="day-tab-list" role="tablist" aria-label="일차 선택">
-      {DAY_OPTIONS.map((day) => (
-        <button
-          className={activeDay === day ? 'active' : ''}
-          key={day}
-          type="button"
-          role="tab"
-          aria-selected={activeDay === day}
-          onClick={() => onChange(day)}
-        >
-          {day}일차
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function PlaceInsightPanel({ place }: { place: MockPlace }) {
-  return (
-    <section className="trip-panel place-insight-panel" aria-labelledby="place-insight-title">
-      <div className="place-insight-heading">
-        <div>
-          <p className="trip-eyebrow">Marker insight</p>
-          <h2 id="place-insight-title">{place.title}</h2>
-          <p>{place.category} · {place.area} · {place.time}</p>
-        </div>
-        <span className="place-category-badge">마커 {place.order}</span>
-      </div>
-      <div className="place-insight-grid">
-        <InsightCard title="운영시간" value={place.hours} />
-        <InsightCard title="주차" value={place.parking} />
-        <InsightCard title="비용" value={place.price} />
-        <InsightCard title="평점/리뷰" value={place.rating} />
-        <InsightCard title="후기 요약" value={place.review} />
-        <InsightCard title="사진 스팟" value={place.photoTip} />
-      </div>
-      <div className="place-action-row">
-        <button className="trip-secondary-button" type="button" disabled>
-          반경 후보 검색 예정
-        </button>
-        <button className="trip-primary-button" type="button" disabled>
-          변경 투표 올리기 예정
-        </button>
-      </div>
-    </section>
-  )
-}
-
-function InsightCard({ title, value }: { title: string; value: string }) {
-  return (
-    <article className="insight-card">
-      <span>{title}</span>
-      <p>{value}</p>
-    </article>
-  )
-}
-
-function MembersPanel({ members, currentUserId }: { members: TripMember[]; currentUserId?: number }) {
-  return (
-    <section className="trip-panel" aria-labelledby="members-title">
-      <PanelHeading eyebrow="Members" title="참여자" description="프로필 이미지는 채팅과 지도 마커에도 재사용됩니다." />
-      <div className="member-list">
-        {members.map((member) => (
-          <article className="member-card" key={member.userId}>
-            <MemberAvatar member={member} />
-            <div>
-              <strong>{member.nickname}{member.userId === currentUserId ? ' · 나' : ''}</strong>
-              <span>{member.role === 'OWNER' ? '방장' : '참여자'}</span>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function MemberAvatar({ member }: { member: TripMember }) {
-  return (
-    <div className="member-avatar" aria-hidden="true">
-      {member.profileImageUrl ? (
-        <img src={resolveBackendAssetUrl(member.profileImageUrl)} alt="" />
-      ) : (
-        <span>{member.nickname.slice(0, 1) || 'P'}</span>
-      )}
-    </div>
-  )
-}
-
-function ProposalPanel() {
-  return (
-    <section className="trip-panel proposal-panel" aria-labelledby="proposal-title">
-      <PanelHeading eyebrow="Votes" title="변경 투표" description="참여자가 제안한 일정 변경을 투표로 확정합니다." />
-      <article className="proposal-preview-card">
-        <span className="proposal-status">OPEN 예정</span>
-        <h3>13:00 카페 변경 후보</h3>
-        <p>선택한 장소 주변 1km/2km/3km 후보를 받은 뒤 투표 안건으로 올리는 흐름입니다.</p>
-        <div className="vote-meter" aria-hidden="true">
-          <span style={{ width: '62%' }} />
-        </div>
-        <div className="vote-actions">
-          <button type="button" disabled>찬성</button>
-          <button type="button" disabled>반대</button>
-        </div>
-      </article>
-    </section>
-  )
-}
-
-function ChatPanel({ members }: { members: TripMember[] }) {
-  const ownerName = resolveOwnerNickname(members) ?? '방장'
-
-  return (
-    <section className="trip-panel chat-panel" aria-labelledby="chat-title">
-      <PanelHeading eyebrow="Realtime chat" title="여행방 채팅" description="WebSocket 연결 전 카카오톡방 형태의 UI 자리입니다." />
-      <div className="chat-message-list" aria-label="채팅 미리보기">
-        <article className="chat-bubble system">여행 상세 페이지가 생성되었습니다.</article>
-        <article className="chat-bubble">
-          <strong>{ownerName}</strong>
-          <p>AI 일정이 나오면 여기서 장소 변경 의견을 모으면 됩니다.</p>
-        </article>
-        <article className="chat-bubble event">투표와 일정 변경 이벤트도 같은 흐름에 표시됩니다.</article>
-      </div>
-      <div className="chat-input-row">
-        <input type="text" placeholder="채팅 API 연결 예정" disabled />
-        <button type="button" disabled>전송</button>
-      </div>
-    </section>
-  )
-}
-
-function PanelHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
-  return (
-    <div className="trip-panel-heading">
-      <p className="trip-eyebrow">{eyebrow}</p>
-      <h2>{title}</h2>
-      <p>{description}</p>
-    </div>
-  )
-}
-
-function resolveOwnerNickname(members?: TripMember[]) {
-  return members?.find((member) => member.role === 'OWNER')?.nickname ?? members?.[0]?.nickname
-}
-
-function tripStatusLabel(status: TripStatus) {
-  const labels: Record<TripStatus, string> = {
-    PLANNING: '계획중',
-    UPCOMING: '예정',
-    COMPLETED: '완료',
-  }
-  return labels[status]
 }
 
 function formatDate(value: string) {
   return value.replaceAll('-', '.')
-}
-
-function durationLabel(startDate: string, endDate: string) {
-  const start = new Date(`${startDate}T00:00:00`)
-  const end = new Date(`${endDate}T00:00:00`)
-  const diff = Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1
-
-  if (Number.isNaN(diff) || diff <= 0) {
-    return '기간 확인 필요'
-  }
-  return `${diff}일`
 }
 
 function resolveBackendAssetUrl(path: string) {
