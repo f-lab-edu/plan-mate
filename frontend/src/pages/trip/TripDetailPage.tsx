@@ -325,6 +325,7 @@ function PlanningHeader({
         <span aria-hidden="true">←</span>
       </button>
       <div className="planning-title-block">
+        <span className="planning-kicker">PlanMate itinerary</span>
         <h1>{trip.title}</h1>
         <p>{formatDate(trip.startDate)} - {formatDate(trip.endDate)}</p>
       </div>
@@ -334,6 +335,7 @@ function PlanningHeader({
           {members.slice(0, 3).map((member) => (
             <MemberAvatar member={member} key={member.userId} />
           ))}
+          <span className="member-total">{members.length}명</span>
         </div>
         <button className="outline-action" type="button" disabled>
           공유
@@ -364,6 +366,11 @@ function ItinerarySidebar({
 }) {
   return (
     <aside className="itinerary-sidebar" aria-label="일차별 일정 목록">
+      <div className="sidebar-heading">
+        <span>AI route</span>
+        <h2>{activeDay}일차 동선</h2>
+        <p>마커를 누르면 장소 정보와 일정 수정 요청을 열 수 있습니다.</p>
+      </div>
       <div className="day-tab-list" role="tablist" aria-label="일차 선택">
         {DAY_OPTIONS.map((day) => (
           <button
@@ -381,6 +388,11 @@ function ItinerarySidebar({
       <button className="add-place-button" type="button" disabled>
         + 장소 추가
       </button>
+      <div className="route-summary-card">
+        <span>예상 이동</span>
+        <strong>4곳 · 약 42km</strong>
+        <p>실제 이동 시간은 지도 API 연결 후 교통수단 기준으로 계산됩니다.</p>
+      </div>
       <div className="itinerary-card-list">
         {places.map((place) => (
           <button
@@ -427,11 +439,20 @@ function MapStage({
   return (
     <section className="map-stage" aria-label={`${activeDay}일차 지도`}>
       <div className="map-tiles" aria-hidden="true" />
+      <div className="map-status-pill">
+        <span>{activeDay}일차</span>
+        <strong>{places.length}개 장소 표시 중</strong>
+      </div>
+      <div className="map-layer-selector" aria-label="지도 레이어">
+        <button type="button" disabled>일정</button>
+        <button type="button" disabled>주차</button>
+        <button type="button" disabled>혼잡</button>
+      </div>
       <div className="map-zoom-control" aria-label="지도 확대 축소">
         <button type="button" disabled>+</button>
         <button type="button" disabled>−</button>
       </div>
-      <div className="route-line" aria-hidden="true" />
+      <div className="map-route-line" aria-hidden="true" />
       {places.map((place) => (
         <button
           className={`map-pin ${selectedPlace?.id === place.id ? 'active' : ''}`}
@@ -442,6 +463,7 @@ function MapStage({
           aria-label={`${place.order}번째 장소 ${place.title}`}
         >
           <span>{place.order}</span>
+          <small>{place.title}</small>
         </button>
       ))}
       {selectedPlace && (
