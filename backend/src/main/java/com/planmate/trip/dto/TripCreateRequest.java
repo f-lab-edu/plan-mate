@@ -15,6 +15,13 @@ public record TripCreateRequest(
         @Size(max = 60)
         String destination,
 
+        @NotBlank
+        @Size(max = 255)
+        String destinationPlaceId,
+
+        @Size(max = 100)
+        String destinationSessionToken,
+
         @NotNull
         LocalDate startDate,
 
