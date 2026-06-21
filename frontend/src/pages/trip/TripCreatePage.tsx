@@ -63,6 +63,8 @@ export function TripCreatePage({
 
   const lastRequestedQueryRef = useRef('')
   const searchSequenceRef = useRef(0)
+  const isComposingRef = useRef(false)
+  const pendingSearchAfterCompositionRef = useRef(false)
   const previewCacheRef = useRef(new Map<string, PlacePreview>())
   const visualTimerRef = useRef<number[]>([])
 
@@ -74,7 +76,6 @@ export function TripCreatePage({
     accessToken
     && trimmedSearchQuery.length >= MIN_DESTINATION_QUERY_LENGTH
     && selectionPhase !== 'SEARCHING'
-    && !isComposing
   )
   const canSubmit = Boolean(
     trimmedTitle
@@ -123,12 +124,19 @@ export function TripCreatePage({
   }
 
   function handleCompositionStart() {
+    isComposingRef.current = true
     setIsComposing(true)
   }
 
   function handleCompositionEnd(event: CompositionEvent<HTMLInputElement>) {
+    isComposingRef.current = false
     setIsComposing(false)
     setSearchQuery(event.currentTarget.value)
+
+    if (pendingSearchAfterCompositionRef.current) {
+      pendingSearchAfterCompositionRef.current = false
+      void requestDestinationSearch(event.currentTarget.value)
+    }
   }
 
   function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -137,7 +145,17 @@ export function TripCreatePage({
     }
 
     event.preventDefault()
-    if (event.nativeEvent.isComposing || isComposing) {
+    if (event.nativeEvent.isComposing || isComposingRef.current) {
+      pendingSearchAfterCompositionRef.current = true
+      return
+    }
+
+    void requestDestinationSearch()
+  }
+
+  function handleSearchIntent() {
+    if (isComposingRef.current) {
+      pendingSearchAfterCompositionRef.current = true
       return
     }
 
@@ -147,7 +165,7 @@ export function TripCreatePage({
   async function requestDestinationSearch(queryOverride?: string) {
     const query = (queryOverride ?? searchQuery).trim()
 
-    if (isComposing) {
+    if (isComposingRef.current) {
       return
     }
 
@@ -210,6 +228,7 @@ export function TripCreatePage({
     setHasSearched(false)
     setSelectionPhase('IDLE')
     lastRequestedQueryRef.current = ''
+    pendingSearchAfterCompositionRef.current = false
   }
 
   function handleCandidateSelect(candidate: PlaceAutocompleteItem) {
@@ -343,7 +362,7 @@ export function TripCreatePage({
           onCompositionEnd={handleCompositionEnd}
           onCompositionStart={handleCompositionStart}
           onPopularKeyword={handlePopularKeyword}
-          onSearch={() => void requestDestinationSearch()}
+          onSearch={handleSearchIntent}
           onSearchKeyDown={handleSearchKeyDown}
           onSearchQueryChange={handleSearchQueryChange}
         />
