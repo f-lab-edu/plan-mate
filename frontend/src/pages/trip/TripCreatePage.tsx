@@ -70,7 +70,7 @@ type InterestId =
   | 'THEME_PARK'
   | 'LOCAL'
 type TransportMode = 'WALK' | 'PUBLIC_TRANSIT' | 'RENTAL_CAR' | 'TAXI' | 'BIKE' | 'TOUR'
-type AccommodationMode = 'UNDECIDED' | 'NAME_ONLY' | 'PLACE_SEARCH'
+type AccommodationMode = 'UNDECIDED' | 'PLACE_SEARCH'
 type AccommodationArea = 'TOURIST_CENTER' | 'TRANSIT' | 'QUIET' | 'ANYWHERE'
 type AvoidItem =
   | 'EARLY_MORNING'
@@ -155,7 +155,6 @@ const TRANSPORT_OPTIONS: Array<{ id: TransportMode; label: string }> = [
 ]
 const ACCOMMODATION_MODE_OPTIONS: Array<{ id: AccommodationMode; label: string; description: string }> = [
   { id: 'UNDECIDED', label: '아직 숙소를 정하지 않았어요', description: '목적지의 주요 지역을 기준으로 일정을 만들어요.' },
-  { id: 'NAME_ONLY', label: '숙소 이름만 알고 있어요', description: '이름을 저장해두고 상세 위치는 나중에 확정해요.' },
   { id: 'PLACE_SEARCH', label: '지도에서 정확한 숙소를 선택할게요', description: '숙소 검색은 다음 연동 단계에서 정확히 선택해요.' },
 ]
 const ACCOMMODATION_AREA_OPTIONS: Array<{ id: AccommodationArea; label: string }> = [
@@ -596,7 +595,7 @@ export function TripCreatePage({
     }
 
     if (!dateRangeValid) {
-      setFormError('종료일은 시작일 이후여야 합니다.')
+      setFormError('돌아오는 날은 출발일과 같거나 이후여야 합니다.')
       return
     }
 
@@ -721,12 +720,12 @@ export function TripCreatePage({
           onInfoEditStep={handleInfoEditStep}
           onEndDateChange={(value) => {
             setEndDate(value)
-            setFormError('')
+            setFormError(getDateRangeError(startDate, value))
             setSubmitError('')
           }}
           onStartDateChange={(value) => {
             setStartDate(value)
-            setFormError('')
+            setFormError(getDateRangeError(value, endDate))
             setSubmitError('')
           }}
           onSubmit={handleSubmit}
@@ -1353,7 +1352,17 @@ function TripConditionStep({
   }
 
   return (
-    <form className="trip-info-page" onSubmit={onSubmit}>
+    <form
+      className="trip-info-page"
+      onSubmit={(event) => {
+        if (infoStep === 'REVIEW') {
+          onSubmit(event)
+          return
+        }
+        event.preventDefault()
+        onInfoNext()
+      }}
+    >
       <TripInfoProgress currentStep={infoStep} nextStep={nextStep?.label} />
 
       <section className="trip-info-shell">
@@ -1609,10 +1618,10 @@ function TripInfoVisual({
           <div className="info-map-illustration">
             <span className="info-map-pin">{destinationName}</span>
             <span className="info-map-route" />
-            <span className="info-calendar-tile">{tripDuration ? `${tripDuration.nights}박 ${tripDuration.days}일` : '날짜 선택'}</span>
+            <span className="info-calendar-tile">{tripDuration ? tripDurationLabel(tripDuration) : '날짜 선택'}</span>
           </div>
           <div className="info-date-strip">
-            {(tripDuration?.dateLabels ?? ['출발일', '여행일', '종료일']).slice(0, 5).map((label) => (
+            {(tripDuration?.dateLabels ?? ['출발일', '여행일', '돌아오는 날']).slice(0, 5).map((label) => (
               <span key={label}>{label}</span>
             ))}
           </div>
@@ -1633,8 +1642,12 @@ function TripInfoVisual({
 
       {infoStep === 'BUDGET' && (
         <>
-          <div className={`budget-gauge level-${budgetLevel.toLowerCase()}`}>
-            <span />
+          <div className={`budget-journey-visual level-${budgetLevel.toLowerCase()}`}>
+            <span className="budget-suitcase" />
+            <span className="budget-coin coin-one" />
+            <span className="budget-coin coin-two" />
+            <span className="budget-coin coin-three" />
+            <span className="budget-ticket">예산</span>
           </div>
           <div className="budget-icons">
             <span>숙박</span>
@@ -1761,7 +1774,7 @@ function BasicInfoPanel({
         </label>
         <span className="date-range-connector" aria-hidden="true" />
         <label>
-          <span>종료일</span>
+          <span>돌아오는 날</span>
           <input
             name="endDate"
             type="date"
@@ -1774,9 +1787,9 @@ function BasicInfoPanel({
       </div>
 
       <div className="duration-result-card">
-        <strong>{tripDuration ? `총 ${tripDuration.nights}박 ${tripDuration.days}일 동안 여행해요.` : '날짜를 선택하면 여행 기간을 계산해요.'}</strong>
+        <strong>{tripDuration ? tripDurationSentence(tripDuration) : '날짜를 선택하면 여행 기간을 계산해요.'}</strong>
         <div>
-          {(tripDuration?.dateLabels ?? ['출발일', '여행일', '종료일']).slice(0, 7).map((label) => (
+          {(tripDuration?.dateLabels ?? ['출발일', '여행일', '돌아오는 날']).slice(0, 7).map((label) => (
             <span key={label}>{label}</span>
           ))}
         </div>
@@ -1944,7 +1957,7 @@ function BudgetInfoPanel({
       </OptionGrid>
 
       <div className="budget-calculation-card">
-        <span>{companionCount}명 · {tripDuration ? `${tripDuration.nights}박 ${tripDuration.days}일` : '기간 선택 전'} 기준</span>
+        <span>{companionCount}명 · {tripDuration ? tripDurationLabel(tripDuration) : '기간 선택 전'} 기준</span>
         <dl>
           <div>
             <dt>1인당 예산</dt>
@@ -2093,7 +2106,7 @@ function AccommodationInfoPanel({
 
       {accommodationMode !== 'UNDECIDED' && (
         <label className="trip-info-field">
-          <span>{accommodationMode === 'NAME_ONLY' ? '숙소 이름' : '숙소 검색어'}</span>
+          <span>숙소 검색어</span>
           <input
             placeholder="예: 하카타역 근처 호텔"
             value={accommodationName}
@@ -2217,7 +2230,7 @@ function ReviewInfoPanel({
         <strong>{summary.destination?.displayText ?? '목적지 선택 전'}</strong>
         <span>{summary.title || '여행방 이름 입력 전'}</span>
         <span>{summary.startDate && summary.endDate ? `${summary.startDate} ~ ${summary.endDate}` : '날짜 입력 전'}</span>
-        <span>{summary.tripDuration ? `${summary.tripDuration.nights}박 ${summary.tripDuration.days}일` : '기간 계산 전'}</span>
+        <span>{summary.tripDuration ? tripDurationLabel(summary.tripDuration) : '기간 계산 전'}</span>
       </ReviewCard>
 
       <ReviewCard title="동행 정보" onEdit={() => onEditStep('COMPANION')}>
@@ -2300,10 +2313,12 @@ function GeneratingTripPanel({
 
   return (
     <section className="trip-generating-card" aria-live="polite">
-      <div className="generating-orbit" aria-hidden="true">
-        <span />
-        <span />
-        <span />
+      <div className="generating-globe-loader" aria-hidden="true">
+        <span className="loader-globe" />
+        <span className="loader-route" />
+        <span className="loader-marker marker-one" />
+        <span className="loader-marker marker-two" />
+        <span className="loader-marker marker-three" />
       </div>
       <span>{submitStatus === 'success' ? '일정 준비 완료' : 'AI 일정 준비 중'}</span>
       <h1>{title || destinationName} 여행을 만들고 있어요.</h1>
@@ -2325,7 +2340,7 @@ function TripInfoSummary({ summary }: { summary: TripInfoSummaryData }) {
   return (
     <aside className="trip-info-summary" aria-label="현재까지 선택한 내용">
       <span>현재 선택</span>
-      <strong>{summary.destination?.mainText ?? '목적지'} · {summary.tripDuration ? `${summary.tripDuration.nights}박 ${summary.tripDuration.days}일` : '기간 미정'}</strong>
+      <strong>{summary.destination?.mainText ?? '목적지'} · {summary.tripDuration ? tripDurationLabel(summary.tripDuration) : '기간 미정'}</strong>
       <p>
         {companionTypeLabel(summary.companionType)} {summary.companionCount}명 · {travelPaceLabel(summary.travelPace)} · {summary.interests.slice(0, 3).map(interestLabel).join(' · ') || '관심사 선택 전'}
       </p>
@@ -2548,10 +2563,10 @@ function getTripInfoStepError(
       return '여행방 이름을 입력해 주세요.'
     }
     if (!values.startDate || !values.endDate) {
-      return '출발일과 종료일을 선택해 주세요.'
+      return '출발일과 돌아오는 날을 선택해 주세요.'
     }
     if (!values.dateRangeValid) {
-      return '종료일은 시작일 이후여야 합니다.'
+      return '돌아오는 날은 출발일과 같거나 이후여야 합니다.'
     }
   }
 
@@ -2595,12 +2610,27 @@ function getReviewWarnings(summary: TripInfoSummaryData) {
 }
 
 function getTitleSuggestions(destinationName: string, tripDuration: TripDuration | null) {
-  const durationText = tripDuration ? `${tripDuration.nights}박 ${tripDuration.days}일` : '여행'
+  const durationText = tripDuration ? tripDurationLabel(tripDuration) : '여행'
   return [
     `${destinationName} ${durationText}`,
     `${destinationName} 먹고 쉬는 여행`,
     `${destinationName} 여유로운 주말`,
   ]
+}
+
+function tripDurationLabel(duration: TripDuration) {
+  return duration.days === 1 ? '당일치기' : `${duration.days}일 여행`
+}
+
+function tripDurationSentence(duration: TripDuration) {
+  return duration.days === 1 ? '당일치기로 준비해요.' : `총 ${duration.days}일 동안 여행해요.`
+}
+
+function getDateRangeError(startDate: string, endDate: string) {
+  if (!startDate || !endDate || startDate <= endDate) {
+    return ''
+  }
+  return '돌아오는 날은 출발일과 같거나 이후여야 합니다.'
 }
 
 function getTripDuration(startDate: string, endDate: string): TripDuration | null {
