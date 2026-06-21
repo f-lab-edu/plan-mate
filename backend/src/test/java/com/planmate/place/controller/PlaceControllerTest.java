@@ -47,14 +47,15 @@ class PlaceControllerTest {
     void autocompleteReturnsNormalizedPlaces() throws Exception {
         UserEntity user = createUser();
         String accessToken = accessToken(user);
-        given(googlePlacesService.autocomplete(eq("강릉"), eq("session-token"), eq("ko")))
+        given(googlePlacesService.autocomplete(eq("강릉"), eq("ko")))
                 .willReturn(new PlaceAutocompleteResponse(List.of(
                         new PlaceAutocompleteItemResponse(
                                 "place-gangneung",
                                 "강릉",
                                 "강원특별자치도, 대한민국",
                                 "강릉, 강원특별자치도, 대한민국",
-                                List.of("locality", "political")
+                                List.of("locality", "political"),
+                                "CITY"
                         )
                 )));
 
@@ -64,7 +65,6 @@ class PlaceControllerTest {
                         .content("""
                                 {
                                   "query": "강릉",
-                                  "sessionToken": "session-token",
                                   "languageCode": "ko"
                                 }
                                 """))
@@ -74,7 +74,8 @@ class PlaceControllerTest {
                 .andExpect(jsonPath("$.items[0].mainText").value("강릉"))
                 .andExpect(jsonPath("$.items[0].secondaryText").value("강원특별자치도, 대한민국"))
                 .andExpect(jsonPath("$.items[0].displayText").value("강릉, 강원특별자치도, 대한민국"))
-                .andExpect(jsonPath("$.items[0].types[0]").value("locality"));
+                .andExpect(jsonPath("$.items[0].types[0]").value("locality"))
+                .andExpect(jsonPath("$.items[0].searchScope").value("CITY"));
     }
 
     private UserEntity createUser() {

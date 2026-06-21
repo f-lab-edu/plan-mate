@@ -7,6 +7,7 @@ public record PlaceAutocompleteItemResponse(
         String mainText,
         String secondaryText,
         String displayText,
-        List<String> types
+        List<String> types,
+        String searchScope
 ) {
 }

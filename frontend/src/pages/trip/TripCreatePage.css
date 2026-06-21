@@ -4,16 +4,13 @@
   --planner-line: #dfe6df;
   --planner-surface: #ffffff;
   --planner-soft: #f3fbf8;
-  --planner-bg: #f4fbf8;
   --planner-green: #256a5a;
   --planner-green-strong: #17483d;
   --planner-mint: #dff5ee;
-  --planner-blue: #e8f3ff;
   --planner-accent: #49a391;
   min-height: 100vh;
   color: var(--planner-ink);
-  background:
-    linear-gradient(180deg, #eaf7f2 0%, #ffffff 45%, #eef8f6 100%);
+  background: linear-gradient(180deg, #eaf7f2 0%, #ffffff 45%, #eef8f6 100%);
 }
 
 .trip-create-nav {
@@ -21,7 +18,7 @@
   top: 0;
   z-index: 10;
   border-bottom: 1px solid rgba(33, 65, 57, 0.12);
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.84);
   backdrop-filter: blur(14px);
 }
 
@@ -95,7 +92,6 @@
   color: var(--planner-accent);
   font-size: 0.78rem;
   font-weight: 900;
-  letter-spacing: 0;
 }
 
 .trip-create-title-section h1 {
@@ -139,7 +135,6 @@
 }
 
 .trip-section-heading h2,
-.panel-heading h3,
 .next-step-card h2 {
   margin: 0;
   color: var(--planner-ink);
@@ -147,8 +142,7 @@
   line-height: 1.3;
 }
 
-.trip-section-heading p,
-.panel-heading p {
+.trip-section-heading p {
   margin: 0;
   color: var(--planner-muted);
   font-size: 0.92rem;
@@ -210,69 +204,10 @@
   white-space: nowrap;
 }
 
-.destination-entry-list {
-  display: grid;
-  gap: 12px;
-}
-
-.destination-entry-card {
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr);
-  column-gap: 14px;
-  row-gap: 4px;
-  align-items: center;
-  width: 100%;
-  border: 2px solid var(--planner-line);
-  border-radius: 20px;
-  padding: 17px;
-  color: var(--planner-ink);
-  text-align: left;
-  background: #ffffff;
-  cursor: pointer;
-  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
-}
-
-.destination-entry-card:hover,
-.destination-entry-card:focus-visible,
-.destination-entry-card.active {
-  border-color: #8bcbbb;
-  background: var(--planner-soft);
-  box-shadow: 0 14px 28px rgba(37, 106, 90, 0.12);
-  transform: translateY(-2px);
-}
-
-.destination-entry-card > span {
-  grid-row: span 2;
-  display: inline-flex;
-  width: 52px;
-  height: 52px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 16px;
-  color: #ffffff;
-  font-size: 0.7rem;
-  font-weight: 900;
-  background: linear-gradient(135deg, var(--planner-green), var(--planner-accent));
-}
-
-.destination-entry-card strong {
-  color: var(--planner-ink);
-  font-size: 1rem;
-  line-height: 1.3;
-}
-
-.destination-entry-card small {
-  color: var(--planner-muted);
-  font-size: 0.88rem;
-  font-weight: 700;
-  line-height: 1.45;
-}
-
 .destination-search-results,
-.mode-panel,
 .destination-result-panel {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .destination-search-state,
@@ -302,11 +237,6 @@
 
 .destination-search-empty strong {
   color: var(--planner-green-strong);
-}
-
-.panel-heading {
-  display: grid;
-  gap: 6px;
 }
 
 .destination-option-list {
@@ -395,9 +325,8 @@
 }
 
 .destination-option-topline em,
-.selected-destination-card span,
-.tag-row span,
-.broad-region-card span {
+.selected-destination-card em {
+  flex: 0 0 auto;
   border-radius: 999px;
   padding: 5px 9px;
   color: var(--planner-green-strong);
@@ -412,6 +341,14 @@
   font-size: 0.88rem;
   font-weight: 700;
   line-height: 1.4;
+}
+
+.destination-search-help {
+  margin: 0;
+  color: var(--planner-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.55;
 }
 
 .selected-destination-card {
@@ -435,6 +372,12 @@
     linear-gradient(135deg, var(--planner-green), var(--planner-accent));
 }
 
+.selected-destination-card span {
+  color: var(--planner-green-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
 .selected-destination-card h3 {
   margin: 8px 0 6px;
   color: var(--planner-ink);
@@ -442,231 +385,12 @@
   line-height: 1.25;
 }
 
-.selected-destination-card p,
-.selected-destination-card small {
-  display: block;
-  margin: 0;
+.selected-destination-card p {
+  margin: 0 0 8px;
   color: var(--planner-muted);
   font-size: 0.9rem;
   font-weight: 700;
   line-height: 1.5;
-}
-
-.mode-panel {
-  animation: panelFadeIn 240ms ease;
-}
-
-.region-chip-row,
-.answer-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.region-chip-row button,
-.answer-chip-row button {
-  border: 0;
-  border-radius: 999px;
-  padding: 9px 12px;
-  color: var(--planner-green-strong);
-  font-size: 0.82rem;
-  font-weight: 900;
-  background: var(--planner-mint);
-}
-
-.region-chip-row button.active,
-.answer-chip-row button.active {
-  color: #ffffff;
-  background: var(--planner-green);
-}
-
-.broad-region-card {
-  display: grid;
-  gap: 8px;
-  border: 2px solid var(--planner-line);
-  border-radius: 20px;
-  padding: 17px;
-  background: #ffffff;
-}
-
-.broad-region-card strong {
-  color: var(--planner-ink);
-  font-size: 1.2rem;
-}
-
-.broad-region-card p {
-  margin: 0;
-  color: var(--planner-muted);
-  font-size: 0.92rem;
-  font-weight: 700;
-  line-height: 1.55;
-}
-
-.suggestion-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.popular-card-list,
-.recommendation-list {
-  display: grid;
-  gap: 14px;
-}
-
-.recommended-card {
-  overflow: hidden;
-  border: 2px solid var(--planner-line);
-  border-radius: 24px;
-  background: #ffffff;
-  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
-}
-
-.recommended-card:hover {
-  border-color: #8bcbbb;
-  box-shadow: 0 16px 28px rgba(37, 106, 90, 0.1);
-  transform: translateY(-2px);
-}
-
-.recommended-card-image {
-  position: relative;
-  height: 106px;
-  background:
-    linear-gradient(135deg, rgba(37, 106, 90, 0.9), rgba(73, 163, 145, 0.72)),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.16) 1px, transparent 1px),
-    linear-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px);
-  background-size: auto, 28px 28px, 28px 28px;
-}
-
-.recommended-card-image span {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  border-radius: 999px;
-  padding: 7px 10px;
-  color: var(--planner-ink);
-  font-size: 0.76rem;
-  font-weight: 900;
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.recommended-card-body {
-  display: grid;
-  gap: 10px;
-  padding: 18px;
-}
-
-.recommended-card h3 {
-  margin: 0;
-  color: var(--planner-ink);
-  font-size: 1.12rem;
-}
-
-.recommended-card p {
-  margin: 0;
-  color: var(--planner-muted);
-  font-size: 0.9rem;
-  font-weight: 700;
-  line-height: 1.5;
-}
-
-.tag-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-
-.recommended-card button,
-.primary-action,
-.secondary-action {
-  border: 0;
-  border-radius: 16px;
-  padding: 14px 16px;
-  font-weight: 900;
-}
-
-.recommended-card button,
-.primary-action {
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--planner-green), var(--planner-accent));
-}
-
-.recommended-card button:hover,
-.primary-action:not(:disabled):hover {
-  transform: translateY(-1px);
-}
-
-.primary-action:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.secondary-action {
-  color: var(--planner-green-strong);
-  background: #edf6f3;
-}
-
-.recommendation-progress {
-  height: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e7eeee;
-}
-
-.recommendation-progress span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--planner-green), var(--planner-accent));
-  transition: width 240ms ease;
-}
-
-.undecided-step-card {
-  display: grid;
-  gap: 16px;
-  border: 2px solid var(--planner-line);
-  border-radius: 24px;
-  padding: 20px;
-  background: #ffffff;
-}
-
-.undecided-step-card > span {
-  width: fit-content;
-  border-radius: 999px;
-  padding: 7px 10px;
-  color: var(--planner-green-strong);
-  font-size: 0.78rem;
-  font-weight: 900;
-  background: var(--planner-mint);
-}
-
-.undecided-step-card h3 {
-  margin: 0;
-  color: var(--planner-ink);
-  font-size: 1.12rem;
-}
-
-.undecided-option-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.undecided-option-grid button {
-  border: 2px solid var(--planner-line);
-  border-radius: 16px;
-  padding: 16px 12px;
-  color: var(--planner-ink);
-  font-weight: 900;
-  background: #ffffff;
-}
-
-.undecided-option-grid button:hover,
-.undecided-option-grid button:focus-visible,
-.undecided-option-grid button.active {
-  border-color: #8bcbbb;
-  color: var(--planner-green-strong);
-  background: var(--planner-soft);
 }
 
 .next-step-card {
@@ -737,6 +461,33 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff 24%, #ffffff 100%);
 }
 
+.primary-action,
+.secondary-action {
+  border: 0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-weight: 900;
+}
+
+.primary-action {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--planner-green), var(--planner-accent));
+}
+
+.primary-action:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.primary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.secondary-action {
+  color: var(--planner-green-strong);
+  background: #edf6f3;
+}
+
 @keyframes panelFadeIn {
   from {
     opacity: 0;
@@ -790,18 +541,14 @@
   }
 
   .trip-create-date-grid,
-  .suggestion-grid,
-  .undecided-option-grid,
   .next-step-card {
     grid-template-columns: 1fr;
   }
 
-  .destination-entry-card,
   .selected-destination-card {
     grid-template-columns: 46px minmax(0, 1fr);
   }
 
-  .destination-entry-card > span,
   .selected-destination-icon,
   .next-step-icon {
     width: 46px;

@@ -2,7 +2,6 @@ import { bearerHeaders, request } from './client'
 
 export type PlaceAutocompleteRequest = {
   query: string
-  sessionToken: string
   languageCode?: string
 }
 
@@ -12,6 +11,7 @@ export type PlaceAutocompleteItem = {
   secondaryText: string
   displayText: string
   types: string[]
+  searchScope: 'CITY' | 'REGION'
 }
 
 export type PlaceAutocompleteResponse = {

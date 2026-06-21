@@ -32,6 +32,8 @@ public class GooglePlacesService {
             "suggestions.placePrediction.types"
     );
     private static final String DETAILS_ID_FIELD_MASK = "id";
+    private static final String CITY_COLLECTION_TYPE = "(cities)";
+    private static final String REGION_COLLECTION_TYPE = "(regions)";
 
     private final RestClient restClient;
     private final String apiKey;
@@ -46,35 +48,22 @@ public class GooglePlacesService {
         this.apiKey = apiKey;
     }
 
-    public PlaceAutocompleteResponse autocomplete(String query, String sessionToken, String languageCode) {
+    public PlaceAutocompleteResponse autocomplete(String query, String languageCode) {
         assertApiKeyConfigured();
 
-        try {
-            GoogleAutocompleteResponse response = restClient.post()
-                    .uri("/places:autocomplete")
-                    .headers(headers -> applyGoogleHeaders(headers, AUTOCOMPLETE_FIELD_MASK))
-                    .body(autocompleteRequestBody(query, sessionToken, languageCode))
-                    .retrieve()
-                    .body(GoogleAutocompleteResponse.class);
-
-            return normalizeAutocomplete(response);
-        } catch (RestClientException exception) {
-            throw new PlaceProviderUnavailableException(exception);
+        PlaceAutocompleteResponse cityResponse = autocomplete(query, languageCode, SearchScope.CITY);
+        if (!cityResponse.items().isEmpty()) {
+            return cityResponse;
         }
+        return autocomplete(query, languageCode, SearchScope.REGION);
     }
 
-    public void validatePlaceId(String placeId, String sessionToken) {
+    public void validatePlaceId(String placeId) {
         assertApiKeyConfigured();
 
         try {
             GooglePlaceDetailsResponse response = restClient.get()
-                    .uri(uriBuilder -> {
-                        var builder = uriBuilder.path("/places/{placeId}");
-                        if (StringUtils.hasText(sessionToken)) {
-                            builder.queryParam("sessionToken", sessionToken.trim());
-                        }
-                        return builder.build(placeId);
-                    })
+                    .uri(uriBuilder -> uriBuilder.path("/places/{placeId}").build(placeId))
                     .headers(headers -> applyGoogleHeaders(headers, DETAILS_ID_FIELD_MASK))
                     .retrieve()
                     .body(GooglePlaceDetailsResponse.class);
@@ -92,6 +81,21 @@ public class GooglePlacesService {
         }
     }
 
+    private PlaceAutocompleteResponse autocomplete(String query, String languageCode, SearchScope searchScope) {
+        try {
+            GoogleAutocompleteResponse response = restClient.post()
+                    .uri("/places:autocomplete")
+                    .headers(headers -> applyGoogleHeaders(headers, AUTOCOMPLETE_FIELD_MASK))
+                    .body(autocompleteRequestBody(query, languageCode, searchScope))
+                    .retrieve()
+                    .body(GoogleAutocompleteResponse.class);
+
+            return normalizeAutocomplete(response, searchScope);
+        } catch (RestClientException exception) {
+            throw new PlaceProviderUnavailableException(exception);
+        }
+    }
+
     private void assertApiKeyConfigured() {
         if (!StringUtils.hasText(apiKey)) {
             throw new PlaceProviderUnavailableException();
@@ -104,17 +108,17 @@ public class GooglePlacesService {
         headers.set(FIELD_MASK_HEADER, fieldMask);
     }
 
-    private Map<String, Object> autocompleteRequestBody(String query, String sessionToken, String languageCode) {
+    private Map<String, Object> autocompleteRequestBody(String query, String languageCode, SearchScope searchScope) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("input", query.trim());
-        body.put("sessionToken", sessionToken.trim());
+        body.put("includedPrimaryTypes", List.of(searchScope.includedPrimaryType()));
         if (StringUtils.hasText(languageCode)) {
             body.put("languageCode", languageCode.trim());
         }
         return body;
     }
 
-    private PlaceAutocompleteResponse normalizeAutocomplete(GoogleAutocompleteResponse response) {
+    private PlaceAutocompleteResponse normalizeAutocomplete(GoogleAutocompleteResponse response, SearchScope searchScope) {
         if (response == null || response.suggestions() == null) {
             return new PlaceAutocompleteResponse(List.of());
         }
@@ -124,13 +128,13 @@ public class GooglePlacesService {
                 .map(GoogleSuggestion::placePrediction)
                 .filter(Objects::nonNull)
                 .filter(prediction -> StringUtils.hasText(prediction.placeId()))
-                .map(this::toItemResponse)
+                .map(prediction -> toItemResponse(prediction, searchScope))
                 .toList();
 
         return new PlaceAutocompleteResponse(items);
     }
 
-    private PlaceAutocompleteItemResponse toItemResponse(GooglePlacePrediction prediction) {
+    private PlaceAutocompleteItemResponse toItemResponse(GooglePlacePrediction prediction, SearchScope searchScope) {
         String displayText = textValue(prediction.text());
         String mainText = textValue(prediction.structuredFormat() == null ? null : prediction.structuredFormat().mainText());
         String secondaryText = textValue(prediction.structuredFormat() == null ? null : prediction.structuredFormat().secondaryText());
@@ -147,7 +151,8 @@ public class GooglePlacesService {
                 mainText,
                 secondaryText,
                 displayText,
-                prediction.types() == null ? List.of() : List.copyOf(prediction.types())
+                prediction.types() == null ? List.of() : List.copyOf(prediction.types()),
+                searchScope.name()
         );
     }
 
@@ -191,6 +196,21 @@ public class GooglePlacesService {
     private record GooglePlaceDetailsResponse(
             String id
     ) {
+    }
+
+    private enum SearchScope {
+        CITY(CITY_COLLECTION_TYPE),
+        REGION(REGION_COLLECTION_TYPE);
+
+        private final String includedPrimaryType;
+
+        SearchScope(String includedPrimaryType) {
+            this.includedPrimaryType = includedPrimaryType;
+        }
+
+        private String includedPrimaryType() {
+            return includedPrimaryType;
+        }
     }
 
 }

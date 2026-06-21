@@ -50,7 +50,7 @@ public class TripService {
         Instant now = Instant.now(clock);
         String destinationPlaceId = request.destinationPlaceId().trim();
 
-        googlePlacesService.validatePlaceId(destinationPlaceId, request.destinationSessionToken());
+        googlePlacesService.validatePlaceId(destinationPlaceId);
 
         TripEntity trip = tripRepository.save(TripEntity.create(
                 request.title().trim(),

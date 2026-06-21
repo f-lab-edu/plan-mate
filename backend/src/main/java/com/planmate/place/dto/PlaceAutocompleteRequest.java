@@ -8,10 +8,6 @@ public record PlaceAutocompleteRequest(
         @Size(min = 2, max = 120)
         String query,
 
-        @NotBlank
-        @Size(max = 100)
-        String sessionToken,
-
         @Size(max = 10)
         String languageCode
 ) {

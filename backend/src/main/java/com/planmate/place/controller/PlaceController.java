@@ -23,7 +23,6 @@ public class PlaceController {
     public PlaceAutocompleteResponse autocomplete(@Valid @RequestBody PlaceAutocompleteRequest request) {
         return googlePlacesService.autocomplete(
                 request.query(),
-                request.sessionToken(),
                 request.languageCode()
         );
     }

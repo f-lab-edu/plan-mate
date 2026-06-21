@@ -68,7 +68,6 @@ class TripControllerTest {
                                   "title": "강릉 2박 3일",
                                   "destination": "강릉",
                                   "destinationPlaceId": "place-gangneung",
-                                  "destinationSessionToken": "session-token",
                                   "startDate": "%s",
                                   "endDate": "%s"
                                 }
@@ -187,7 +186,6 @@ class TripControllerTest {
                                   "title": "%s",
                                   "destination": "%s",
                                   "destinationPlaceId": "place-%s",
-                                  "destinationSessionToken": "session-token",
                                   "startDate": "%s",
                                   "endDate": "%s"
                                 }

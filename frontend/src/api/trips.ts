@@ -29,7 +29,6 @@ export type CreateTripRequest = {
   title: string
   destination: string
   destinationPlaceId: string
-  destinationSessionToken?: string
   startDate: string
   endDate: string
 }
