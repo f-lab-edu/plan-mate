@@ -6,6 +6,13 @@ import { autocompletePlaces } from '../../api/places'
 import type { PlaceAutocompleteItem } from '../../api/places'
 import { createTrip } from '../../api/trips'
 import type { CreateTripRequest } from '../../api/trips'
+import coupleMascotUrl from '../../assets/mascots/couple.png'
+import coworkersMascotUrl from '../../assets/mascots/coworkers.png'
+import familyMascotUrl from '../../assets/mascots/family.png'
+import friendsMascotUrl from '../../assets/mascots/friends.png'
+import otherMascotUrl from '../../assets/mascots/other.png'
+import parentsMascotUrl from '../../assets/mascots/parents.png'
+import soloMascotUrl from '../../assets/mascots/solo.png'
 import './TripCreatePage.css'
 
 type TripCreatePageProps = {
@@ -103,6 +110,15 @@ const COMPANION_OPTIONS: Array<{ id: CompanionType; label: string; description: 
   { id: 'COWORKERS', label: '동료', description: '단체 이동에 맞춰요.' },
   { id: 'OTHER', label: '기타', description: '동행 특성에 맞게 조정해요.' },
 ]
+const MASCOT_IMAGE_BY_COMPANION: Record<CompanionType, string> = {
+  SOLO: soloMascotUrl,
+  COUPLE: coupleMascotUrl,
+  FRIENDS: friendsMascotUrl,
+  FAMILY: familyMascotUrl,
+  PARENTS: parentsMascotUrl,
+  COWORKERS: coworkersMascotUrl,
+  OTHER: otherMascotUrl,
+}
 const CHILD_AGE_OPTIONS: Array<{ id: ChildAgeGroup; label: string }> = [
   { id: 'INFANT', label: '영유아' },
   { id: 'PRESCHOOL', label: '미취학' },
@@ -1342,6 +1358,7 @@ function TripConditionStep({
     return (
       <section className="trip-info-page" aria-label="일정 생성 진행">
         <GeneratingTripPanel
+          companionType={companionType}
           destination={destination}
           submitError={submitError}
           submitStatus={submitStatus}
@@ -1609,6 +1626,8 @@ function TripInfoVisual({
   tripDuration: TripDuration | null
 }) {
   const destinationName = destination?.mainText ?? '여행지'
+  const mascotImage = MASCOT_IMAGE_BY_COMPANION[companionType]
+  const mascotAlt = `${companionTypeLabel(companionType)} 여행 마스코트`
 
   return (
     <aside className={`trip-info-visual step-${infoStep.toLowerCase()}`} aria-label="단계별 여행 정보 미리보기">
@@ -1616,6 +1635,7 @@ function TripInfoVisual({
       {infoStep === 'BASIC' && (
         <>
           <div className="info-map-illustration">
+            <img className="step-mascot-image" src={mascotImage} alt="" aria-hidden="true" />
             <span className="info-map-pin">{destinationName}</span>
             <span className="info-map-route" />
             <span className="info-calendar-tile">{tripDuration ? tripDurationLabel(tripDuration) : '날짜 선택'}</span>
@@ -1630,11 +1650,11 @@ function TripInfoVisual({
 
       {infoStep === 'COMPANION' && (
         <>
-          <div className="traveler-group" aria-hidden="true">
-            {Array.from({ length: Math.min(companionCount, 4) }).map((_, index) => (
-              <span className={`traveler-avatar ${companionType.toLowerCase()}`} key={index} />
-            ))}
-            {companionCount > 4 && <strong>+{companionCount - 4}</strong>}
+          <div className="companion-mascot-stage">
+            <img className="companion-mascot-image" src={mascotImage} alt={mascotAlt} />
+            <span className="companion-count-badge">
+              총 {companionCount}명
+            </span>
           </div>
           <p>{companionTypeLabel(companionType)} 여행 · 총 {companionCount}명</p>
         </>
@@ -1643,6 +1663,7 @@ function TripInfoVisual({
       {infoStep === 'BUDGET' && (
         <>
           <div className={`budget-journey-visual level-${budgetLevel.toLowerCase()}`}>
+            <img className="step-mascot-image" src={mascotImage} alt="" aria-hidden="true" />
             <span className="budget-suitcase" />
             <span className="budget-coin coin-one" />
             <span className="budget-coin coin-two" />
@@ -1661,6 +1682,7 @@ function TripInfoVisual({
       {infoStep === 'PREFERENCE' && (
         <>
           <div className={`pace-route pace-${travelPace.toLowerCase()}`}>
+            <img className="step-mascot-image" src={mascotImage} alt="" aria-hidden="true" />
             <span>숙소</span>
             <i />
             <span>장소</span>
@@ -1679,6 +1701,7 @@ function TripInfoVisual({
       {infoStep === 'ACCOMMODATION' && (
         <>
           <div className="stay-illustration">
+            <img className="step-mascot-image" src={mascotImage} alt="" aria-hidden="true" />
             <span className="stay-building" />
             <span className="stay-pin" />
             <span className="stay-route" />
@@ -1690,6 +1713,7 @@ function TripInfoVisual({
       {infoStep === 'REQUESTS' && (
         <>
           <div className="request-illustration">
+            <img className="step-mascot-image" src={mascotImage} alt="" aria-hidden="true" />
             <span className="star-pin">{mustVisitPlaces.length}</span>
             <span className="avoid-pin">{avoidItems.length}</span>
             <span className="speech-bubble" />
@@ -1701,6 +1725,7 @@ function TripInfoVisual({
       {infoStep === 'REVIEW' && (
         <>
           <div className="review-constellation">
+            <img className="step-mascot-image" src={mascotImage} alt="" aria-hidden="true" />
             <span>{destinationName}</span>
             <span>{tripDuration ? `${tripDuration.days}일` : '기간'}</span>
             <span>{companionCount}명</span>
@@ -1843,6 +1868,7 @@ function CompanionInfoPanel({
         {COMPANION_OPTIONS.map((option) => (
           <OptionCard
             description={option.description}
+            imageSrc={MASCOT_IMAGE_BY_COMPANION[option.id]}
             isSelected={companionType === option.id}
             key={option.id}
             label={option.label}
@@ -2292,17 +2318,20 @@ function ReviewCard({
 }
 
 function GeneratingTripPanel({
+  companionType,
   destination,
   submitError,
   submitStatus,
   title,
 }: {
+  companionType: CompanionType
   destination: PlaceAutocompleteItem | null
   submitError: string
   submitStatus: AsyncStatus
   title: string
 }) {
   const destinationName = destination?.mainText ?? '여행지'
+  const mascotImage = MASCOT_IMAGE_BY_COMPANION[companionType]
   const steps = [
     '여행 정보 확인',
     '목적지 주변 장소 탐색',
@@ -2316,6 +2345,7 @@ function GeneratingTripPanel({
       <div className="generating-globe-loader" aria-hidden="true">
         <span className="loader-globe" />
         <span className="loader-route" />
+        <img className="loader-mascot-image" src={mascotImage} alt="" />
         <span className="loader-marker marker-one" />
         <span className="loader-marker marker-two" />
         <span className="loader-marker marker-three" />
@@ -2361,19 +2391,24 @@ function OptionGrid({ children, label }: { children: ReactNode; label: string })
 
 function OptionCard({
   description,
+  imageSrc,
   isSelected,
   label,
   onClick,
 }: {
   description: string
+  imageSrc?: string
   isSelected: boolean
   label: string
   onClick: () => void
 }) {
   return (
-    <button className={`option-card ${isSelected ? 'selected' : ''}`} type="button" aria-pressed={isSelected} onClick={onClick}>
-      <strong>{label}</strong>
-      <span>{description}</span>
+    <button className={`option-card ${imageSrc ? 'has-image' : ''} ${isSelected ? 'selected' : ''}`} type="button" aria-pressed={isSelected} onClick={onClick}>
+      {imageSrc && <img className="option-card-image" src={imageSrc} alt="" aria-hidden="true" />}
+      <span className="option-card-copy">
+        <strong>{label}</strong>
+        <span>{description}</span>
+      </span>
     </button>
   )
 }
