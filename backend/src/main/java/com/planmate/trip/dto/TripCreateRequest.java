@@ -30,10 +30,6 @@ public record TripCreateRequest(
         String title,
 
         @NotBlank
-        @Size(max = 60)
-        String destination,
-
-        @NotBlank
         @Size(max = 255)
         String destinationPlaceId,
 
@@ -62,6 +58,10 @@ public record TripCreateRequest(
         @Valid
         @NotNull
         AccommodationRequest accommodation,
+
+        @Valid
+        @NotNull
+        SchedulePreferenceRequest schedulePreference,
 
         @Valid
         @NotNull
@@ -177,8 +177,8 @@ public record TripCreateRequest(
 
             AccommodationArea preferredArea,
 
-            @Size(max = 120)
-            String name,
+            @Size(max = 255)
+            String placeId,
 
             LocalTime checkInTime,
 
@@ -190,12 +190,33 @@ public record TripCreateRequest(
             return mode != AccommodationMode.UNDECIDED || preferredArea != null;
         }
 
-        @AssertTrue(message = "name, checkInTime, and checkOutTime are required when accommodation is selected")
+        @AssertTrue(message = "placeId must be blank when accommodation is undecided")
+        public boolean isUndecidedPlaceIdBlank() {
+            return mode != AccommodationMode.UNDECIDED || isBlank(placeId);
+        }
+
+        @AssertTrue(message = "placeId is required when accommodation is selected")
         public boolean isSelectedAccommodationValid() {
             if (mode != AccommodationMode.PLACE_SEARCH) {
                 return true;
             }
-            return name != null && !name.isBlank() && checkInTime != null && checkOutTime != null;
+            return !isBlank(placeId);
+        }
+
+        @AssertTrue(message = "preferredArea must be null when accommodation is selected")
+        public boolean isSelectedPreferredAreaEmpty() {
+            return mode != AccommodationMode.PLACE_SEARCH || preferredArea == null;
+        }
+    }
+
+    public record SchedulePreferenceRequest(
+            LocalTime dailyStartTime,
+            LocalTime dailyEndTime
+    ) {
+
+        @AssertTrue(message = "dailyStartTime must be before dailyEndTime")
+        public boolean isDailyTimeRangeValid() {
+            return dailyStartTime == null || dailyEndTime == null || dailyStartTime.isBefore(dailyEndTime);
         }
     }
 
@@ -229,6 +250,10 @@ public record TripCreateRequest(
 
     private static boolean hasNoDuplicates(List<?> values) {
         return values == null || new HashSet<>(values).size() == values.size();
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
 }

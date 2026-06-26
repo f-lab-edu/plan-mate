@@ -5,6 +5,7 @@ import com.planmate.place.dto.PlaceAutocompleteResponse;
 import com.planmate.place.dto.GeoPoint;
 import com.planmate.place.dto.GeoViewport;
 import com.planmate.place.dto.PlaceSearchCandidate;
+import com.planmate.place.dto.PlaceSearchArea;
 import com.planmate.place.dto.PlaceTextSearchRequest;
 import com.planmate.place.dto.PlaceTextSearchResponse;
 import com.planmate.place.dto.ResolvedDestination;
@@ -37,7 +38,7 @@ public class GooglePlacesService {
             "suggestions.placePrediction.structuredFormat.secondaryText.text",
             "suggestions.placePrediction.types"
     );
-    public static final String DESTINATION_DETAILS_FIELD_MASK = String.join(",",
+    public static final String PLACE_DETAILS_FIELD_MASK = String.join(",",
             "id",
             "displayName.text",
             "formattedAddress",
@@ -50,6 +51,7 @@ public class GooglePlacesService {
             "types",
             "primaryType"
     );
+    public static final String DESTINATION_DETAILS_FIELD_MASK = PLACE_DETAILS_FIELD_MASK;
     public static final String TEXT_SEARCH_FIELD_MASK = String.join(",",
             "places.id",
             "places.displayName.text",
@@ -93,6 +95,23 @@ public class GooglePlacesService {
         return autocomplete(query, languageCode, SearchScope.REGION);
     }
 
+    public PlaceAutocompleteResponse autocompleteAccommodation(
+            String query,
+            String destinationPlaceId,
+            String languageCode,
+            String sessionToken
+    ) {
+        assertApiKeyConfigured();
+
+        ResolvedDestination destination = resolveDestination(destinationPlaceId, languageCode);
+        return autocomplete(query, new AutocompleteOptions(
+                languageCode,
+                SearchScope.ACCOMMODATION,
+                sessionToken,
+                destination
+        ));
+    }
+
     public ResolvedDestination resolveDestination(String placeId, String languageCode) {
         assertApiKeyConfigured();
 
@@ -105,7 +124,7 @@ public class GooglePlacesService {
                         }
                         return builder.build(placeId);
                     })
-                    .headers(headers -> applyGoogleHeaders(headers, DESTINATION_DETAILS_FIELD_MASK))
+                    .headers(headers -> applyGoogleHeaders(headers, PLACE_DETAILS_FIELD_MASK))
                     .retrieve()
                     .body(GooglePlaceDetailsResponse.class);
 
@@ -145,15 +164,19 @@ public class GooglePlacesService {
     }
 
     private PlaceAutocompleteResponse autocomplete(String query, String languageCode, SearchScope searchScope) {
+        return autocomplete(query, new AutocompleteOptions(languageCode, searchScope, null, null));
+    }
+
+    private PlaceAutocompleteResponse autocomplete(String query, AutocompleteOptions options) {
         try {
             GoogleAutocompleteResponse response = restClient.post()
                     .uri("/places:autocomplete")
                     .headers(headers -> applyGoogleHeaders(headers, AUTOCOMPLETE_FIELD_MASK))
-                    .body(autocompleteRequestBody(query, languageCode, searchScope))
+                    .body(autocompleteRequestBody(query, options))
                     .retrieve()
                     .body(GoogleAutocompleteResponse.class);
 
-            return normalizeAutocomplete(response, searchScope);
+            return normalizeAutocomplete(response, options.searchScope());
         } catch (RestClientException exception) {
             throw new PlaceProviderUnavailableException(exception);
         }
@@ -171,12 +194,21 @@ public class GooglePlacesService {
         headers.set(FIELD_MASK_HEADER, fieldMask);
     }
 
-    private Map<String, Object> autocompleteRequestBody(String query, String languageCode, SearchScope searchScope) {
+    private Map<String, Object> autocompleteRequestBody(String query, AutocompleteOptions options) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("input", query.trim());
-        body.put("includedPrimaryTypes", List.of(searchScope.includedPrimaryType()));
-        if (StringUtils.hasText(languageCode)) {
-            body.put("languageCode", languageCode.trim());
+        if (StringUtils.hasText(options.searchScope().includedPrimaryType())) {
+            body.put("includedPrimaryTypes", List.of(options.searchScope().includedPrimaryType()));
+        }
+        if (StringUtils.hasText(options.languageCode())) {
+            body.put("languageCode", options.languageCode().trim());
+        }
+        if (StringUtils.hasText(options.sessionToken())) {
+            body.put("sessionToken", options.sessionToken().trim());
+        }
+        Map<String, Object> locationBias = locationBias(options.locationBiasDestination());
+        if (!locationBias.isEmpty()) {
+            body.put("locationBias", locationBias);
         }
         return body;
     }
@@ -191,14 +223,33 @@ public class GooglePlacesService {
         if (StringUtils.hasText(request.pageToken())) {
             body.put("pageToken", request.pageToken().trim());
         }
-        Map<String, Object> locationRestriction = locationRestriction(request.destination());
+        Map<String, Object> locationRestriction = locationRestriction(request.searchArea());
         if (!locationRestriction.isEmpty()) {
             body.put("locationRestriction", locationRestriction);
         }
         return body;
     }
 
-    private Map<String, Object> locationRestriction(ResolvedDestination destination) {
+    private Map<String, Object> locationRestriction(PlaceSearchArea searchArea) {
+        if (searchArea == null) {
+            return Map.of();
+        }
+        if (searchArea.viewport() != null && searchArea.viewport().low() != null && searchArea.viewport().high() != null) {
+            return Map.of("rectangle", Map.of(
+                    "low", pointBody(searchArea.viewport().low()),
+                    "high", pointBody(searchArea.viewport().high())
+            ));
+        }
+        if (searchArea.center() != null) {
+            return Map.of("circle", Map.of(
+                    "center", pointBody(searchArea.center()),
+                    "radius", fallbackRadiusMeters
+            ));
+        }
+        return Map.of();
+    }
+
+    private Map<String, Object> locationBias(ResolvedDestination destination) {
         if (destination == null) {
             return Map.of();
         }
@@ -421,7 +472,8 @@ public class GooglePlacesService {
 
     private enum SearchScope {
         CITY(CITY_COLLECTION_TYPE),
-        REGION(REGION_COLLECTION_TYPE);
+        REGION(REGION_COLLECTION_TYPE),
+        ACCOMMODATION(null);
 
         private final String includedPrimaryType;
 
@@ -432,6 +484,14 @@ public class GooglePlacesService {
         private String includedPrimaryType() {
             return includedPrimaryType;
         }
+    }
+
+    private record AutocompleteOptions(
+            String languageCode,
+            SearchScope searchScope,
+            String sessionToken,
+            ResolvedDestination locationBiasDestination
+    ) {
     }
 
 }

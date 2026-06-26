@@ -1,8 +1,12 @@
 package com.planmate.trip.service;
 
+import com.planmate.place.dto.GeoPoint;
 import com.planmate.place.dto.ResolvedDestination;
 import com.planmate.place.service.GooglePlacesService;
 import com.planmate.itinerary.service.ItineraryQueryService;
+import com.planmate.trip.domain.AccommodationMode;
+import com.planmate.trip.domain.ResolvedAccommodation;
+import com.planmate.trip.domain.ResolvedSchedulePreference;
 import com.planmate.trip.dto.TripCreateRequest;
 import com.planmate.trip.dto.TripDestinationResponse;
 import com.planmate.trip.dto.TripDetailResponse;
@@ -13,6 +17,7 @@ import com.planmate.trip.dto.TripSummaryResponse;
 import com.planmate.trip.entity.TripEntity;
 import com.planmate.trip.entity.TripMemberEntity;
 import com.planmate.trip.entity.TripPlanningProfileEntity;
+import com.planmate.trip.exception.InvalidTripRequestException;
 import com.planmate.trip.exception.TripNotFoundException;
 import com.planmate.trip.repository.TripMemberRepository;
 import com.planmate.trip.repository.TripPlanningProfileRepository;
@@ -32,6 +37,7 @@ public class TripService {
     private final TripCreationPersistenceService tripCreationPersistenceService;
     private final ItineraryQueryService itineraryQueryService;
     private final GooglePlacesService googlePlacesService;
+    private final SchedulePreferenceResolver schedulePreferenceResolver;
     private final Clock clock;
 
     public TripService(
@@ -41,6 +47,7 @@ public class TripService {
             TripCreationPersistenceService tripCreationPersistenceService,
             ItineraryQueryService itineraryQueryService,
             GooglePlacesService googlePlacesService,
+            SchedulePreferenceResolver schedulePreferenceResolver,
             Clock clock
     ) {
         this.tripRepository = tripRepository;
@@ -49,15 +56,44 @@ public class TripService {
         this.tripCreationPersistenceService = tripCreationPersistenceService;
         this.itineraryQueryService = itineraryQueryService;
         this.googlePlacesService = googlePlacesService;
+        this.schedulePreferenceResolver = schedulePreferenceResolver;
         this.clock = clock;
     }
 
     public TripSummaryResponse create(Long userId, TripCreateRequest request) {
         String destinationPlaceId = request.destinationPlaceId().trim();
         ResolvedDestination destination = googlePlacesService.resolveDestination(destinationPlaceId, "ko");
-        TripEntity trip = tripCreationPersistenceService.create(userId, request, destination);
+        ResolvedAccommodation accommodation = resolveAccommodation(request.accommodation());
+        ResolvedSchedulePreference schedulePreference = schedulePreferenceResolver.resolve(request.schedulePreference());
+        TripEntity trip = tripCreationPersistenceService.create(
+                userId,
+                request,
+                destination,
+                accommodation,
+                schedulePreference
+        );
 
         return toSummaryResponse(trip, 1);
+    }
+
+    private ResolvedAccommodation resolveAccommodation(TripCreateRequest.AccommodationRequest request) {
+        if (request.mode() != AccommodationMode.PLACE_SEARCH) {
+            return null;
+        }
+        ResolvedDestination place = googlePlacesService.resolveDestination(request.placeId().trim(), "ko");
+        GeoPoint location = place.location();
+        if (location == null) {
+            throw new InvalidTripRequestException("선택한 숙소의 위치 정보를 확인할 수 없습니다.");
+        }
+        return new ResolvedAccommodation(
+                place.placeId(),
+                place.displayName(),
+                place.formattedAddress(),
+                location.latitude(),
+                location.longitude(),
+                place.types(),
+                place.primaryType()
+        );
     }
 
     @Transactional(readOnly = true)
@@ -165,8 +201,16 @@ public class TripService {
                 profile.getAccommodationMode(),
                 profile.getAccommodationArea(),
                 profile.getAccommodationName(),
+                profile.getAccommodationPlaceId(),
+                profile.getAccommodationFormattedAddress(),
+                profile.getAccommodationLatitude(),
+                profile.getAccommodationLongitude(),
+                profile.getAccommodationTypes(),
+                profile.getAccommodationPrimaryType(),
                 profile.getCheckInTime(),
                 profile.getCheckOutTime(),
+                profile.getDailyStartTime(),
+                profile.getDailyEndTime(),
                 profile.getMustVisitPlaces(),
                 profile.getAvoidConditions(),
                 profile.getFreeRequest()

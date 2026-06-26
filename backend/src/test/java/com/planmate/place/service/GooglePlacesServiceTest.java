@@ -8,14 +8,18 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withResourceNotFound;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.planmate.place.dto.GeoPoint;
 import com.planmate.place.dto.GeoViewport;
+import com.planmate.place.dto.PlaceAutocompleteResponse;
+import com.planmate.place.dto.PlaceSearchArea;
 import com.planmate.place.dto.PlaceTextSearchRequest;
 import com.planmate.place.dto.PlaceTextSearchResponse;
 import com.planmate.place.dto.ResolvedDestination;
 import com.planmate.place.exception.InvalidPlaceIdException;
+import com.planmate.place.exception.PlaceProviderUnavailableException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -89,7 +93,7 @@ class GooglePlacesServiceTest {
                 "Kyoto popular attractions",
                 "ko",
                 20,
-                destination,
+                PlaceSearchArea.of(destination.location(), destination.viewport()),
                 null
         ));
 
@@ -99,8 +103,110 @@ class GooglePlacesServiceTest {
         server.verify();
     }
 
+    @Test
+    void autocompleteAccommodationSendsRectangleLocationBiasWithoutPrimaryTypeFilter() throws Exception {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+
+        server.expect(requestTo(containsString("/places/place-kyoto")))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(fixture("google/place-details-kyoto.json"), MediaType.APPLICATION_JSON));
+        server.expect(requestTo(containsString("/places:autocomplete")))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.input").value("Dormy Inn"))
+                .andExpect(jsonPath("$.languageCode").value("ko"))
+                .andExpect(jsonPath("$.sessionToken").value("session-1"))
+                .andExpect(jsonPath("$.includedPrimaryTypes").doesNotExist())
+                .andExpect(jsonPath("$.locationBias.rectangle.low.latitude").value(34.8))
+                .andRespond(withSuccess(autocompleteFixture(), MediaType.APPLICATION_JSON));
+
+        PlaceAutocompleteResponse response = service.autocompleteAccommodation(
+                "Dormy Inn",
+                "place-kyoto",
+                "ko",
+                "session-1"
+        );
+
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().getFirst().placeId()).isEqualTo("accommodation-1");
+        assertThat(response.items().getFirst().searchScope()).isEqualTo("ACCOMMODATION");
+        server.verify();
+    }
+
+    @Test
+    void autocompleteAccommodationUsesCircleBiasWhenDestinationHasNoViewport() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+
+        server.expect(requestTo(containsString("/places/place-without-viewport")))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(placeDetailsWithoutViewportFixture(), MediaType.APPLICATION_JSON));
+        server.expect(requestTo(containsString("/places:autocomplete")))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.locationBias.circle.center.latitude").value(35.0))
+                .andExpect(jsonPath("$.locationBias.circle.radius").value(30000.0))
+                .andExpect(jsonPath("$.includedPrimaryTypes").doesNotExist())
+                .andRespond(withSuccess(autocompleteFixture(), MediaType.APPLICATION_JSON));
+
+        service.autocompleteAccommodation("Dormy Inn", "place-without-viewport", "ko", null);
+
+        server.verify();
+    }
+
+    @Test
+    void autocompleteAccommodationKeepsProviderUnavailablePolicy() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+
+        server.expect(requestTo(containsString("/places/place-kyoto")))
+                .andRespond(withServerError());
+
+        assertThatThrownBy(() -> service.autocompleteAccommodation("Dormy Inn", "place-kyoto", "ko", null))
+                .isInstanceOf(PlaceProviderUnavailableException.class);
+        server.verify();
+    }
+
     private String fixture(String path) throws IOException {
         ClassPathResource resource = new ClassPathResource(path);
         return StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
+    }
+
+    private String autocompleteFixture() {
+        return """
+                {
+                  "suggestions": [
+                    {
+                      "placePrediction": {
+                        "placeId": "accommodation-1",
+                        "text": { "text": "Dormy Inn Kyoto, Kyoto, Japan" },
+                        "structuredFormat": {
+                          "mainText": { "text": "Dormy Inn Kyoto" },
+                          "secondaryText": { "text": "Kyoto, Japan" }
+                        },
+                        "types": ["lodging", "point_of_interest", "establishment"]
+                      }
+                    }
+                  ]
+                }
+                """;
+    }
+
+    private String placeDetailsWithoutViewportFixture() {
+        return """
+                {
+                  "id": "place-without-viewport",
+                  "displayName": { "text": "No Viewport City" },
+                  "formattedAddress": "No Viewport Address",
+                  "location": {
+                    "latitude": 35.0,
+                    "longitude": 135.0
+                  },
+                  "types": ["locality"],
+                  "primaryType": "locality"
+                }
+                """;
     }
 }

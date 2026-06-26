@@ -3,6 +3,8 @@ package com.planmate.trip.service;
 import com.planmate.place.dto.GeoPoint;
 import com.planmate.place.dto.GeoViewport;
 import com.planmate.place.dto.ResolvedDestination;
+import com.planmate.trip.domain.ResolvedAccommodation;
+import com.planmate.trip.domain.ResolvedSchedulePreference;
 import com.planmate.trip.dto.TripCreateRequest;
 import com.planmate.trip.entity.TripEntity;
 import com.planmate.trip.entity.TripMemberEntity;
@@ -42,7 +44,13 @@ public class TripCreationPersistenceService {
     }
 
     @Transactional
-    public TripEntity create(Long userId, TripCreateRequest request, ResolvedDestination destination) {
+    public TripEntity create(
+            Long userId,
+            TripCreateRequest request,
+            ResolvedDestination destination,
+            ResolvedAccommodation accommodation,
+            ResolvedSchedulePreference schedulePreference
+    ) {
         UserEntity owner = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         Instant now = Instant.now(clock);
         GeoPoint location = destination.location();
@@ -69,7 +77,13 @@ public class TripCreationPersistenceService {
                 now
         ));
         tripMemberRepository.save(TripMemberEntity.owner(trip, owner, now));
-        tripPlanningProfileRepository.save(TripPlanningProfileEntity.create(trip, request, now));
+        tripPlanningProfileRepository.save(TripPlanningProfileEntity.create(
+                trip,
+                request,
+                accommodation,
+                schedulePreference,
+                now
+        ));
         return trip;
     }
 

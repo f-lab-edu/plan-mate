@@ -4,7 +4,7 @@ public record PlaceTextSearchRequest(
         String textQuery,
         String languageCode,
         int pageSize,
-        ResolvedDestination destination,
+        PlaceSearchArea searchArea,
         String pageToken
 ) {
 }

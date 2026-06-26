@@ -72,7 +72,6 @@ export type TripDetail = TripSummary & {
 
 export type CreateTripRequest = {
   title: string
-  destination: string
   destinationPlaceId: string
   startDate: string
   endDate: string
@@ -102,9 +101,13 @@ export type CreateTripRequest = {
   accommodation: {
     mode: AccommodationMode
     preferredArea: AccommodationArea | null
-    name: string | null
+    placeId: string | null
     checkInTime: string | null
     checkOutTime: string | null
+  }
+  schedulePreference: {
+    dailyStartTime: string | null
+    dailyEndTime: string | null
   }
   additionalRequest: {
     mustVisitPlaces: string[]
@@ -146,8 +149,16 @@ export type TripPlanningProfile = {
   accommodationMode: AccommodationMode
   accommodationArea: AccommodationArea | null
   accommodationName: string | null
+  accommodationPlaceId: string | null
+  accommodationFormattedAddress: string | null
+  accommodationLatitude: number | null
+  accommodationLongitude: number | null
+  accommodationTypes: string[]
+  accommodationPrimaryType: string | null
   checkInTime: string | null
   checkOutTime: string | null
+  dailyStartTime: string
+  dailyEndTime: string
   mustVisitPlaces: string[]
   avoidConditions: AvoidCondition[]
   freeRequest: string | null

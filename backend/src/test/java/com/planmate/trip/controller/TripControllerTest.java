@@ -3,6 +3,7 @@ package com.planmate.trip.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -26,6 +27,7 @@ import com.planmate.user.entity.UserEntity;
 import com.planmate.user.repository.UserRepository;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,7 +84,7 @@ class TripControllerTest {
         MvcResult result = mockMvc.perform(post("/api/trips")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(tripRequestJson("Kyoto autumn", "Kyoto", "place-kyoto", startDate, endDate)))
+                        .content(tripRequestJson("Kyoto autumn", "place-kyoto", startDate, endDate)))
                 .andExpect(status().isCreated())
                 .andExpect(header().string(HttpHeaders.LOCATION, org.hamcrest.Matchers.startsWith("/api/trips/")))
                 .andExpect(jsonPath("$.title").value("Kyoto autumn"))
@@ -108,7 +110,173 @@ class TripControllerTest {
                     assertThat(profile.getCompanionCount()).isEqualTo(3);
                     assertThat(profile.getInterests()).contains(TripInterest.FOOD, TripInterest.SIGHTSEEING);
                     assertThat(profile.getMustVisitPlaces()).containsExactly("Kiyomizu-dera");
+                    assertThat(profile.getDailyStartTime()).isEqualTo(LocalTime.of(8, 0));
+                    assertThat(profile.getDailyEndTime()).isEqualTo(LocalTime.of(20, 0));
                 });
+    }
+
+    @Test
+    void createTripStoresSelectedAccommodationSnapshotFromGoogleDetails() throws Exception {
+        UserEntity user = createUser();
+        String accessToken = accessToken(user);
+        LocalDate startDate = LocalDate.now().plusDays(10);
+        LocalDate endDate = startDate.plusDays(1);
+
+        MvcResult result = mockMvc.perform(post("/api/trips")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(tripRequestJson(
+                                "Hotel based trip",
+                                "place-fukuoka",
+                                startDate,
+                                endDate,
+                                selectedAccommodationJson("general-building-place"),
+                                schedulePreferenceJson(null, null)
+                        )))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        Long tripId = objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+
+        assertThat(tripPlanningProfileRepository.findByTrip_Id(tripId))
+                .isPresent()
+                .get()
+                .satisfies(profile -> {
+                    assertThat(profile.getAccommodationArea()).isNull();
+                    assertThat(profile.getAccommodationPlaceId()).isEqualTo("general-building-place");
+                    assertThat(profile.getAccommodationName()).isEqualTo("Resolved general-building-place");
+                    assertThat(profile.getAccommodationFormattedAddress()).isEqualTo("Resolved address");
+                    assertThat(profile.getAccommodationLatitude()).isEqualTo(35.0);
+                    assertThat(profile.getAccommodationLongitude()).isEqualTo(135.0);
+                    assertThat(profile.getAccommodationTypes()).contains("locality", "political");
+                    assertThat(profile.getAccommodationPrimaryType()).isEqualTo("locality");
+                    assertThat(profile.getCheckInTime()).isNull();
+                    assertThat(profile.getCheckOutTime()).isNull();
+                });
+    }
+
+    @Test
+    void createTripRejectsSelectedAccommodationWithoutPlaceId() throws Exception {
+        UserEntity user = createUser();
+        String accessToken = accessToken(user);
+        LocalDate startDate = LocalDate.now().plusDays(10);
+
+        mockMvc.perform(post("/api/trips")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(tripRequestJson(
+                                "Invalid accommodation",
+                                "place-seoul",
+                                startDate,
+                                startDate.plusDays(1),
+                                selectedAccommodationJson(""),
+                                schedulePreferenceJson(null, null)
+                        )))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void createTripRejectsAccommodationWithoutLocation() throws Exception {
+        given(googlePlacesService.resolveDestination(eq("no-location-place"), any()))
+                .willReturn(resolvedDestinationWithoutLocation("no-location-place"));
+        UserEntity user = createUser();
+        String accessToken = accessToken(user);
+        LocalDate startDate = LocalDate.now().plusDays(10);
+
+        mockMvc.perform(post("/api/trips")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(tripRequestJson(
+                                "No location accommodation",
+                                "place-seoul",
+                                startDate,
+                                startDate.plusDays(1),
+                                selectedAccommodationJson("no-location-place"),
+                                schedulePreferenceJson(null, null)
+                        )))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_TRIP_REQUEST"));
+    }
+
+    @Test
+    void createTripStoresCustomDailyScheduleWindow() throws Exception {
+        UserEntity user = createUser();
+        String accessToken = accessToken(user);
+        LocalDate startDate = LocalDate.now().plusDays(10);
+
+        MvcResult result = mockMvc.perform(post("/api/trips")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(tripRequestJson(
+                                "Custom window",
+                                "place-osaka",
+                                startDate,
+                                startDate.plusDays(1),
+                                undecidedAccommodationJson(),
+                                schedulePreferenceJson("09:30", "21:15")
+                        )))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        Long tripId = objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+        assertThat(tripPlanningProfileRepository.findByTrip_Id(tripId))
+                .isPresent()
+                .get()
+                .satisfies(profile -> {
+                    assertThat(profile.getDailyStartTime()).isEqualTo(LocalTime.of(9, 30));
+                    assertThat(profile.getDailyEndTime()).isEqualTo(LocalTime.of(21, 15));
+                });
+    }
+
+    @Test
+    void createTripAppliesDefaultOnlyForMissingScheduleSide() throws Exception {
+        UserEntity user = createUser();
+        String accessToken = accessToken(user);
+        LocalDate startDate = LocalDate.now().plusDays(10);
+
+        MvcResult result = mockMvc.perform(post("/api/trips")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(tripRequestJson(
+                                "Partial window",
+                                "place-osaka",
+                                startDate,
+                                startDate.plusDays(1),
+                                undecidedAccommodationJson(),
+                                schedulePreferenceJson("09:00", null)
+                        )))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        Long tripId = objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+        assertThat(tripPlanningProfileRepository.findByTrip_Id(tripId))
+                .isPresent()
+                .get()
+                .satisfies(profile -> {
+                    assertThat(profile.getDailyStartTime()).isEqualTo(LocalTime.of(9, 0));
+                    assertThat(profile.getDailyEndTime()).isEqualTo(LocalTime.of(20, 0));
+                });
+    }
+
+    @Test
+    void createTripRejectsInvalidScheduleWindow() throws Exception {
+        UserEntity user = createUser();
+        String accessToken = accessToken(user);
+        LocalDate startDate = LocalDate.now().plusDays(10);
+
+        mockMvc.perform(post("/api/trips")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(tripRequestJson(
+                                "Invalid window",
+                                "place-osaka",
+                                startDate,
+                                startDate.plusDays(1),
+                                undecidedAccommodationJson(),
+                                schedulePreferenceJson("20:00", "20:00")
+                        )))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -187,7 +355,6 @@ class TripControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(tripRequestJson(
                                 "Invalid trip",
-                                "Seoul",
                                 "place-seoul",
                                 LocalDate.of(2026, 8, 10),
                                 LocalDate.of(2026, 8, 1)
@@ -206,7 +373,7 @@ class TripControllerTest {
         MvcResult result = mockMvc.perform(post("/api/trips")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(tripRequestJson(title, destination, "place-" + destination, startDate, endDate)))
+                        .content(tripRequestJson(title, "place-" + destination, startDate, endDate)))
                 .andExpect(status().isCreated())
                 .andReturn();
 
@@ -216,15 +383,31 @@ class TripControllerTest {
 
     private String tripRequestJson(
             String title,
-            String destination,
             String destinationPlaceId,
             LocalDate startDate,
             LocalDate endDate
     ) {
+        return tripRequestJson(
+                title,
+                destinationPlaceId,
+                startDate,
+                endDate,
+                undecidedAccommodationJson(),
+                schedulePreferenceJson(null, null)
+        );
+    }
+
+    private String tripRequestJson(
+            String title,
+            String destinationPlaceId,
+            LocalDate startDate,
+            LocalDate endDate,
+            String accommodationJson,
+            String schedulePreferenceJson
+    ) {
         return """
                 {
                   "title": "%s",
-                  "destination": "%s",
                   "destinationPlaceId": "%s",
                   "startDate": "%s",
                   "endDate": "%s",
@@ -251,20 +434,51 @@ class TripControllerTest {
                     "primaryMode": "PUBLIC_TRANSIT",
                     "secondaryModes": ["WALK"]
                   },
-                  "accommodation": {
-                    "mode": "UNDECIDED",
-                    "preferredArea": "TRANSIT",
-                    "name": null,
-                    "checkInTime": null,
-                    "checkOutTime": null
-                  },
+                  "accommodation": %s,
+                  "schedulePreference": %s,
                   "additionalRequest": {
                     "mustVisitPlaces": ["Kiyomizu-dera"],
                     "avoidConditions": ["LONG_WALK"],
                     "freeRequest": "Keep lunch flexible."
                   }
                 }
-                """.formatted(title, destination, destinationPlaceId, startDate, endDate);
+                """.formatted(title, destinationPlaceId, startDate, endDate, accommodationJson, schedulePreferenceJson);
+    }
+
+    private String undecidedAccommodationJson() {
+        return """
+                {
+                  "mode": "UNDECIDED",
+                  "preferredArea": "TRANSIT",
+                  "placeId": null,
+                  "checkInTime": null,
+                  "checkOutTime": null
+                }
+                """;
+    }
+
+    private String selectedAccommodationJson(String placeId) {
+        String jsonValue = placeId == null ? "null" : "\"" + placeId + "\"";
+        return """
+                {
+                  "mode": "PLACE_SEARCH",
+                  "preferredArea": null,
+                  "placeId": %s,
+                  "checkInTime": null,
+                  "checkOutTime": null
+                }
+                """.formatted(jsonValue);
+    }
+
+    private String schedulePreferenceJson(String dailyStartTime, String dailyEndTime) {
+        String startValue = dailyStartTime == null ? "null" : "\"" + dailyStartTime + "\"";
+        String endValue = dailyEndTime == null ? "null" : "\"" + dailyEndTime + "\"";
+        return """
+                {
+                  "dailyStartTime": %s,
+                  "dailyEndTime": %s
+                }
+                """.formatted(startValue, endValue);
     }
 
     private ResolvedDestination resolvedDestination(String placeId) {
@@ -276,6 +490,18 @@ class TripControllerTest {
                 new GeoViewport(new GeoPoint(34.8, 134.8), new GeoPoint(35.2, 135.2)),
                 List.of("locality", "political"),
                 "locality"
+        );
+    }
+
+    private ResolvedDestination resolvedDestinationWithoutLocation(String placeId) {
+        return new ResolvedDestination(
+                placeId,
+                "Resolved " + placeId,
+                "Resolved address",
+                null,
+                null,
+                List.of("establishment"),
+                "establishment"
         );
     }
 

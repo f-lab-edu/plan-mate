@@ -7,6 +7,7 @@ import com.planmate.place.dto.PlaceTextSearchResponse;
 import com.planmate.place.dto.ResolvedDestination;
 import com.planmate.place.service.GooglePlacesService;
 import com.planmate.recommendation.domain.CandidateSearchCategory;
+import com.planmate.recommendation.domain.CandidateSearchAnchor;
 import com.planmate.recommendation.domain.CandidateSearchQuery;
 import com.planmate.recommendation.domain.CollectedPlaceCandidate;
 import com.planmate.recommendation.service.PlaceCandidateAccumulator.CategorizedPlaceSearchCandidate;
@@ -52,6 +53,7 @@ public class PlaceCandidateCollectionService {
     private final PlaceCandidateAccumulator accumulator;
     private final CandidateScorer scorer;
     private final CandidateSelector selector;
+    private final CandidateSearchAnchorResolver searchAnchorResolver;
     private final int targetCandidateCount;
     private final int maxRawCandidateCount;
     private final int pageSize;
@@ -65,6 +67,7 @@ public class PlaceCandidateCollectionService {
             PlaceCandidateAccumulator accumulator,
             CandidateScorer scorer,
             CandidateSelector selector,
+            CandidateSearchAnchorResolver searchAnchorResolver,
             @Value("${app.itinerary.candidates.target-count:120}") int targetCandidateCount,
             @Value("${app.itinerary.candidates.max-raw-count:180}") int maxRawCandidateCount,
             @Value("${app.itinerary.candidates.page-size:20}") int pageSize,
@@ -77,6 +80,7 @@ public class PlaceCandidateCollectionService {
         this.accumulator = accumulator;
         this.scorer = scorer;
         this.selector = selector;
+        this.searchAnchorResolver = searchAnchorResolver;
         this.targetCandidateCount = targetCandidateCount;
         this.maxRawCandidateCount = maxRawCandidateCount;
         this.pageSize = pageSize;
@@ -86,6 +90,7 @@ public class PlaceCandidateCollectionService {
     public List<CollectedPlaceCandidate> collect(ResolvedDestination destination, TripPlanningProfileEntity profile) {
         Map<CandidateSearchCategory, Integer> weights = weightCalculator.calculate(profile.getInterests());
         List<CandidateSearchQuery> queries = queryFactory.create(destination.displayName(), weights, profile.getInterests());
+        CandidateSearchAnchor searchAnchor = searchAnchorResolver.resolve(destination, profile);
         List<CategorizedPlaceSearchCandidate> collected = new ArrayList<>();
         Set<String> uniquePlaceIds = new HashSet<>();
         int rawCount = 0;
@@ -98,16 +103,16 @@ public class PlaceCandidateCollectionService {
                         query.textQuery(),
                         "ko",
                         pageSize,
-                        destination,
+                        searchAnchor.searchArea(),
                         pageToken
                 ));
                 rawCount += response.places().size();
 
                 for (PlaceSearchCandidate candidate : response.places()) {
-                    if (!isUsableCandidate(candidate, destination)) {
+                    if (!isUsableCandidate(candidate, searchAnchor)) {
                         continue;
                     }
-                    double distanceMeters = distanceCalculator.distanceMeters(destination.location(), candidate.location());
+                    double distanceMeters = distanceCalculator.distanceMeters(searchAnchor.location(), candidate.location());
                     collected.add(new CategorizedPlaceSearchCandidate(candidate, query.category(), distanceMeters));
                     uniquePlaceIds.add(candidate.placeId());
                 }
@@ -131,7 +136,7 @@ public class PlaceCandidateCollectionService {
         return selector.select(scoredCandidates, weights, targetCandidateCount);
     }
 
-    private boolean isUsableCandidate(PlaceSearchCandidate candidate, ResolvedDestination destination) {
+    private boolean isUsableCandidate(PlaceSearchCandidate candidate, CandidateSearchAnchor searchAnchor) {
         if (!StringUtils.hasText(candidate.displayName()) || !StringUtils.hasText(candidate.placeId())) {
             return false;
         }
@@ -144,7 +149,7 @@ public class PlaceCandidateCollectionService {
         if (hasBlockedType(candidate)) {
             return false;
         }
-        return isWithinDestinationRange(candidate.location(), destination);
+        return isWithinSearchRange(candidate.location(), searchAnchor);
     }
 
     private boolean hasBlockedType(PlaceSearchCandidate candidate) {
@@ -152,10 +157,13 @@ public class PlaceCandidateCollectionService {
                 || (candidate.primaryType() != null && BLOCKED_TYPES.contains(candidate.primaryType()));
     }
 
-    private boolean isWithinDestinationRange(GeoPoint point, ResolvedDestination destination) {
-        if (destination.viewport() != null && destination.viewport().contains(point)) {
+    private boolean isWithinSearchRange(GeoPoint point, CandidateSearchAnchor searchAnchor) {
+        if (searchAnchor.viewport() != null && searchAnchor.viewport().contains(point)) {
             return true;
         }
-        return distanceCalculator.distanceMeters(destination.location(), point) <= maxDistanceMeters;
+        if (searchAnchor.location() == null) {
+            return false;
+        }
+        return distanceCalculator.distanceMeters(searchAnchor.location(), point) <= maxDistanceMeters;
     }
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, CompositionEvent, FormEvent, KeyboardEvent, ReactNode } from 'react'
 import type { AuthUser } from '../../api/auth'
 import { ApiError } from '../../api/client'
-import { autocompletePlaces } from '../../api/places'
+import { autocompleteAccommodations, autocompletePlaces } from '../../api/places'
 import type { PlaceAutocompleteItem } from '../../api/places'
 import {
   createItineraryGeneration,
@@ -86,6 +86,7 @@ type InterestId =
 type TransportMode = 'WALK' | 'PUBLIC_TRANSIT' | 'RENTAL_CAR' | 'TAXI' | 'BIKE' | 'TOUR'
 type AccommodationMode = 'UNDECIDED' | 'PLACE_SEARCH'
 type AccommodationArea = 'TOURIST_CENTER' | 'TRANSIT' | 'QUIET' | 'ANYWHERE'
+type ScheduleTimeMode = 'DEFAULT' | 'CUSTOM'
 type AvoidItem =
   | 'EARLY_MORNING'
   | 'LATE_NIGHT'
@@ -98,6 +99,9 @@ type AvoidItem =
   | 'TIGHT_SCHEDULE'
 
 const MIN_DESTINATION_QUERY_LENGTH = 2
+const MIN_ACCOMMODATION_QUERY_LENGTH = 2
+const DEFAULT_DAILY_START_TIME = '08:00'
+const DEFAULT_DAILY_END_TIME = '20:00'
 const POPULAR_SEARCH_KEYWORDS = ['제주도', '강릉', '교토', '이탈리아', '방콕', '바르셀로나']
 const TRIP_INFO_STEPS: Array<{ id: Exclude<TripInfoStepId, 'GENERATING'>; label: string; shortLabel: string }> = [
   { id: 'BASIC', label: '기본 정보', shortLabel: '기본' },
@@ -249,9 +253,17 @@ export function TripCreatePage({
   const [secondaryTransportModes, setSecondaryTransportModes] = useState<TransportMode[]>(['WALK'])
   const [accommodationMode, setAccommodationMode] = useState<AccommodationMode>('UNDECIDED')
   const [accommodationArea, setAccommodationArea] = useState<AccommodationArea>('TRANSIT')
-  const [accommodationName, setAccommodationName] = useState('')
+  const [accommodationQuery, setAccommodationQuery] = useState('')
+  const [accommodationResults, setAccommodationResults] = useState<PlaceAutocompleteItem[]>([])
+  const [selectedAccommodation, setSelectedAccommodation] = useState<PlaceAutocompleteItem | null>(null)
+  const [accommodationSearchStatus, setAccommodationSearchStatus] = useState<AsyncStatus>('idle')
+  const [accommodationSearchError, setAccommodationSearchError] = useState('')
+  const [isAccommodationComposing, setIsAccommodationComposing] = useState(false)
   const [checkInTime, setCheckInTime] = useState('15:00')
   const [checkOutTime, setCheckOutTime] = useState('11:00')
+  const [scheduleTimeMode, setScheduleTimeMode] = useState<ScheduleTimeMode>('DEFAULT')
+  const [dailyStartTime, setDailyStartTime] = useState(DEFAULT_DAILY_START_TIME)
+  const [dailyEndTime, setDailyEndTime] = useState(DEFAULT_DAILY_END_TIME)
   const [mustVisitInput, setMustVisitInput] = useState('')
   const [mustVisitPlaces, setMustVisitPlaces] = useState<string[]>([])
   const [avoidItems, setAvoidItems] = useState<AvoidItem[]>([])
@@ -261,6 +273,8 @@ export function TripCreatePage({
   const searchSequenceRef = useRef(0)
   const isComposingRef = useRef(false)
   const pendingSearchAfterCompositionRef = useRef(false)
+  const accommodationSearchSequenceRef = useRef(0)
+  const accommodationComposingRef = useRef(false)
   const previewCacheRef = useRef(new Map<string, PlacePreview>())
   const visualTimerRef = useRef<number[]>([])
 
@@ -270,6 +284,9 @@ export function TripCreatePage({
   const dateRangeValid = !startDate || !endDate || startDate <= endDate
   const tripDuration = getTripDuration(startDate, endDate)
   const budgetNumericAmount = parseCurrencyAmount(budgetAmount)
+  const appliedDailyStartTime = scheduleTimeMode === 'DEFAULT' ? DEFAULT_DAILY_START_TIME : dailyStartTime
+  const appliedDailyEndTime = scheduleTimeMode === 'DEFAULT' ? DEFAULT_DAILY_END_TIME : dailyEndTime
+  const dailyScheduleRangeValid = appliedDailyStartTime < appliedDailyEndTime
   const canSearch = Boolean(
     accessToken
     && trimmedSearchQuery.length >= MIN_DESTINATION_QUERY_LENGTH
@@ -281,7 +298,9 @@ export function TripCreatePage({
     && startDate
     && endDate
     && dateRangeValid
+    && dailyScheduleRangeValid
     && interests.length > 0
+    && (accommodationMode === 'UNDECIDED' || Boolean(selectedAccommodation))
     && childAndSeniorCountValid(companionCount, hasChildren ? childCount : 0, hasSeniors ? seniorCount : 0)
     && submitStatus !== 'loading'
   )
@@ -294,6 +313,53 @@ export function TripCreatePage({
   )
 
   useEffect(() => () => clearVisualTimers(), [])
+
+  useEffect(() => {
+    if (accommodationMode !== 'PLACE_SEARCH') {
+      return
+    }
+    if (accommodationComposingRef.current) {
+      return
+    }
+    if (!confirmedDestination) {
+      return
+    }
+
+    const query = accommodationQuery.trim()
+    if (query.length < MIN_ACCOMMODATION_QUERY_LENGTH || selectedAccommodation?.displayText === accommodationQuery) {
+      return
+    }
+
+    const sequence = accommodationSearchSequenceRef.current + 1
+    accommodationSearchSequenceRef.current = sequence
+    const timerId = window.setTimeout(async () => {
+      setAccommodationSearchStatus('loading')
+      setAccommodationSearchError('')
+      try {
+        const response = await autocompleteAccommodations(accessToken, {
+          query,
+          destinationPlaceId: confirmedDestination.placeId,
+          languageCode: 'ko',
+        })
+        if (accommodationSearchSequenceRef.current !== sequence) {
+          return
+        }
+        setAccommodationResults(response.items.slice(0, 5))
+        setAccommodationSearchStatus('success')
+      } catch (error: unknown) {
+        if (accommodationSearchSequenceRef.current !== sequence) {
+          return
+        }
+        setAccommodationResults([])
+        setAccommodationSearchError(toSearchUserMessage(error))
+        setAccommodationSearchStatus('error')
+      }
+    }, 320)
+
+    return () => {
+      window.clearTimeout(timerId)
+    }
+  }, [accessToken, accommodationMode, accommodationQuery, confirmedDestination, selectedAccommodation])
 
   function clearVisualTimers() {
     visualTimerRef.current.forEach((timerId) => window.clearTimeout(timerId))
@@ -517,7 +583,8 @@ export function TripCreatePage({
       budgetLevel,
       interests,
       accommodationMode,
-      accommodationName,
+      selectedAccommodation,
+      dailyScheduleRangeValid,
     })
 
     if (error) {
@@ -595,6 +662,61 @@ export function TripCreatePage({
     setSecondaryTransportModes((current) => toggleArrayValue(current, mode))
   }
 
+  function handleAccommodationModeChange(nextMode: AccommodationMode) {
+    setAccommodationMode(nextMode)
+    setAccommodationSearchError('')
+    setFormError('')
+    if (nextMode === 'UNDECIDED') {
+      setAccommodationQuery('')
+      setAccommodationResults([])
+      setSelectedAccommodation(null)
+      setAccommodationSearchStatus('idle')
+      return
+    }
+    setAccommodationArea('TRANSIT')
+  }
+
+  function handleAccommodationQueryChange(value: string) {
+    setAccommodationQuery(value)
+    setAccommodationSearchError('')
+    setFormError('')
+    if (value.trim().length < MIN_ACCOMMODATION_QUERY_LENGTH || selectedAccommodation?.displayText === value) {
+      setAccommodationResults([])
+      setAccommodationSearchStatus('idle')
+    }
+    if (selectedAccommodation && value !== selectedAccommodation.displayText) {
+      setSelectedAccommodation(null)
+    }
+  }
+
+  function handleAccommodationCompositionStart() {
+    accommodationComposingRef.current = true
+    setIsAccommodationComposing(true)
+  }
+
+  function handleAccommodationCompositionEnd(event: CompositionEvent<HTMLInputElement>) {
+    accommodationComposingRef.current = false
+    setIsAccommodationComposing(false)
+    setAccommodationQuery(event.currentTarget.value)
+  }
+
+  function handleAccommodationSelect(candidate: PlaceAutocompleteItem) {
+    setSelectedAccommodation(candidate)
+    setAccommodationQuery(candidate.displayText || candidate.mainText)
+    setAccommodationResults([])
+    setAccommodationSearchError('')
+    setFormError('')
+  }
+
+  function handleScheduleTimeModeChange(nextMode: ScheduleTimeMode) {
+    setScheduleTimeMode(nextMode)
+    setFormError('')
+    if (nextMode === 'DEFAULT') {
+      setDailyStartTime(DEFAULT_DAILY_START_TIME)
+      setDailyEndTime(DEFAULT_DAILY_END_TIME)
+    }
+  }
+
   function toggleAvoidItem(item: AvoidItem) {
     setAvoidItems((current) => toggleArrayValue(current, item))
   }
@@ -643,7 +765,8 @@ export function TripCreatePage({
       budgetLevel,
       interests,
       accommodationMode,
-      accommodationName,
+      selectedAccommodation,
+      dailyScheduleRangeValid,
     })
 
     if (reviewError) {
@@ -654,7 +777,6 @@ export function TripCreatePage({
 
     const payload: CreateTripRequest = {
       title: trimmedTitle,
-      destination: confirmedDestination.displayText,
       destinationPlaceId: confirmedDestination.placeId,
       startDate,
       endDate,
@@ -684,9 +806,13 @@ export function TripCreatePage({
       accommodation: {
         mode: accommodationMode,
         preferredArea: accommodationMode === 'UNDECIDED' ? accommodationArea : null,
-        name: accommodationMode === 'PLACE_SEARCH' ? accommodationName.trim() : null,
-        checkInTime: accommodationMode === 'PLACE_SEARCH' ? checkInTime : null,
-        checkOutTime: accommodationMode === 'PLACE_SEARCH' ? checkOutTime : null,
+        placeId: accommodationMode === 'PLACE_SEARCH' ? selectedAccommodation?.placeId ?? null : null,
+        checkInTime: accommodationMode === 'PLACE_SEARCH' ? checkInTime || null : null,
+        checkOutTime: accommodationMode === 'PLACE_SEARCH' ? checkOutTime || null : null,
+      },
+      schedulePreference: {
+        dailyStartTime: scheduleTimeMode === 'CUSTOM' ? dailyStartTime : null,
+        dailyEndTime: scheduleTimeMode === 'CUSTOM' ? dailyEndTime : null,
       },
       additionalRequest: {
         mustVisitPlaces,
@@ -862,9 +988,19 @@ export function TripCreatePage({
           secondaryTransportModes={secondaryTransportModes}
           accommodationMode={accommodationMode}
           accommodationArea={accommodationArea}
-          accommodationName={accommodationName}
+          accommodationQuery={accommodationQuery}
+          accommodationResults={accommodationResults}
+          selectedAccommodation={selectedAccommodation}
+          accommodationSearchStatus={accommodationSearchStatus}
+          accommodationSearchError={accommodationSearchError}
+          isAccommodationComposing={isAccommodationComposing}
           checkInTime={checkInTime}
           checkOutTime={checkOutTime}
+          scheduleTimeMode={scheduleTimeMode}
+          dailyStartTime={dailyStartTime}
+          dailyEndTime={dailyEndTime}
+          appliedDailyStartTime={appliedDailyStartTime}
+          appliedDailyEndTime={appliedDailyEndTime}
           mustVisitInput={mustVisitInput}
           mustVisitPlaces={mustVisitPlaces}
           avoidItems={avoidItems}
@@ -934,11 +1070,17 @@ export function TripCreatePage({
             setSecondaryTransportModes((current) => current.filter((item) => item !== mode))
           }}
           onSecondaryTransportToggle={toggleSecondaryTransport}
-          onAccommodationModeChange={setAccommodationMode}
+          onAccommodationModeChange={handleAccommodationModeChange}
           onAccommodationAreaChange={setAccommodationArea}
-          onAccommodationNameChange={setAccommodationName}
+          onAccommodationQueryChange={handleAccommodationQueryChange}
+          onAccommodationSelect={handleAccommodationSelect}
+          onAccommodationCompositionStart={handleAccommodationCompositionStart}
+          onAccommodationCompositionEnd={handleAccommodationCompositionEnd}
           onCheckInTimeChange={setCheckInTime}
           onCheckOutTimeChange={setCheckOutTime}
+          onScheduleTimeModeChange={handleScheduleTimeModeChange}
+          onDailyStartTimeChange={setDailyStartTime}
+          onDailyEndTimeChange={setDailyEndTime}
           onMustVisitInputChange={setMustVisitInput}
           onMustVisitAdd={addMustVisitPlace}
           onMustVisitRemove={removeMustVisitPlace}
@@ -1358,9 +1500,19 @@ function TripConditionStep({
   secondaryTransportModes,
   accommodationMode,
   accommodationArea,
-  accommodationName,
+  accommodationQuery,
+  accommodationResults,
+  selectedAccommodation,
+  accommodationSearchStatus,
+  accommodationSearchError,
+  isAccommodationComposing,
   checkInTime,
   checkOutTime,
+  scheduleTimeMode,
+  dailyStartTime,
+  dailyEndTime,
+  appliedDailyStartTime,
+  appliedDailyEndTime,
   mustVisitInput,
   mustVisitPlaces,
   avoidItems,
@@ -1404,9 +1556,15 @@ function TripConditionStep({
   onSecondaryTransportToggle,
   onAccommodationModeChange,
   onAccommodationAreaChange,
-  onAccommodationNameChange,
+  onAccommodationQueryChange,
+  onAccommodationSelect,
+  onAccommodationCompositionStart,
+  onAccommodationCompositionEnd,
   onCheckInTimeChange,
   onCheckOutTimeChange,
+  onScheduleTimeModeChange,
+  onDailyStartTimeChange,
+  onDailyEndTimeChange,
   onMustVisitInputChange,
   onMustVisitAdd,
   onMustVisitRemove,
@@ -1443,9 +1601,19 @@ function TripConditionStep({
   secondaryTransportModes: TransportMode[]
   accommodationMode: AccommodationMode
   accommodationArea: AccommodationArea
-  accommodationName: string
+  accommodationQuery: string
+  accommodationResults: PlaceAutocompleteItem[]
+  selectedAccommodation: PlaceAutocompleteItem | null
+  accommodationSearchStatus: AsyncStatus
+  accommodationSearchError: string
+  isAccommodationComposing: boolean
   checkInTime: string
   checkOutTime: string
+  scheduleTimeMode: ScheduleTimeMode
+  dailyStartTime: string
+  dailyEndTime: string
+  appliedDailyStartTime: string
+  appliedDailyEndTime: string
   mustVisitInput: string
   mustVisitPlaces: string[]
   avoidItems: AvoidItem[]
@@ -1489,9 +1657,15 @@ function TripConditionStep({
   onSecondaryTransportToggle: (value: TransportMode) => void
   onAccommodationModeChange: (value: AccommodationMode) => void
   onAccommodationAreaChange: (value: AccommodationArea) => void
-  onAccommodationNameChange: (value: string) => void
+  onAccommodationQueryChange: (value: string) => void
+  onAccommodationSelect: (value: PlaceAutocompleteItem) => void
+  onAccommodationCompositionStart: () => void
+  onAccommodationCompositionEnd: (event: CompositionEvent<HTMLInputElement>) => void
   onCheckInTimeChange: (value: string) => void
   onCheckOutTimeChange: (value: string) => void
+  onScheduleTimeModeChange: (value: ScheduleTimeMode) => void
+  onDailyStartTimeChange: (value: string) => void
+  onDailyEndTimeChange: (value: string) => void
   onMustVisitInputChange: (value: string) => void
   onMustVisitAdd: () => void
   onMustVisitRemove: (value: string) => void
@@ -1526,7 +1700,9 @@ function TripConditionStep({
     secondaryTransportModes,
     accommodationMode,
     accommodationArea,
-    accommodationName,
+    selectedAccommodation,
+    appliedDailyStartTime,
+    appliedDailyEndTime,
     mustVisitPlaces,
     avoidItems,
     freeRequest,
@@ -1663,14 +1839,28 @@ function TripConditionStep({
             <AccommodationInfoPanel
               accommodationArea={accommodationArea}
               accommodationMode={accommodationMode}
-              accommodationName={accommodationName}
+              accommodationQuery={accommodationQuery}
+              accommodationResults={accommodationResults}
+              selectedAccommodation={selectedAccommodation}
+              accommodationSearchStatus={accommodationSearchStatus}
+              accommodationSearchError={accommodationSearchError}
+              isAccommodationComposing={isAccommodationComposing}
               checkInTime={checkInTime}
               checkOutTime={checkOutTime}
+              scheduleTimeMode={scheduleTimeMode}
+              dailyStartTime={dailyStartTime}
+              dailyEndTime={dailyEndTime}
               onAccommodationAreaChange={onAccommodationAreaChange}
               onAccommodationModeChange={onAccommodationModeChange}
-              onAccommodationNameChange={onAccommodationNameChange}
+              onAccommodationQueryChange={onAccommodationQueryChange}
+              onAccommodationSelect={onAccommodationSelect}
+              onAccommodationCompositionStart={onAccommodationCompositionStart}
+              onAccommodationCompositionEnd={onAccommodationCompositionEnd}
               onCheckInTimeChange={onCheckInTimeChange}
               onCheckOutTimeChange={onCheckOutTimeChange}
+              onScheduleTimeModeChange={onScheduleTimeModeChange}
+              onDailyStartTimeChange={onDailyStartTimeChange}
+              onDailyEndTimeChange={onDailyEndTimeChange}
             />
           )}
 
@@ -1752,7 +1942,9 @@ type TripInfoSummaryData = {
   secondaryTransportModes: TransportMode[]
   accommodationMode: AccommodationMode
   accommodationArea: AccommodationArea
-  accommodationName: string
+  selectedAccommodation: PlaceAutocompleteItem | null
+  appliedDailyStartTime: string
+  appliedDailyEndTime: string
   mustVisitPlaces: string[]
   avoidItems: AvoidItem[]
   freeRequest: string
@@ -2274,26 +2466,57 @@ function PreferenceInfoPanel({
 function AccommodationInfoPanel({
   accommodationArea,
   accommodationMode,
-  accommodationName,
+  accommodationQuery,
+  accommodationResults,
+  selectedAccommodation,
+  accommodationSearchStatus,
+  accommodationSearchError,
+  isAccommodationComposing,
   checkInTime,
   checkOutTime,
+  scheduleTimeMode,
+  dailyStartTime,
+  dailyEndTime,
   onAccommodationAreaChange,
   onAccommodationModeChange,
-  onAccommodationNameChange,
+  onAccommodationQueryChange,
+  onAccommodationSelect,
+  onAccommodationCompositionStart,
+  onAccommodationCompositionEnd,
   onCheckInTimeChange,
   onCheckOutTimeChange,
+  onScheduleTimeModeChange,
+  onDailyStartTimeChange,
+  onDailyEndTimeChange,
 }: {
   accommodationArea: AccommodationArea
   accommodationMode: AccommodationMode
-  accommodationName: string
+  accommodationQuery: string
+  accommodationResults: PlaceAutocompleteItem[]
+  selectedAccommodation: PlaceAutocompleteItem | null
+  accommodationSearchStatus: AsyncStatus
+  accommodationSearchError: string
+  isAccommodationComposing: boolean
   checkInTime: string
   checkOutTime: string
+  scheduleTimeMode: ScheduleTimeMode
+  dailyStartTime: string
+  dailyEndTime: string
   onAccommodationAreaChange: (value: AccommodationArea) => void
   onAccommodationModeChange: (value: AccommodationMode) => void
-  onAccommodationNameChange: (value: string) => void
+  onAccommodationQueryChange: (value: string) => void
+  onAccommodationSelect: (value: PlaceAutocompleteItem) => void
+  onAccommodationCompositionStart: () => void
+  onAccommodationCompositionEnd: (event: CompositionEvent<HTMLInputElement>) => void
   onCheckInTimeChange: (value: string) => void
   onCheckOutTimeChange: (value: string) => void
+  onScheduleTimeModeChange: (value: ScheduleTimeMode) => void
+  onDailyStartTimeChange: (value: string) => void
+  onDailyEndTimeChange: (value: string) => void
 }) {
+  const canShowAccommodationResults =
+    accommodationMode === 'PLACE_SEARCH' && accommodationResults.length > 0 && !selectedAccommodation
+
   return (
     <div className="trip-info-fields">
       <OptionGrid label="숙소 상태">
@@ -2321,30 +2544,103 @@ function AccommodationInfoPanel({
         </OptionGrid>
       )}
 
-      {accommodationMode !== 'UNDECIDED' && (
-        <label className="trip-info-field">
-          <span>숙소 검색어</span>
-          <input
-            placeholder="예: 하카타역 근처 호텔"
-            value={accommodationName}
-            onChange={(event) => onAccommodationNameChange(event.target.value)}
-          />
-          {accommodationMode === 'PLACE_SEARCH' && (
-            <small>숙소 Places 검색은 다음 연동 단계에서 정확한 후보 선택으로 연결됩니다.</small>
+      {accommodationMode === 'PLACE_SEARCH' && (
+        <div className="input-cluster">
+          <div className="cluster-heading">
+            <strong>숙소 검색</strong>
+            <span>{selectedAccommodation ? '선택 완료' : 'Google Places'}</span>
+          </div>
+          <label className="trip-info-field">
+            <span>숙소명 또는 주소</span>
+            <input
+              placeholder="예: 도미인 프리미엄 하카타"
+              value={accommodationQuery}
+              onChange={(event) => onAccommodationQueryChange(event.target.value)}
+              onCompositionEnd={onAccommodationCompositionEnd}
+              onCompositionStart={onAccommodationCompositionStart}
+            />
+            {isAccommodationComposing && <small>한글 입력이 끝나면 검색을 시작합니다.</small>}
+            {!isAccommodationComposing
+              && accommodationQuery.trim().length > 0
+              && accommodationQuery.trim().length < MIN_ACCOMMODATION_QUERY_LENGTH
+              && <small>2글자 이상 입력하면 숙소를 검색합니다.</small>}
+            {accommodationSearchStatus === 'loading' && <small>숙소를 검색하고 있어요.</small>}
+            {accommodationSearchError && <small className="field-error">{accommodationSearchError}</small>}
+          </label>
+
+          {canShowAccommodationResults && (
+            <ul className="accommodation-result-list" aria-label="숙소 검색 결과">
+              {accommodationResults.map((candidate) => (
+                <li key={candidate.placeId}>
+                  <button type="button" onClick={() => onAccommodationSelect(candidate)}>
+                    <strong>{candidate.mainText}</strong>
+                    {candidate.secondaryText && <span>{candidate.secondaryText}</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
-        </label>
+
+          {selectedAccommodation && (
+            <article className="selected-accommodation-card">
+              <strong>{selectedAccommodation.mainText}</strong>
+              <span>{selectedAccommodation.secondaryText || selectedAccommodation.displayText}</span>
+            </article>
+          )}
+        </div>
       )}
 
-      <div className="trip-date-range-card time-range">
-        <label>
-          <span>체크인</span>
-          <input type="time" value={checkInTime} onChange={(event) => onCheckInTimeChange(event.target.value)} />
-        </label>
-        <span className="date-range-connector" aria-hidden="true" />
-        <label>
-          <span>체크아웃</span>
-          <input type="time" value={checkOutTime} onChange={(event) => onCheckOutTimeChange(event.target.value)} />
-        </label>
+      {accommodationMode === 'PLACE_SEARCH' && (
+        <div className="trip-date-range-card time-range">
+          <label>
+            <span>체크인</span>
+            <input type="time" value={checkInTime} onChange={(event) => onCheckInTimeChange(event.target.value)} />
+          </label>
+          <span className="date-range-connector" aria-hidden="true" />
+          <label>
+            <span>체크아웃</span>
+            <input type="time" value={checkOutTime} onChange={(event) => onCheckOutTimeChange(event.target.value)} />
+          </label>
+        </div>
+      )}
+
+      <div className="input-cluster schedule-time-panel">
+        <div className="cluster-heading">
+          <strong>하루 일정 시간</strong>
+          <span>
+            {scheduleTimeMode === 'DEFAULT'
+              ? `${DEFAULT_DAILY_START_TIME} ~ ${DEFAULT_DAILY_END_TIME}`
+              : `${dailyStartTime} ~ ${dailyEndTime}`}
+          </span>
+        </div>
+        <div className="option-card-grid compact">
+          <ToggleCard
+            isSelected={scheduleTimeMode === 'DEFAULT'}
+            label="기본 시간 사용"
+            onClick={() => onScheduleTimeModeChange('DEFAULT')}
+          />
+          <ToggleCard
+            isSelected={scheduleTimeMode === 'CUSTOM'}
+            label="직접 설정"
+            onClick={() => onScheduleTimeModeChange('CUSTOM')}
+          />
+        </div>
+        {scheduleTimeMode === 'DEFAULT' && (
+          <p className="schedule-time-help">기본적으로 오전 8시부터 오후 8시까지 일정을 만들어요.</p>
+        )}
+        {scheduleTimeMode === 'CUSTOM' && (
+          <div className="trip-date-range-card time-range">
+            <label>
+              <span>일정 시작</span>
+              <input type="time" value={dailyStartTime} onChange={(event) => onDailyStartTimeChange(event.target.value)} />
+            </label>
+            <span className="date-range-connector" aria-hidden="true" />
+            <label>
+              <span>일정 종료</span>
+              <input type="time" value={dailyEndTime} onChange={(event) => onDailyEndTimeChange(event.target.value)} />
+            </label>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -2468,7 +2764,19 @@ function ReviewInfoPanel({
 
       <ReviewCard title="숙소" onEdit={() => onEditStep('ACCOMMODATION')}>
         <strong>{accommodationModeLabel(summary.accommodationMode)}</strong>
-        <span>{summary.accommodationName || accommodationAreaLabel(summary.accommodationArea)}</span>
+        <span>
+          {summary.accommodationMode === 'PLACE_SEARCH'
+            ? summary.selectedAccommodation?.mainText ?? '숙소 선택 전'
+            : accommodationAreaLabel(summary.accommodationArea)}
+        </span>
+        {summary.accommodationMode === 'PLACE_SEARCH' && summary.selectedAccommodation?.secondaryText && (
+          <span>{summary.selectedAccommodation.secondaryText}</span>
+        )}
+      </ReviewCard>
+
+      <ReviewCard title="하루 일정 시간" onEdit={() => onEditStep('ACCOMMODATION')}>
+        <strong>{summary.appliedDailyStartTime} ~ {summary.appliedDailyEndTime}</strong>
+        <span>일정을 배치할 수 있는 하루 기준 시간입니다.</span>
       </ReviewCard>
 
       <ReviewCard title="추가 요청" onEdit={() => onEditStep('REQUESTS')}>
@@ -2857,7 +3165,8 @@ function getTripInfoStepError(
     budgetLevel: BudgetLevel
     interests: InterestId[]
     accommodationMode: AccommodationMode
-    accommodationName: string
+    selectedAccommodation: PlaceAutocompleteItem | null
+    dailyScheduleRangeValid: boolean
   },
 ) {
   const shouldValidateBasic = step === 'BASIC' || step === 'REVIEW'
@@ -2895,8 +3204,12 @@ function getTripInfoStepError(
     return '관심사를 최소 1개 선택해 주세요.'
   }
 
-  if (shouldValidateAccommodation && values.accommodationMode !== 'UNDECIDED' && !values.accommodationName.trim()) {
-    return '숙소 이름 또는 검색어를 입력해 주세요.'
+  if (shouldValidateAccommodation && values.accommodationMode === 'PLACE_SEARCH' && !values.selectedAccommodation) {
+    return '검색 결과에서 숙소를 선택해 주세요.'
+  }
+
+  if (shouldValidateAccommodation && !values.dailyScheduleRangeValid) {
+    return '하루 일정 시작 시간은 종료 시간보다 빨라야 합니다.'
   }
 
   return ''
@@ -3071,7 +3384,13 @@ function toPlacePreview(candidate: PlaceAutocompleteItem): PlacePreview {
 }
 
 function searchScopeLabel(searchScope: PlaceAutocompleteItem['searchScope']) {
-  return searchScope === 'CITY' ? '도시' : '지역'
+  if (searchScope === 'CITY') {
+    return '도시'
+  }
+  if (searchScope === 'REGION') {
+    return '지역'
+  }
+  return '숙소'
 }
 
 function toSearchUserMessage(error: unknown) {

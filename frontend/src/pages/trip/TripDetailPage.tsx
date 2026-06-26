@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { AuthUser } from '../../api/auth'
 import { ApiError } from '../../api/client'
 import { getTripDetail } from '../../api/trips'
-import type { Itinerary, ItineraryItem, TripDetail, TripMember } from '../../api/trips'
+import type { Itinerary, ItineraryItem, TripDetail, TripMember, TripPlanningProfile } from '../../api/trips'
 import './TripDetailPage.css'
 
 type TripDetailPageProps = {
@@ -137,6 +137,7 @@ function TripPlanningWorkspace({
   return (
     <section className="planning-board" aria-label="여행 상세 플래닝 보드">
       <PlanningHeader trip={trip} members={trip.members} onBackToMain={onBackToMain} onLogout={onLogout} />
+      {trip.planningProfile && <PlanningProfileSummary profile={trip.planningProfile} />}
       {latestItinerary ? (
         <div className="planning-layout">
           <ItinerarySidebar
@@ -162,6 +163,30 @@ function TripPlanningWorkspace({
           <p>manual handoff에서 ChatGPT 응답 JSON을 제출하면 이 화면에 실제 일정이 표시됩니다.</p>
         </section>
       )}
+    </section>
+  )
+}
+
+function PlanningProfileSummary({ profile }: { profile: TripPlanningProfile }) {
+  const accommodationTitle = profile.accommodationMode === 'PLACE_SEARCH'
+    ? profile.accommodationName ?? '선택된 숙소'
+    : '숙소 미정'
+  const accommodationDescription = profile.accommodationMode === 'PLACE_SEARCH'
+    ? profile.accommodationFormattedAddress ?? 'Google Places에서 선택한 숙소'
+    : accommodationAreaLabel(profile.accommodationArea)
+
+  return (
+    <section className="planning-profile-summary" aria-label="저장된 여행 설정">
+      <article>
+        <span>숙소</span>
+        <strong>{accommodationTitle}</strong>
+        <p>{accommodationDescription}</p>
+      </article>
+      <article>
+        <span>하루 일정 시간</span>
+        <strong>{formatTime(profile.dailyStartTime)} ~ {formatTime(profile.dailyEndTime)}</strong>
+        <p>일정을 배치할 수 있는 하루 기준 시간입니다.</p>
+      </article>
     </section>
   )
 }
@@ -410,6 +435,25 @@ function formatDate(value: string) {
     day: 'numeric',
     weekday: 'short',
   }).format(new Date(`${value}T00:00:00`))
+}
+
+function formatTime(value: string) {
+  return value.slice(0, 5)
+}
+
+function accommodationAreaLabel(value: TripPlanningProfile['accommodationArea']) {
+  switch (value) {
+    case 'TOURIST_CENTER':
+      return '중심 관광지 근처'
+    case 'TRANSIT':
+      return '대중교통이 편한 곳'
+    case 'QUIET':
+      return '조용한 지역'
+    case 'ANYWHERE':
+      return '지역 상관없음'
+    default:
+      return '선호 숙소 지역 없음'
+  }
 }
 
 function errorMessageFrom(error: unknown) {

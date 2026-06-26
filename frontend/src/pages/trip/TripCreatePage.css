@@ -1956,6 +1956,10 @@
   line-height: 1.45;
 }
 
+.trip-info-field .field-error {
+  color: #b5472f;
+}
+
 .trip-info-field input:focus,
 .trip-info-field select:focus,
 .trip-info-field textarea:focus,
@@ -2088,10 +2092,59 @@
   color: var(--trip-muted);
 }
 
+.accommodation-result-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.accommodation-result-list button,
+.selected-accommodation-card {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  border: 1px solid rgba(27, 78, 66, 0.14);
+  border-radius: 18px;
+  padding: 14px 16px;
+  color: var(--trip-ink);
+  text-align: left;
+  background: rgba(255, 250, 240, 0.82);
+}
+
+.accommodation-result-list button:hover,
+.accommodation-result-list button:focus-visible {
+  border-color: rgba(27, 78, 66, 0.34);
+  box-shadow: 0 12px 22px rgba(45, 43, 32, 0.1);
+  transform: translateY(-2px);
+}
+
+.accommodation-result-list strong,
+.selected-accommodation-card strong {
+  color: var(--trip-green);
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+.accommodation-result-list span,
+.selected-accommodation-card span,
+.schedule-time-help {
+  margin: 0;
+  color: var(--trip-muted);
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
 .option-card-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.option-card-grid.compact .toggle-card {
+  min-height: 58px;
 }
 
 .option-card,

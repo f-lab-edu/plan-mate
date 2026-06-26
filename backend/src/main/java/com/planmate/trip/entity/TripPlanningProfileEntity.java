@@ -8,6 +8,8 @@ import com.planmate.trip.domain.BudgetLevel;
 import com.planmate.trip.domain.ChildAgeGroup;
 import com.planmate.trip.domain.CompanionType;
 import com.planmate.trip.domain.CurrencyCode;
+import com.planmate.trip.domain.ResolvedAccommodation;
+import com.planmate.trip.domain.ResolvedSchedulePreference;
 import com.planmate.trip.domain.TransportMode;
 import com.planmate.trip.domain.TravelPace;
 import com.planmate.trip.domain.TripInterest;
@@ -106,11 +108,36 @@ public class TripPlanningProfileEntity {
     @Column(length = 120)
     private String accommodationName;
 
+    @Column(length = 255)
+    private String accommodationPlaceId;
+
+    @Column(length = 255)
+    private String accommodationFormattedAddress;
+
+    @Column
+    private Double accommodationLatitude;
+
+    @Column
+    private Double accommodationLongitude;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
+    private List<String> accommodationTypes;
+
+    @Column(length = 100)
+    private String accommodationPrimaryType;
+
     @Column
     private LocalTime checkInTime;
 
     @Column
     private LocalTime checkOutTime;
+
+    @Column(nullable = false)
+    private LocalTime dailyStartTime;
+
+    @Column(nullable = false)
+    private LocalTime dailyEndTime;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
@@ -132,7 +159,13 @@ public class TripPlanningProfileEntity {
     protected TripPlanningProfileEntity() {
     }
 
-    private TripPlanningProfileEntity(TripEntity trip, TripCreateRequest request, Instant now) {
+    private TripPlanningProfileEntity(
+            TripEntity trip,
+            TripCreateRequest request,
+            ResolvedAccommodation resolvedAccommodation,
+            ResolvedSchedulePreference schedulePreference,
+            Instant now
+    ) {
         TripCreateRequest.CompanionRequest companion = request.companion();
         TripCreateRequest.BudgetRequest budget = request.budget();
         TripCreateRequest.PreferenceRequest preferences = request.preferences();
@@ -157,10 +190,18 @@ public class TripPlanningProfileEntity {
         this.primaryTransportMode = transportation.primaryMode();
         this.secondaryTransportModes = List.copyOf(transportation.secondaryModes());
         this.accommodationMode = accommodation.mode();
-        this.accommodationArea = accommodation.preferredArea();
-        this.accommodationName = normalize(accommodation.name());
+        this.accommodationArea = accommodation.mode() == AccommodationMode.UNDECIDED ? accommodation.preferredArea() : null;
+        this.accommodationName = resolvedAccommodation == null ? null : resolvedAccommodation.name();
+        this.accommodationPlaceId = resolvedAccommodation == null ? null : resolvedAccommodation.placeId();
+        this.accommodationFormattedAddress = resolvedAccommodation == null ? null : resolvedAccommodation.formattedAddress();
+        this.accommodationLatitude = resolvedAccommodation == null ? null : resolvedAccommodation.latitude();
+        this.accommodationLongitude = resolvedAccommodation == null ? null : resolvedAccommodation.longitude();
+        this.accommodationTypes = resolvedAccommodation == null ? List.of() : List.copyOf(resolvedAccommodation.types());
+        this.accommodationPrimaryType = resolvedAccommodation == null ? null : resolvedAccommodation.primaryType();
         this.checkInTime = accommodation.checkInTime();
         this.checkOutTime = accommodation.checkOutTime();
+        this.dailyStartTime = schedulePreference.dailyStartTime();
+        this.dailyEndTime = schedulePreference.dailyEndTime();
         this.mustVisitPlaces = additionalRequest.mustVisitPlaces()
                 .stream()
                 .map(String::trim)
@@ -172,8 +213,14 @@ public class TripPlanningProfileEntity {
         this.updatedAt = now;
     }
 
-    public static TripPlanningProfileEntity create(TripEntity trip, TripCreateRequest request, Instant now) {
-        return new TripPlanningProfileEntity(trip, request, now);
+    public static TripPlanningProfileEntity create(
+            TripEntity trip,
+            TripCreateRequest request,
+            ResolvedAccommodation resolvedAccommodation,
+            ResolvedSchedulePreference schedulePreference,
+            Instant now
+    ) {
+        return new TripPlanningProfileEntity(trip, request, resolvedAccommodation, schedulePreference, now);
     }
 
     private String normalize(String value) {
@@ -263,12 +310,44 @@ public class TripPlanningProfileEntity {
         return accommodationName;
     }
 
+    public String getAccommodationPlaceId() {
+        return accommodationPlaceId;
+    }
+
+    public String getAccommodationFormattedAddress() {
+        return accommodationFormattedAddress;
+    }
+
+    public Double getAccommodationLatitude() {
+        return accommodationLatitude;
+    }
+
+    public Double getAccommodationLongitude() {
+        return accommodationLongitude;
+    }
+
+    public List<String> getAccommodationTypes() {
+        return List.copyOf(accommodationTypes);
+    }
+
+    public String getAccommodationPrimaryType() {
+        return accommodationPrimaryType;
+    }
+
     public LocalTime getCheckInTime() {
         return checkInTime;
     }
 
     public LocalTime getCheckOutTime() {
         return checkOutTime;
+    }
+
+    public LocalTime getDailyStartTime() {
+        return dailyStartTime;
+    }
+
+    public LocalTime getDailyEndTime() {
+        return dailyEndTime;
     }
 
     public List<String> getMustVisitPlaces() {
