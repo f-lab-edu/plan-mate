@@ -314,7 +314,7 @@ export function TripCreatePage({
 
   useEffect(() => () => clearVisualTimers(), [])
 
-  useEffect(() => {
+  async function handleAccommodationSearch() {
     if (accommodationMode !== 'PLACE_SEARCH') {
       return
     }
@@ -322,44 +322,42 @@ export function TripCreatePage({
       return
     }
     if (!confirmedDestination) {
+      setAccommodationSearchError('목적지를 먼저 선택해 주세요.')
+      setAccommodationSearchStatus('error')
       return
     }
 
     const query = accommodationQuery.trim()
     if (query.length < MIN_ACCOMMODATION_QUERY_LENGTH || selectedAccommodation?.displayText === accommodationQuery) {
+      setAccommodationSearchError('숙소명 또는 주소를 2글자 이상 입력해 주세요.')
+      setAccommodationSearchStatus('error')
       return
     }
 
     const sequence = accommodationSearchSequenceRef.current + 1
     accommodationSearchSequenceRef.current = sequence
-    const timerId = window.setTimeout(async () => {
-      setAccommodationSearchStatus('loading')
-      setAccommodationSearchError('')
-      try {
-        const response = await autocompleteAccommodations(accessToken, {
-          query,
-          destinationPlaceId: confirmedDestination.placeId,
-          languageCode: 'ko',
-        })
-        if (accommodationSearchSequenceRef.current !== sequence) {
-          return
-        }
-        setAccommodationResults(response.items.slice(0, 5))
-        setAccommodationSearchStatus('success')
-      } catch (error: unknown) {
-        if (accommodationSearchSequenceRef.current !== sequence) {
-          return
-        }
-        setAccommodationResults([])
-        setAccommodationSearchError(toSearchUserMessage(error))
-        setAccommodationSearchStatus('error')
+    setAccommodationSearchStatus('loading')
+    setAccommodationSearchError('')
+    try {
+      const response = await autocompleteAccommodations(accessToken, {
+        query,
+        destinationPlaceId: confirmedDestination.placeId,
+        languageCode: 'ko',
+      })
+      if (accommodationSearchSequenceRef.current !== sequence) {
+        return
       }
-    }, 320)
-
-    return () => {
-      window.clearTimeout(timerId)
+      setAccommodationResults(response.items.slice(0, 5))
+      setAccommodationSearchStatus('success')
+    } catch (error: unknown) {
+      if (accommodationSearchSequenceRef.current !== sequence) {
+        return
+      }
+      setAccommodationResults([])
+      setAccommodationSearchError(toSearchUserMessage(error))
+      setAccommodationSearchStatus('error')
     }
-  }, [accessToken, accommodationMode, accommodationQuery, confirmedDestination, selectedAccommodation])
+  }
 
   function clearVisualTimers() {
     visualTimerRef.current.forEach((timerId) => window.clearTimeout(timerId))
@@ -1073,6 +1071,7 @@ export function TripCreatePage({
           onAccommodationModeChange={handleAccommodationModeChange}
           onAccommodationAreaChange={setAccommodationArea}
           onAccommodationQueryChange={handleAccommodationQueryChange}
+          onAccommodationSearch={handleAccommodationSearch}
           onAccommodationSelect={handleAccommodationSelect}
           onAccommodationCompositionStart={handleAccommodationCompositionStart}
           onAccommodationCompositionEnd={handleAccommodationCompositionEnd}
@@ -1557,6 +1556,7 @@ function TripConditionStep({
   onAccommodationModeChange,
   onAccommodationAreaChange,
   onAccommodationQueryChange,
+  onAccommodationSearch,
   onAccommodationSelect,
   onAccommodationCompositionStart,
   onAccommodationCompositionEnd,
@@ -1658,6 +1658,7 @@ function TripConditionStep({
   onAccommodationModeChange: (value: AccommodationMode) => void
   onAccommodationAreaChange: (value: AccommodationArea) => void
   onAccommodationQueryChange: (value: string) => void
+  onAccommodationSearch: () => void
   onAccommodationSelect: (value: PlaceAutocompleteItem) => void
   onAccommodationCompositionStart: () => void
   onAccommodationCompositionEnd: (event: CompositionEvent<HTMLInputElement>) => void
@@ -1853,6 +1854,7 @@ function TripConditionStep({
               onAccommodationAreaChange={onAccommodationAreaChange}
               onAccommodationModeChange={onAccommodationModeChange}
               onAccommodationQueryChange={onAccommodationQueryChange}
+              onAccommodationSearch={onAccommodationSearch}
               onAccommodationSelect={onAccommodationSelect}
               onAccommodationCompositionStart={onAccommodationCompositionStart}
               onAccommodationCompositionEnd={onAccommodationCompositionEnd}
@@ -2480,6 +2482,7 @@ function AccommodationInfoPanel({
   onAccommodationAreaChange,
   onAccommodationModeChange,
   onAccommodationQueryChange,
+  onAccommodationSearch,
   onAccommodationSelect,
   onAccommodationCompositionStart,
   onAccommodationCompositionEnd,
@@ -2505,6 +2508,7 @@ function AccommodationInfoPanel({
   onAccommodationAreaChange: (value: AccommodationArea) => void
   onAccommodationModeChange: (value: AccommodationMode) => void
   onAccommodationQueryChange: (value: string) => void
+  onAccommodationSearch: () => void
   onAccommodationSelect: (value: PlaceAutocompleteItem) => void
   onAccommodationCompositionStart: () => void
   onAccommodationCompositionEnd: (event: CompositionEvent<HTMLInputElement>) => void
@@ -2558,12 +2562,26 @@ function AccommodationInfoPanel({
               onChange={(event) => onAccommodationQueryChange(event.target.value)}
               onCompositionEnd={onAccommodationCompositionEnd}
               onCompositionStart={onAccommodationCompositionStart}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  onAccommodationSearch()
+                }
+              }}
             />
-            {isAccommodationComposing && <small>한글 입력이 끝나면 검색을 시작합니다.</small>}
+            <button
+              className="accommodation-search-button"
+              type="button"
+              disabled={accommodationSearchStatus === 'loading' || isAccommodationComposing}
+              onClick={onAccommodationSearch}
+            >
+              검색
+            </button>
+            {isAccommodationComposing && <small>한글 입력이 끝나면 Enter 또는 검색 버튼으로 검색해 주세요.</small>}
             {!isAccommodationComposing
               && accommodationQuery.trim().length > 0
               && accommodationQuery.trim().length < MIN_ACCOMMODATION_QUERY_LENGTH
-              && <small>2글자 이상 입력하면 숙소를 검색합니다.</small>}
+              && <small>2글자 이상 입력한 뒤 Enter 또는 검색 버튼을 눌러 주세요.</small>}
             {accommodationSearchStatus === 'loading' && <small>숙소를 검색하고 있어요.</small>}
             {accommodationSearchError && <small className="field-error">{accommodationSearchError}</small>}
           </label>

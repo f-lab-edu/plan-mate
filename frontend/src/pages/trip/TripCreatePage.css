@@ -2100,6 +2100,29 @@
   list-style: none;
 }
 
+.accommodation-search-button {
+  justify-self: start;
+  border: 0;
+  border-radius: 14px;
+  padding: 11px 16px;
+  color: #fff8e9;
+  font-weight: 900;
+  background: var(--trip-green);
+  box-shadow: 0 12px 22px rgba(27, 78, 66, 0.18);
+}
+
+.accommodation-search-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.accommodation-search-button:not(:disabled):hover,
+.accommodation-search-button:not(:disabled):focus-visible {
+  box-shadow: 0 15px 26px rgba(27, 78, 66, 0.24);
+  transform: translateY(-2px);
+}
+
 .accommodation-result-list button,
 .selected-accommodation-card {
   display: grid;
