@@ -2520,6 +2520,28 @@ function AccommodationInfoPanel({
 }) {
   const canShowAccommodationResults =
     accommodationMode === 'PLACE_SEARCH' && accommodationResults.length > 0 && !selectedAccommodation
+  const accommodationQueryLength = accommodationQuery.trim().length
+  const canSearchAccommodation = (
+    accommodationMode === 'PLACE_SEARCH'
+    && accommodationSearchStatus !== 'loading'
+    && !isAccommodationComposing
+    && accommodationQueryLength >= MIN_ACCOMMODATION_QUERY_LENGTH
+  )
+  const showAccommodationNoResults = (
+    accommodationMode === 'PLACE_SEARCH'
+    && accommodationSearchStatus === 'success'
+    && accommodationResults.length === 0
+    && accommodationQueryLength >= MIN_ACCOMMODATION_QUERY_LENGTH
+    && !selectedAccommodation
+  )
+  const accommodationGuide = accommodationSearchError
+    ? accommodationSearchError
+    : accommodationSearchGuide({
+        isComposing: isAccommodationComposing,
+        queryLength: accommodationQueryLength,
+        searchStatus: accommodationSearchStatus,
+        selectedAccommodation,
+      })
 
   return (
     <div className="trip-info-fields">
@@ -2554,57 +2576,81 @@ function AccommodationInfoPanel({
             <strong>숙소 검색</strong>
             <span>{selectedAccommodation ? '선택 완료' : 'Google Places'}</span>
           </div>
-          <label className="trip-info-field">
-            <span>숙소명 또는 주소</span>
-            <input
-              placeholder="예: 도미인 프리미엄 하카타"
-              value={accommodationQuery}
-              onChange={(event) => onAccommodationQueryChange(event.target.value)}
-              onCompositionEnd={onAccommodationCompositionEnd}
-              onCompositionStart={onAccommodationCompositionStart}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  onAccommodationSearch()
-                }
-              }}
-            />
-            <button
-              className="accommodation-search-button"
-              type="button"
-              disabled={accommodationSearchStatus === 'loading' || isAccommodationComposing}
-              onClick={onAccommodationSearch}
+          <div className="destination-search-section accommodation-search-section">
+            <label className="destination-search-label">
+              <span className="trip-create-sr-only">숙소명 또는 주소 검색</span>
+              <span className="destination-search-control">
+                <input
+                  type="text"
+                  placeholder="숙소명 또는 주소를 검색해 주세요"
+                  value={accommodationQuery}
+                  maxLength={120}
+                  onChange={(event) => onAccommodationQueryChange(event.target.value)}
+                  onCompositionEnd={onAccommodationCompositionEnd}
+                  onCompositionStart={onAccommodationCompositionStart}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      onAccommodationSearch()
+                    }
+                  }}
+                  autoComplete="off"
+                  aria-busy={accommodationSearchStatus === 'loading'}
+                  aria-describedby="accommodation-search-guide accommodation-search-status"
+                />
+                <button
+                  className="destination-search-icon-button"
+                  type="button"
+                  disabled={!canSearchAccommodation}
+                  onClick={onAccommodationSearch}
+                  aria-label="숙소 검색"
+                >
+                  <span className="destination-search-icon" aria-hidden="true" />
+                </button>
+              </span>
+            </label>
+            <p
+              className={`destination-search-guide ${accommodationSearchError ? 'error' : ''}`}
+              id="accommodation-search-guide"
             >
-              검색
-            </button>
-            {isAccommodationComposing && <small>한글 입력이 끝나면 Enter 또는 검색 버튼으로 검색해 주세요.</small>}
-            {!isAccommodationComposing
-              && accommodationQuery.trim().length > 0
-              && accommodationQuery.trim().length < MIN_ACCOMMODATION_QUERY_LENGTH
-              && <small>2글자 이상 입력한 뒤 Enter 또는 검색 버튼을 눌러 주세요.</small>}
-            {accommodationSearchStatus === 'loading' && <small>숙소를 검색하고 있어요.</small>}
-            {accommodationSearchError && <small className="field-error">{accommodationSearchError}</small>}
-          </label>
+              {accommodationGuide}
+            </p>
+          </div>
 
-          {canShowAccommodationResults && (
-            <ul className="accommodation-result-list" aria-label="숙소 검색 결과">
-              {accommodationResults.map((candidate) => (
-                <li key={candidate.placeId}>
-                  <button type="button" onClick={() => onAccommodationSelect(candidate)}>
-                    <strong>{candidate.mainText}</strong>
-                    {candidate.secondaryText && <span>{candidate.secondaryText}</span>}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <section className="destination-candidate-area accommodation-candidate-area" id="accommodation-search-status" aria-live="polite">
+            {accommodationSearchStatus === 'loading' && (
+              <p className="destination-search-state">숙소를 검색하고 있어요.</p>
+            )}
 
-          {selectedAccommodation && (
-            <article className="selected-accommodation-card">
-              <strong>{selectedAccommodation.mainText}</strong>
-              <span>{selectedAccommodation.secondaryText || selectedAccommodation.displayText}</span>
-            </article>
-          )}
+            {showAccommodationNoResults && (
+              <div className="destination-search-empty">
+                <strong>숙소를 찾을 수 없어요.</strong>
+                <span>숙소명, 지점명 또는 주소를 조금 더 구체적으로 입력해 주세요.</span>
+              </div>
+            )}
+
+            {canShowAccommodationResults && (
+              <ul className="destination-candidate-list" aria-label="숙소 검색 결과">
+                {accommodationResults.map((candidate) => (
+                  <li key={candidate.placeId}>
+                    <AccommodationCandidateCard
+                      candidate={candidate}
+                      isSelected={false}
+                      onSelect={() => onAccommodationSelect(candidate)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {selectedAccommodation && (
+              <AccommodationCandidateCard
+                candidate={selectedAccommodation}
+                isSelected
+                onSelect={() => undefined}
+              />
+            )}
+          </section>
         </div>
       )}
 
@@ -2662,6 +2708,63 @@ function AccommodationInfoPanel({
       </div>
     </div>
   )
+}
+
+function AccommodationCandidateCard({
+  candidate,
+  isSelected,
+  onSelect,
+}: {
+  candidate: PlaceAutocompleteItem
+  isSelected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <article className={`destination-candidate-card ${isSelected ? 'selected' : ''}`}>
+      <button
+        className="candidate-select-button"
+        type="button"
+        aria-pressed={isSelected}
+        onClick={onSelect}
+      >
+        <span className="candidate-check" aria-hidden="true">{isSelected ? '✓' : ''}</span>
+        <span className="candidate-copy">
+          <span className="candidate-topline">
+            <strong>{candidate.mainText}</strong>
+            <em>{searchScopeLabel(candidate.searchScope)}</em>
+          </span>
+          {candidate.secondaryText && <small>{candidate.secondaryText}</small>}
+          {isSelected && <small className="candidate-status">선택된 숙소입니다.</small>}
+        </span>
+      </button>
+    </article>
+  )
+}
+
+function accommodationSearchGuide({
+  isComposing,
+  queryLength,
+  searchStatus,
+  selectedAccommodation,
+}: {
+  isComposing: boolean
+  queryLength: number
+  searchStatus: AsyncStatus
+  selectedAccommodation: PlaceAutocompleteItem | null
+}) {
+  if (selectedAccommodation) {
+    return '선택한 숙소가 맞으면 다음 단계로 이동해 주세요. 검색어를 수정하면 선택이 해제됩니다.'
+  }
+  if (searchStatus === 'loading') {
+    return '숙소를 검색하고 있어요.'
+  }
+  if (isComposing) {
+    return '한글 입력이 끝나면 Enter 또는 검색 아이콘으로 검색해 주세요.'
+  }
+  if (queryLength > 0 && queryLength < MIN_ACCOMMODATION_QUERY_LENGTH) {
+    return '2글자 이상 입력한 뒤 Enter 또는 검색 아이콘을 눌러 주세요.'
+  }
+  return 'Enter를 누르거나 검색 아이콘을 클릭하면 Google Places에서 숙소를 검색합니다.'
 }
 
 function RequestsInfoPanel({

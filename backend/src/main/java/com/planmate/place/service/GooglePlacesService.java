@@ -221,6 +221,11 @@ public class GooglePlacesService {
         Map<String, Object> locationRestriction = locationRestriction(request.searchArea());
         if (!locationRestriction.isEmpty()) {
             body.put("locationRestriction", locationRestriction);
+        } else {
+            Map<String, Object> locationBias = locationBias(request.searchArea());
+            if (!locationBias.isEmpty()) {
+                body.put("locationBias", locationBias);
+            }
         }
         return body;
     }
@@ -235,7 +240,14 @@ public class GooglePlacesService {
                     "high", pointBody(searchArea.viewport().high())
             ));
         }
-        if (searchArea.center() != null) {
+        return Map.of();
+    }
+
+    private Map<String, Object> locationBias(PlaceSearchArea searchArea) {
+        if (searchArea == null || searchArea.center() == null) {
+            return Map.of();
+        }
+        if (searchArea.viewport() == null) {
             return Map.of("circle", Map.of(
                     "center", pointBody(searchArea.center()),
                     "radius", fallbackRadiusMeters

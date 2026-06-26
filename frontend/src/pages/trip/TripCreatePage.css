@@ -2092,66 +2092,12 @@
   color: var(--trip-muted);
 }
 
-.accommodation-result-list {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.accommodation-search-button {
-  justify-self: start;
-  border: 0;
-  border-radius: 14px;
-  padding: 11px 16px;
-  color: #fff8e9;
-  font-weight: 900;
-  background: var(--trip-green);
-  box-shadow: 0 12px 22px rgba(27, 78, 66, 0.18);
-}
-
-.accommodation-search-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-  box-shadow: none;
-}
-
-.accommodation-search-button:not(:disabled):hover,
-.accommodation-search-button:not(:disabled):focus-visible {
-  box-shadow: 0 15px 26px rgba(27, 78, 66, 0.24);
-  transform: translateY(-2px);
-}
-
-.accommodation-result-list button,
-.selected-accommodation-card {
-  display: grid;
-  gap: 6px;
+.accommodation-search-section,
+.accommodation-candidate-area {
   width: 100%;
-  border: 1px solid rgba(27, 78, 66, 0.14);
-  border-radius: 18px;
-  padding: 14px 16px;
-  color: var(--trip-ink);
-  text-align: left;
-  background: rgba(255, 250, 240, 0.82);
+  margin-top: 0;
 }
 
-.accommodation-result-list button:hover,
-.accommodation-result-list button:focus-visible {
-  border-color: rgba(27, 78, 66, 0.34);
-  box-shadow: 0 12px 22px rgba(45, 43, 32, 0.1);
-  transform: translateY(-2px);
-}
-
-.accommodation-result-list strong,
-.selected-accommodation-card strong {
-  color: var(--trip-green);
-  font-size: 0.98rem;
-  font-weight: 900;
-}
-
-.accommodation-result-list span,
-.selected-accommodation-card span,
 .schedule-time-help {
   margin: 0;
   color: var(--trip-muted);

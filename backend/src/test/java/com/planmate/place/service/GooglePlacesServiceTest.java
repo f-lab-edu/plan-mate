@@ -104,6 +104,33 @@ class GooglePlacesServiceTest {
     }
 
     @Test
+    void searchTextUsesCircleLocationBiasWhenViewportIsMissing() throws Exception {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+
+        server.expect(requestTo(containsString("/places:searchText")))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.textQuery").value("Kyoto popular attractions"))
+                .andExpect(jsonPath("$.locationRestriction").doesNotExist())
+                .andExpect(jsonPath("$.locationBias.circle.center.latitude").value(33.5902))
+                .andExpect(jsonPath("$.locationBias.circle.center.longitude").value(130.4206))
+                .andExpect(jsonPath("$.locationBias.circle.radius").value(30000.0))
+                .andRespond(withSuccess(fixture("google/text-search-kyoto.json"), MediaType.APPLICATION_JSON));
+
+        PlaceTextSearchResponse response = service.searchText(new PlaceTextSearchRequest(
+                "Kyoto popular attractions",
+                "ko",
+                20,
+                PlaceSearchArea.circle(new GeoPoint(33.5902, 130.4206)),
+                null
+        ));
+
+        assertThat(response.places()).hasSize(1);
+        server.verify();
+    }
+
+    @Test
     void autocompleteAccommodationSendsRectangleLocationBiasWithoutPrimaryTypeFilter() throws Exception {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
