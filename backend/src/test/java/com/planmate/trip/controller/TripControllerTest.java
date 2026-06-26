@@ -1,6 +1,9 @@
 package com.planmate.trip.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -10,15 +13,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planmate.auth.security.JwtTokenProvider;
+import com.planmate.place.dto.GeoPoint;
+import com.planmate.place.dto.GeoViewport;
+import com.planmate.place.dto.ResolvedDestination;
 import com.planmate.place.service.GooglePlacesService;
+import com.planmate.trip.domain.TripInterest;
 import com.planmate.trip.entity.TripMemberRole;
 import com.planmate.trip.repository.TripMemberRepository;
+import com.planmate.trip.repository.TripPlanningProfileRepository;
 import com.planmate.user.domain.UserRole;
 import com.planmate.user.entity.UserEntity;
 import com.planmate.user.repository.UserRepository;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -48,43 +58,57 @@ class TripControllerTest {
     private TripMemberRepository tripMemberRepository;
 
     @Autowired
+    private TripPlanningProfileRepository tripPlanningProfileRepository;
+
+    @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
     @MockitoBean
     private GooglePlacesService googlePlacesService;
 
+    @BeforeEach
+    void setUp() {
+        given(googlePlacesService.resolveDestination(anyString(), any()))
+                .willAnswer(invocation -> resolvedDestination(invocation.getArgument(0)));
+    }
+
     @Test
-    void createTripCreatesOwnerMembership() throws Exception {
+    void createTripCreatesOwnerMembershipAndPlanningProfile() throws Exception {
         UserEntity user = createUser();
         String accessToken = accessToken(user);
         LocalDate startDate = LocalDate.now().plusDays(10);
         LocalDate endDate = startDate.plusDays(2);
 
-        mockMvc.perform(post("/api/trips")
+        MvcResult result = mockMvc.perform(post("/api/trips")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "title": "강릉 2박 3일",
-                                  "destination": "강릉",
-                                  "destinationPlaceId": "place-gangneung",
-                                  "startDate": "%s",
-                                  "endDate": "%s"
-                                }
-                                """.formatted(startDate, endDate)))
+                        .content(tripRequestJson("Kyoto autumn", "Kyoto", "place-kyoto", startDate, endDate)))
                 .andExpect(status().isCreated())
                 .andExpect(header().string(HttpHeaders.LOCATION, org.hamcrest.Matchers.startsWith("/api/trips/")))
-                .andExpect(jsonPath("$.title").value("강릉 2박 3일"))
-                .andExpect(jsonPath("$.destination").value("강릉"))
-                .andExpect(jsonPath("$.destinationPlaceId").value("place-gangneung"))
+                .andExpect(jsonPath("$.title").value("Kyoto autumn"))
+                .andExpect(jsonPath("$.destination").value("Resolved place-kyoto"))
+                .andExpect(jsonPath("$.destinationPlaceId").value("place-kyoto"))
                 .andExpect(jsonPath("$.status").value("UPCOMING"))
-                .andExpect(jsonPath("$.memberCount").value(1));
+                .andExpect(jsonPath("$.memberCount").value(1))
+                .andReturn();
+
+        JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
+        Long tripId = response.get("id").asLong();
 
         assertThat(tripMemberRepository.findByUser_IdOrderByTrip_CreatedAtDesc(user.getId()))
                 .hasSize(1)
                 .first()
                 .extracting(member -> member.getRole())
                 .isEqualTo(TripMemberRole.OWNER);
+
+        assertThat(tripPlanningProfileRepository.findByTrip_Id(tripId))
+                .isPresent()
+                .get()
+                .satisfies(profile -> {
+                    assertThat(profile.getCompanionCount()).isEqualTo(3);
+                    assertThat(profile.getInterests()).contains(TripInterest.FOOD, TripInterest.SIGHTSEEING);
+                    assertThat(profile.getMustVisitPlaces()).containsExactly("Kiyomizu-dera");
+                });
     }
 
     @Test
@@ -94,26 +118,26 @@ class TripControllerTest {
         String myToken = accessToken(me);
         String otherToken = accessToken(other);
 
-        createTrip(myToken, "내 여행", "서울", LocalDate.now().plusDays(1), LocalDate.now().plusDays(3));
-        createTrip(otherToken, "다른 사용자 여행", "부산", LocalDate.now().plusDays(5), LocalDate.now().plusDays(6));
+        createTrip(myToken, "My trip", "Seoul", LocalDate.now().plusDays(1), LocalDate.now().plusDays(3));
+        createTrip(otherToken, "Other trip", "Busan", LocalDate.now().plusDays(5), LocalDate.now().plusDays(6));
 
         mockMvc.perform(get("/api/trips")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + myToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].title").value("내 여행"))
+                .andExpect(jsonPath("$[0].title").value("My trip"))
                 .andExpect(jsonPath("$[0].memberCount").value(1));
     }
 
     @Test
-    void getDetailReturnsTripAndMembers() throws Exception {
+    void getDetailReturnsTripProfileMembersAndItineraries() throws Exception {
         UserEntity user = createUser();
         String accessToken = accessToken(user);
         String tripId = createTrip(
                 accessToken,
-                "상세 여행",
-                "제주",
+                "Detail trip",
+                "Jeju",
                 LocalDate.now().minusDays(1),
                 LocalDate.now().plusDays(1)
         );
@@ -122,13 +146,16 @@ class TripControllerTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(tripId))
-                .andExpect(jsonPath("$.title").value("상세 여행"))
-                .andExpect(jsonPath("$.destinationPlaceId").value("place-제주"))
+                .andExpect(jsonPath("$.title").value("Detail trip"))
+                .andExpect(jsonPath("$.destinationPlaceId").value("place-Jeju"))
+                .andExpect(jsonPath("$.destinationInfo.displayName").value("Resolved place-Jeju"))
+                .andExpect(jsonPath("$.planningProfile.companionCount").value(3))
+                .andExpect(jsonPath("$.planningProfile.interests[0]").value("FOOD"))
+                .andExpect(jsonPath("$.itineraries.length()").value(0))
                 .andExpect(jsonPath("$.status").value("PLANNING"))
                 .andExpect(jsonPath("$.memberCount").value(1))
                 .andExpect(jsonPath("$.members.length()").value(1))
                 .andExpect(jsonPath("$.members[0].userId").value(user.getId()))
-                .andExpect(jsonPath("$.members[0].nickname").value(user.getNickname()))
                 .andExpect(jsonPath("$.members[0].role").value("OWNER"));
     }
 
@@ -138,8 +165,8 @@ class TripControllerTest {
         UserEntity other = createUser();
         String tripId = createTrip(
                 accessToken(owner),
-                "비공개 여행",
-                "속초",
+                "Private trip",
+                "Sokcho",
                 LocalDate.now().plusDays(1),
                 LocalDate.now().plusDays(2)
         );
@@ -158,15 +185,13 @@ class TripControllerTest {
         mockMvc.perform(post("/api/trips")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "title": "잘못된 여행",
-                                  "destination": "서울",
-                                  "destinationPlaceId": "place-seoul",
-                                  "startDate": "2026-08-10",
-                                  "endDate": "2026-08-01"
-                                }
-                                """))
+                        .content(tripRequestJson(
+                                "Invalid trip",
+                                "Seoul",
+                                "place-seoul",
+                                LocalDate.of(2026, 8, 10),
+                                LocalDate.of(2026, 8, 1)
+                        )))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
@@ -181,20 +206,77 @@ class TripControllerTest {
         MvcResult result = mockMvc.perform(post("/api/trips")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "title": "%s",
-                                  "destination": "%s",
-                                  "destinationPlaceId": "place-%s",
-                                  "startDate": "%s",
-                                  "endDate": "%s"
-                                }
-                                """.formatted(title, destination, destination, startDate, endDate)))
+                        .content(tripRequestJson(title, destination, "place-" + destination, startDate, endDate)))
                 .andExpect(status().isCreated())
                 .andReturn();
 
         JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
         return response.get("id").asText();
+    }
+
+    private String tripRequestJson(
+            String title,
+            String destination,
+            String destinationPlaceId,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        return """
+                {
+                  "title": "%s",
+                  "destination": "%s",
+                  "destinationPlaceId": "%s",
+                  "startDate": "%s",
+                  "endDate": "%s",
+                  "companion": {
+                    "count": 3,
+                    "type": "FRIENDS",
+                    "hasChildren": false,
+                    "childCount": 0,
+                    "childAgeGroup": null,
+                    "hasSeniors": false,
+                    "seniorCount": 0
+                  },
+                  "budget": {
+                    "currencyCode": "KRW",
+                    "amount": 1000000,
+                    "level": "BALANCED",
+                    "includedItems": ["LODGING", "TRANSPORT", "FOOD"]
+                  },
+                  "preferences": {
+                    "travelPace": "BALANCED",
+                    "interests": ["FOOD", "SIGHTSEEING", "CAFE"]
+                  },
+                  "transportation": {
+                    "primaryMode": "PUBLIC_TRANSIT",
+                    "secondaryModes": ["WALK"]
+                  },
+                  "accommodation": {
+                    "mode": "UNDECIDED",
+                    "preferredArea": "TRANSIT",
+                    "name": null,
+                    "checkInTime": null,
+                    "checkOutTime": null
+                  },
+                  "additionalRequest": {
+                    "mustVisitPlaces": ["Kiyomizu-dera"],
+                    "avoidConditions": ["LONG_WALK"],
+                    "freeRequest": "Keep lunch flexible."
+                  }
+                }
+                """.formatted(title, destination, destinationPlaceId, startDate, endDate);
+    }
+
+    private ResolvedDestination resolvedDestination(String placeId) {
+        return new ResolvedDestination(
+                placeId,
+                "Resolved " + placeId,
+                "Resolved address",
+                new GeoPoint(35.0, 135.0),
+                new GeoViewport(new GeoPoint(34.8, 134.8), new GeoPoint(35.2, 135.2)),
+                List.of("locality", "political"),
+                "locality"
+        );
     }
 
     private UserEntity createUser() {
@@ -212,5 +294,4 @@ class TripControllerTest {
     private String accessToken(UserEntity user) {
         return jwtTokenProvider.issueAccessToken(user.getId(), UserRole.USER, Instant.now()).value();
     }
-
 }

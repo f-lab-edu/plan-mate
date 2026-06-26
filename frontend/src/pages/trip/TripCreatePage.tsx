@@ -4,8 +4,14 @@ import type { AuthUser } from '../../api/auth'
 import { ApiError } from '../../api/client'
 import { autocompletePlaces } from '../../api/places'
 import type { PlaceAutocompleteItem } from '../../api/places'
-import { createTrip } from '../../api/trips'
-import type { CreateTripRequest } from '../../api/trips'
+import {
+  createItineraryGeneration,
+  createTrip,
+  getAiRequest,
+  getManualPrompt,
+  submitManualResponse,
+} from '../../api/trips'
+import type { AiItineraryResponse, CreateTripRequest, ItineraryGenerationCreateResponse } from '../../api/trips'
 import coupleMascotUrl from '../../assets/mascots/couple.png'
 import coworkersMascotUrl from '../../assets/mascots/coworkers.png'
 import familyMascotUrl from '../../assets/mascots/family.png'
@@ -65,6 +71,7 @@ type BudgetItem = 'LODGING' | 'TRANSPORT' | 'FOOD' | 'FLIGHT'
 type TravelPace = 'RELAXED' | 'BALANCED' | 'PACKED'
 type InterestId =
   | 'FOOD'
+  | 'SIGHTSEEING'
   | 'CAFE'
   | 'CULTURE'
   | 'NATURE'
@@ -149,6 +156,7 @@ const PACE_OPTIONS: Array<{ id: TravelPace; label: string; description: string }
 ]
 const INTEREST_OPTIONS: Array<{ id: InterestId; label: string }> = [
   { id: 'FOOD', label: '음식' },
+  { id: 'SIGHTSEEING', label: '관광 명소' },
   { id: 'CAFE', label: '카페' },
   { id: 'CULTURE', label: '역사·문화' },
   { id: 'NATURE', label: '자연' },
@@ -190,6 +198,7 @@ const AVOID_OPTIONS: Array<{ id: AvoidItem; label: string }> = [
   { id: 'EXPENSIVE_RESTAURANT', label: '비싼 식당' },
   { id: 'TIGHT_SCHEDULE', label: '빡빡한 일정' },
 ]
+const MANUAL_HANDOFF_ENABLED = import.meta.env.VITE_MANUAL_HANDOFF_ENABLED === 'true'
 
 export function TripCreatePage({
   accessToken,
@@ -209,6 +218,13 @@ export function TripCreatePage({
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [submitStatus, setSubmitStatus] = useState<AsyncStatus>('idle')
+  const [createdTripId, setCreatedTripId] = useState('')
+  const [itineraryGeneration, setItineraryGeneration] = useState<ItineraryGenerationCreateResponse | null>(null)
+  const [manualPrompt, setManualPrompt] = useState('')
+  const [aiRequestJson, setAiRequestJson] = useState('')
+  const [manualResponseJson, setManualResponseJson] = useState('')
+  const [manualStatus, setManualStatus] = useState<AsyncStatus>('idle')
+  const [manualMessage, setManualMessage] = useState('')
   const [searchError, setSearchError] = useState('')
   const [formError, setFormError] = useState('')
   const [submitError, setSubmitError] = useState('')
@@ -642,16 +658,66 @@ export function TripCreatePage({
       destinationPlaceId: confirmedDestination.placeId,
       startDate,
       endDate,
+      companion: {
+        count: companionCount,
+        type: companionType,
+        hasChildren,
+        childCount: hasChildren ? childCount : 0,
+        childAgeGroup: hasChildren ? childAgeGroup : null,
+        hasSeniors,
+        seniorCount: hasSeniors ? seniorCount : 0,
+      },
+      budget: {
+        currencyCode,
+        amount: budgetNumericAmount > 0 ? budgetNumericAmount : null,
+        level: budgetLevel,
+        includedItems: includedBudgetItems,
+      },
+      preferences: {
+        travelPace,
+        interests,
+      },
+      transportation: {
+        primaryMode: primaryTransportMode,
+        secondaryModes: secondaryTransportModes,
+      },
+      accommodation: {
+        mode: accommodationMode,
+        preferredArea: accommodationMode === 'UNDECIDED' ? accommodationArea : null,
+        name: accommodationMode === 'PLACE_SEARCH' ? accommodationName.trim() : null,
+        checkInTime: accommodationMode === 'PLACE_SEARCH' ? checkInTime : null,
+        checkOutTime: accommodationMode === 'PLACE_SEARCH' ? checkOutTime : null,
+      },
+      additionalRequest: {
+        mustVisitPlaces,
+        avoidConditions: avoidItems,
+        freeRequest: freeRequest.trim() || null,
+      },
     }
 
     setSubmitStatus('loading')
     setFormError('')
     setSubmitError('')
+    setCreatedTripId('')
+    setItineraryGeneration(null)
+    setManualPrompt('')
+    setAiRequestJson('')
+    setManualResponseJson('')
+    setManualStatus('idle')
+    setManualMessage('')
     setStepDirection('forward')
     setInfoStep('GENERATING')
 
     try {
       const created = await createTrip(accessToken, payload)
+      setCreatedTripId(created.id)
+      if (MANUAL_HANDOFF_ENABLED) {
+        const generation = await createItineraryGeneration(accessToken, created.id)
+        setItineraryGeneration(generation)
+        setManualMessage(`후보 ${generation.candidateCount}개를 수집했고 ${generation.status} 상태가 되었습니다.`)
+        setSubmitStatus('success')
+        return
+      }
       setSubmitStatus('success')
       scheduleVisualTimer(() => onCreatedTrip(created.id), 700)
     } catch (error: unknown) {
@@ -659,6 +725,79 @@ export function TripCreatePage({
       setInfoStep('REVIEW')
       setSubmitError(toUserMessage(error))
     }
+  }
+
+  async function handleLoadManualPrompt() {
+    if (!createdTripId || !itineraryGeneration) {
+      return
+    }
+    setManualStatus('loading')
+    setManualMessage('')
+    try {
+      const prompt = await getManualPrompt(accessToken, createdTripId, itineraryGeneration.generationId)
+      setManualPrompt(prompt)
+      setManualStatus('success')
+      setManualMessage('프롬프트를 불러왔습니다.')
+    } catch (error: unknown) {
+      setManualStatus('error')
+      setManualMessage(toUserMessage(error))
+    }
+  }
+
+  async function handleLoadAiRequest() {
+    if (!createdTripId || !itineraryGeneration) {
+      return
+    }
+    setManualStatus('loading')
+    setManualMessage('')
+    try {
+      const aiRequest = await getAiRequest(accessToken, createdTripId, itineraryGeneration.generationId)
+      setAiRequestJson(JSON.stringify(aiRequest, null, 2))
+      setManualStatus('success')
+      setManualMessage('AI request JSON을 불러왔습니다.')
+    } catch (error: unknown) {
+      setManualStatus('error')
+      setManualMessage(toUserMessage(error))
+    }
+  }
+
+  async function handleSubmitManualResponse() {
+    if (!createdTripId || !itineraryGeneration) {
+      return
+    }
+    let parsed: AiItineraryResponse
+    try {
+      parsed = JSON.parse(manualResponseJson) as AiItineraryResponse
+    } catch {
+      setManualStatus('error')
+      setManualMessage('ChatGPT 응답 JSON 형식이 올바르지 않습니다.')
+      return
+    }
+
+    setManualStatus('loading')
+    setManualMessage('')
+    try {
+      const result = await submitManualResponse(accessToken, createdTripId, itineraryGeneration.generationId, parsed)
+      setItineraryGeneration({
+        generationId: result.generationId,
+        status: result.status,
+        candidateCount: result.candidateCount,
+      })
+      setManualStatus('success')
+      setManualMessage('일정이 저장되었습니다. 여행 상세 화면으로 이동합니다.')
+      scheduleVisualTimer(() => onCreatedTrip(createdTripId), 700)
+    } catch (error: unknown) {
+      setManualStatus('error')
+      setManualMessage(toUserMessage(error))
+    }
+  }
+
+  async function copyText(value: string) {
+    if (!value) {
+      return
+    }
+    await navigator.clipboard.writeText(value)
+    setManualMessage('클립보드에 복사했습니다.')
   }
 
   return (
@@ -730,10 +869,23 @@ export function TripCreatePage({
           mustVisitPlaces={mustVisitPlaces}
           avoidItems={avoidItems}
           freeRequest={freeRequest}
+          aiRequestJson={aiRequestJson}
+          createdTripId={createdTripId}
+          generation={itineraryGeneration}
+          manualMessage={manualMessage}
+          manualPrompt={manualPrompt}
+          manualResponseJson={manualResponseJson}
+          manualStatus={manualStatus}
           onBack={handleBackToDestinationStep}
+          onAiRequestLoad={handleLoadAiRequest}
+          onCopyText={copyText}
           onInfoBack={handleInfoBack}
           onInfoNext={handleInfoNext}
           onInfoEditStep={handleInfoEditStep}
+          onManualPromptLoad={handleLoadManualPrompt}
+          onManualResponseChange={setManualResponseJson}
+          onManualResponseSubmit={handleSubmitManualResponse}
+          onOpenCreatedTrip={onCreatedTrip}
           onEndDateChange={(value) => {
             setEndDate(value)
             setFormError(getDateRangeError(startDate, value))
@@ -1213,10 +1365,23 @@ function TripConditionStep({
   mustVisitPlaces,
   avoidItems,
   freeRequest,
+  aiRequestJson,
+  createdTripId,
+  generation,
+  manualMessage,
+  manualPrompt,
+  manualResponseJson,
+  manualStatus,
   onBack,
+  onAiRequestLoad,
+  onCopyText,
   onInfoBack,
   onInfoNext,
   onInfoEditStep,
+  onManualPromptLoad,
+  onManualResponseChange,
+  onManualResponseSubmit,
+  onOpenCreatedTrip,
   onEndDateChange,
   onStartDateChange,
   onSubmit,
@@ -1285,10 +1450,23 @@ function TripConditionStep({
   mustVisitPlaces: string[]
   avoidItems: AvoidItem[]
   freeRequest: string
+  aiRequestJson: string
+  createdTripId: string
+  generation: ItineraryGenerationCreateResponse | null
+  manualMessage: string
+  manualPrompt: string
+  manualResponseJson: string
+  manualStatus: AsyncStatus
   onBack: () => void
+  onAiRequestLoad: () => void
+  onCopyText: (value: string) => void
   onInfoBack: () => void
   onInfoNext: () => void
   onInfoEditStep: (stepId: Exclude<TripInfoStepId, 'GENERATING'>) => void
+  onManualPromptLoad: () => void
+  onManualResponseChange: (value: string) => void
+  onManualResponseSubmit: () => void
+  onOpenCreatedTrip: (tripId: string) => void
   onEndDateChange: (value: string) => void
   onStartDateChange: (value: string) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
@@ -1358,8 +1536,21 @@ function TripConditionStep({
     return (
       <section className="trip-info-page" aria-label="일정 생성 진행">
         <GeneratingTripPanel
+          aiRequestJson={aiRequestJson}
           companionType={companionType}
+          createdTripId={createdTripId}
           destination={destination}
+          generation={generation}
+          manualMessage={manualMessage}
+          manualPrompt={manualPrompt}
+          manualResponseJson={manualResponseJson}
+          manualStatus={manualStatus}
+          onAiRequestLoad={onAiRequestLoad}
+          onCopyText={onCopyText}
+          onOpenCreatedTrip={onOpenCreatedTrip}
+          onManualPromptLoad={onManualPromptLoad}
+          onManualResponseChange={onManualResponseChange}
+          onManualResponseSubmit={onManualResponseSubmit}
           submitError={submitError}
           submitStatus={submitStatus}
           title={title}
@@ -2318,14 +2509,40 @@ function ReviewCard({
 }
 
 function GeneratingTripPanel({
+  aiRequestJson,
   companionType,
+  createdTripId,
   destination,
+  generation,
+  manualMessage,
+  manualPrompt,
+  manualResponseJson,
+  manualStatus,
+  onAiRequestLoad,
+  onCopyText,
+  onOpenCreatedTrip,
+  onManualPromptLoad,
+  onManualResponseChange,
+  onManualResponseSubmit,
   submitError,
   submitStatus,
   title,
 }: {
+  aiRequestJson: string
   companionType: CompanionType
+  createdTripId: string
   destination: PlaceAutocompleteItem | null
+  generation: ItineraryGenerationCreateResponse | null
+  manualMessage: string
+  manualPrompt: string
+  manualResponseJson: string
+  manualStatus: AsyncStatus
+  onAiRequestLoad: () => void
+  onCopyText: (value: string) => void
+  onOpenCreatedTrip: (tripId: string) => void
+  onManualPromptLoad: () => void
+  onManualResponseChange: (value: string) => void
+  onManualResponseSubmit: () => void
   submitError: string
   submitStatus: AsyncStatus
   title: string
@@ -2361,6 +2578,62 @@ function GeneratingTripPanel({
           </li>
         ))}
       </ol>
+      {MANUAL_HANDOFF_ENABLED && generation && (
+        <section className="manual-handoff-panel" aria-label="Manual handoff">
+          <div className="manual-handoff-heading">
+            <span>Manual handoff</span>
+            <strong>{generation.status}</strong>
+            <p>후보 {generation.candidateCount}개를 실제 Google Places 결과에서 수집했습니다.</p>
+          </div>
+          <div className="manual-handoff-actions">
+            <button type="button" onClick={onManualPromptLoad} disabled={manualStatus === 'loading'}>
+              프롬프트 조회
+            </button>
+            <button type="button" onClick={onAiRequestLoad} disabled={manualStatus === 'loading'}>
+              AI request JSON 조회
+            </button>
+            <button type="button" onClick={() => onOpenCreatedTrip(createdTripId)} disabled={!createdTripId}>
+              상세 화면 열기
+            </button>
+          </div>
+          {manualMessage && <p className={`manual-handoff-message ${manualStatus}`}>{manualMessage}</p>}
+          {manualPrompt && (
+            <div className="manual-handoff-output">
+              <div>
+                <strong>Prompt</strong>
+                <button type="button" onClick={() => onCopyText(manualPrompt)}>복사</button>
+              </div>
+              <textarea readOnly value={manualPrompt} />
+            </div>
+          )}
+          {aiRequestJson && (
+            <div className="manual-handoff-output">
+              <div>
+                <strong>AI request JSON</strong>
+                <button type="button" onClick={() => onCopyText(aiRequestJson)}>복사</button>
+              </div>
+              <textarea readOnly value={aiRequestJson} />
+            </div>
+          )}
+          <div className="manual-handoff-output">
+            <div>
+              <strong>ChatGPT response JSON</strong>
+              <button
+                type="button"
+                onClick={onManualResponseSubmit}
+                disabled={manualStatus === 'loading' || !manualResponseJson.trim()}
+              >
+                응답 제출
+              </button>
+            </div>
+            <textarea
+              placeholder="ChatGPT가 반환한 JSON을 붙여넣으세요."
+              value={manualResponseJson}
+              onChange={(event) => onManualResponseChange(event.target.value)}
+            />
+          </div>
+        </section>
+      )}
       {submitError && <p className="trip-create-submit-error" role="alert">{submitError}</p>}
     </section>
   )
