@@ -9,7 +9,6 @@ export type AccommodationAutocompleteRequest = {
   query: string
   destinationPlaceId: string
   languageCode?: string
-  sessionToken?: string
 }
 
 export type PlaceAutocompleteItem = {

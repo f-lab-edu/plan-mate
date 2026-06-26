@@ -12,9 +12,6 @@ public record AccommodationAutocompleteRequest(
         String destinationPlaceId,
 
         @Size(max = 10)
-        String languageCode,
-
-        @Size(max = 100)
-        String sessionToken
+        String languageCode
 ) {
 }

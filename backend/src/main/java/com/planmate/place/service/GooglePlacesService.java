@@ -98,8 +98,7 @@ public class GooglePlacesService {
     public PlaceAutocompleteResponse autocompleteAccommodation(
             String query,
             String destinationPlaceId,
-            String languageCode,
-            String sessionToken
+            String languageCode
     ) {
         assertApiKeyConfigured();
 
@@ -107,7 +106,6 @@ public class GooglePlacesService {
         return autocomplete(query, new AutocompleteOptions(
                 languageCode,
                 SearchScope.ACCOMMODATION,
-                sessionToken,
                 destination
         ));
     }
@@ -164,7 +162,7 @@ public class GooglePlacesService {
     }
 
     private PlaceAutocompleteResponse autocomplete(String query, String languageCode, SearchScope searchScope) {
-        return autocomplete(query, new AutocompleteOptions(languageCode, searchScope, null, null));
+        return autocomplete(query, new AutocompleteOptions(languageCode, searchScope, null));
     }
 
     private PlaceAutocompleteResponse autocomplete(String query, AutocompleteOptions options) {
@@ -202,9 +200,6 @@ public class GooglePlacesService {
         }
         if (StringUtils.hasText(options.languageCode())) {
             body.put("languageCode", options.languageCode().trim());
-        }
-        if (StringUtils.hasText(options.sessionToken())) {
-            body.put("sessionToken", options.sessionToken().trim());
         }
         Map<String, Object> locationBias = locationBias(options.locationBiasDestination());
         if (!locationBias.isEmpty()) {
@@ -489,7 +484,6 @@ public class GooglePlacesService {
     private record AutocompleteOptions(
             String languageCode,
             SearchScope searchScope,
-            String sessionToken,
             ResolvedDestination locationBiasDestination
     ) {
     }

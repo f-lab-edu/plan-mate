@@ -116,7 +116,6 @@ class GooglePlacesServiceTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(jsonPath("$.input").value("Dormy Inn"))
                 .andExpect(jsonPath("$.languageCode").value("ko"))
-                .andExpect(jsonPath("$.sessionToken").value("session-1"))
                 .andExpect(jsonPath("$.includedPrimaryTypes").doesNotExist())
                 .andExpect(jsonPath("$.locationBias.rectangle.low.latitude").value(34.8))
                 .andRespond(withSuccess(autocompleteFixture(), MediaType.APPLICATION_JSON));
@@ -124,8 +123,7 @@ class GooglePlacesServiceTest {
         PlaceAutocompleteResponse response = service.autocompleteAccommodation(
                 "Dormy Inn",
                 "place-kyoto",
-                "ko",
-                "session-1"
+                "ko"
         );
 
         assertThat(response.items()).hasSize(1);
@@ -150,7 +148,7 @@ class GooglePlacesServiceTest {
                 .andExpect(jsonPath("$.includedPrimaryTypes").doesNotExist())
                 .andRespond(withSuccess(autocompleteFixture(), MediaType.APPLICATION_JSON));
 
-        service.autocompleteAccommodation("Dormy Inn", "place-without-viewport", "ko", null);
+        service.autocompleteAccommodation("Dormy Inn", "place-without-viewport", "ko");
 
         server.verify();
     }
@@ -164,7 +162,7 @@ class GooglePlacesServiceTest {
         server.expect(requestTo(containsString("/places/place-kyoto")))
                 .andRespond(withServerError());
 
-        assertThatThrownBy(() -> service.autocompleteAccommodation("Dormy Inn", "place-kyoto", "ko", null))
+        assertThatThrownBy(() -> service.autocompleteAccommodation("Dormy Inn", "place-kyoto", "ko"))
                 .isInstanceOf(PlaceProviderUnavailableException.class);
         server.verify();
     }

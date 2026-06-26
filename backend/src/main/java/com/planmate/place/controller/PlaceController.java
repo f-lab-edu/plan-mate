@@ -35,8 +35,7 @@ public class PlaceController {
         return googlePlacesService.autocompleteAccommodation(
                 request.query(),
                 request.destinationPlaceId(),
-                request.languageCode(),
-                request.sessionToken()
+                request.languageCode()
         );
     }
 
