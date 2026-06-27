@@ -110,6 +110,21 @@ public class GooglePlacesService {
         ));
     }
 
+    public PlaceAutocompleteResponse autocompleteInDestination(
+            String query,
+            String destinationPlaceId,
+            String languageCode
+    ) {
+        assertApiKeyConfigured();
+
+        ResolvedDestination destination = resolveDestination(destinationPlaceId, languageCode);
+        return autocomplete(query, new AutocompleteOptions(
+                languageCode,
+                SearchScope.PLACE,
+                destination
+        ));
+    }
+
     public ResolvedDestination resolveDestination(String placeId, String languageCode) {
         assertApiKeyConfigured();
 
@@ -480,7 +495,8 @@ public class GooglePlacesService {
     private enum SearchScope {
         CITY(CITY_COLLECTION_TYPE),
         REGION(REGION_COLLECTION_TYPE),
-        ACCOMMODATION(null);
+        ACCOMMODATION(null),
+        PLACE(null);
 
         private final String includedPrimaryType;
 

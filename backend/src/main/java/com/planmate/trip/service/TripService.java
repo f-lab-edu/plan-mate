@@ -5,6 +5,7 @@ import com.planmate.place.dto.ResolvedDestination;
 import com.planmate.place.service.GooglePlacesService;
 import com.planmate.itinerary.service.ItineraryQueryService;
 import com.planmate.trip.domain.AccommodationMode;
+import com.planmate.trip.domain.MustVisitPlaceSnapshot;
 import com.planmate.trip.domain.ResolvedAccommodation;
 import com.planmate.trip.domain.ResolvedSchedulePreference;
 import com.planmate.trip.dto.TripCreateRequest;
@@ -64,12 +65,14 @@ public class TripService {
         String destinationPlaceId = request.destinationPlaceId().trim();
         ResolvedDestination destination = googlePlacesService.resolveDestination(destinationPlaceId, "ko");
         ResolvedAccommodation accommodation = resolveAccommodation(request.accommodation());
+        List<MustVisitPlaceSnapshot> mustVisitPlaces = resolveMustVisitPlaces(request.additionalRequest().mustVisitPlaceIds());
         ResolvedSchedulePreference schedulePreference = schedulePreferenceResolver.resolve(request.schedulePreference());
         TripEntity trip = tripCreationPersistenceService.create(
                 userId,
                 request,
                 destination,
                 accommodation,
+                mustVisitPlaces,
                 schedulePreference
         );
 
@@ -94,6 +97,29 @@ public class TripService {
                 place.types(),
                 place.primaryType()
         );
+    }
+
+    private List<MustVisitPlaceSnapshot> resolveMustVisitPlaces(List<String> placeIds) {
+        return placeIds.stream()
+                .map(String::trim)
+                .filter(placeId -> !placeId.isBlank())
+                .map(placeId -> {
+                    ResolvedDestination place = googlePlacesService.resolveDestination(placeId, "ko");
+                    GeoPoint location = place.location();
+                    if (location == null) {
+                        throw new InvalidTripRequestException("꼭 가보고 싶은 장소의 위치 정보를 확인할 수 없습니다.");
+                    }
+                    return new MustVisitPlaceSnapshot(
+                            place.placeId(),
+                            place.displayName(),
+                            place.formattedAddress(),
+                            location.latitude(),
+                            location.longitude(),
+                            place.types(),
+                            place.primaryType()
+                    );
+                })
+                .toList();
     }
 
     @Transactional(readOnly = true)

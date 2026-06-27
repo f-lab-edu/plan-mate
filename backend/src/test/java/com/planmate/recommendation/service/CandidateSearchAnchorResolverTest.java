@@ -29,6 +29,7 @@ class CandidateSearchAnchorResolverTest {
                 null,
                 request(AccommodationMode.UNDECIDED),
                 null,
+                List.of(),
                 new ResolvedSchedulePreference(LocalTime.of(8, 0), LocalTime.of(20, 0)),
                 Instant.now()
         );
@@ -55,6 +56,7 @@ class CandidateSearchAnchorResolverTest {
                         List.of("lodging"),
                         "lodging"
                 ),
+                List.of(),
                 new ResolvedSchedulePreference(LocalTime.of(8, 0), LocalTime.of(20, 0)),
                 Instant.now()
         );

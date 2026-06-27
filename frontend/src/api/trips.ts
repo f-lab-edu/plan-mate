@@ -44,6 +44,16 @@ export type AvoidCondition =
   | 'EXPENSIVE_RESTAURANT'
   | 'TIGHT_SCHEDULE'
 
+export type MustVisitPlace = {
+  placeId: string
+  name: string
+  formattedAddress: string | null
+  latitude: number | null
+  longitude: number | null
+  types: string[]
+  primaryType: string | null
+}
+
 export type TripSummary = {
   id: string
   title: string
@@ -110,7 +120,7 @@ export type CreateTripRequest = {
     dailyEndTime: string | null
   }
   additionalRequest: {
-    mustVisitPlaces: string[]
+    mustVisitPlaceIds: string[]
     avoidConditions: AvoidCondition[]
     freeRequest: string | null
   }
@@ -159,7 +169,7 @@ export type TripPlanningProfile = {
   checkOutTime: string | null
   dailyStartTime: string
   dailyEndTime: string
-  mustVisitPlaces: string[]
+  mustVisitPlaces: MustVisitPlace[]
   avoidConditions: AvoidCondition[]
   freeRequest: string | null
 }

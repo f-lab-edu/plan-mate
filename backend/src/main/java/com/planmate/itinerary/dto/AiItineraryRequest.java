@@ -16,7 +16,7 @@ public record AiItineraryRequest(
         List<String> interests,
         Transportation transportation,
         Accommodation accommodation,
-        List<String> mustVisitPlaces,
+        List<MustVisitPlace> mustVisitPlaces,
         List<String> avoidConditions,
         String freeRequest,
         List<String> rules,
@@ -65,6 +65,15 @@ public record AiItineraryRequest(
             String name,
             LocalTime checkInTime,
             LocalTime checkOutTime
+    ) {
+    }
+
+    public record MustVisitPlace(
+            String placeId,
+            String name,
+            String formattedAddress,
+            Double latitude,
+            Double longitude
     ) {
     }
 

@@ -8,6 +8,7 @@ import com.planmate.trip.domain.BudgetLevel;
 import com.planmate.trip.domain.ChildAgeGroup;
 import com.planmate.trip.domain.CompanionType;
 import com.planmate.trip.domain.CurrencyCode;
+import com.planmate.trip.domain.MustVisitPlaceSnapshot;
 import com.planmate.trip.domain.TransportMode;
 import com.planmate.trip.domain.TravelPace;
 import com.planmate.trip.domain.TripInterest;
@@ -43,7 +44,7 @@ public record TripPlanningProfileResponse(
         LocalTime checkOutTime,
         LocalTime dailyStartTime,
         LocalTime dailyEndTime,
-        List<String> mustVisitPlaces,
+        List<MustVisitPlaceSnapshot> mustVisitPlaces,
         List<AvoidCondition> avoidConditions,
         String freeRequest
 ) {

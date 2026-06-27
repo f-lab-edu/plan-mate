@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, CompositionEvent, FormEvent, KeyboardEvent, ReactNode } from 'react'
 import type { AuthUser } from '../../api/auth'
 import { ApiError } from '../../api/client'
-import { autocompleteAccommodations, autocompletePlaces } from '../../api/places'
+import { autocompleteAccommodations, autocompletePlaces, autocompletePlacesInDestination } from '../../api/places'
 import type { PlaceAutocompleteItem } from '../../api/places'
 import {
   createItineraryGeneration,
@@ -100,6 +100,7 @@ type AvoidItem =
 
 const MIN_DESTINATION_QUERY_LENGTH = 2
 const MIN_ACCOMMODATION_QUERY_LENGTH = 2
+const MIN_MUST_VISIT_QUERY_LENGTH = 2
 const DEFAULT_DAILY_START_TIME = '08:00'
 const DEFAULT_DAILY_END_TIME = '20:00'
 const POPULAR_SEARCH_KEYWORDS = ['제주도', '강릉', '교토', '이탈리아', '방콕', '바르셀로나']
@@ -264,8 +265,12 @@ export function TripCreatePage({
   const [scheduleTimeMode, setScheduleTimeMode] = useState<ScheduleTimeMode>('DEFAULT')
   const [dailyStartTime, setDailyStartTime] = useState(DEFAULT_DAILY_START_TIME)
   const [dailyEndTime, setDailyEndTime] = useState(DEFAULT_DAILY_END_TIME)
-  const [mustVisitInput, setMustVisitInput] = useState('')
-  const [mustVisitPlaces, setMustVisitPlaces] = useState<string[]>([])
+  const [mustVisitQuery, setMustVisitQuery] = useState('')
+  const [mustVisitResults, setMustVisitResults] = useState<PlaceAutocompleteItem[]>([])
+  const [mustVisitPlaces, setMustVisitPlaces] = useState<PlaceAutocompleteItem[]>([])
+  const [mustVisitSearchStatus, setMustVisitSearchStatus] = useState<AsyncStatus>('idle')
+  const [mustVisitSearchError, setMustVisitSearchError] = useState('')
+  const [isMustVisitComposing, setIsMustVisitComposing] = useState(false)
   const [avoidItems, setAvoidItems] = useState<AvoidItem[]>([])
   const [freeRequest, setFreeRequest] = useState('')
 
@@ -275,6 +280,8 @@ export function TripCreatePage({
   const pendingSearchAfterCompositionRef = useRef(false)
   const accommodationSearchSequenceRef = useRef(0)
   const accommodationComposingRef = useRef(false)
+  const mustVisitSearchSequenceRef = useRef(0)
+  const mustVisitComposingRef = useRef(false)
   const previewCacheRef = useRef(new Map<string, PlacePreview>())
   const visualTimerRef = useRef<number[]>([])
 
@@ -719,17 +726,93 @@ export function TripCreatePage({
     setAvoidItems((current) => toggleArrayValue(current, item))
   }
 
-  function addMustVisitPlace() {
-    const nextPlace = mustVisitInput.trim()
-    if (!nextPlace || mustVisitPlaces.includes(nextPlace) || mustVisitPlaces.length >= 5) {
+  async function handleMustVisitSearch() {
+    if (mustVisitComposingRef.current) {
       return
     }
-    setMustVisitPlaces((current) => [...current, nextPlace])
-    setMustVisitInput('')
+    if (!confirmedDestination) {
+      setMustVisitSearchError('목적지를 먼저 선택해 주세요.')
+      setMustVisitSearchStatus('error')
+      return
+    }
+    if (mustVisitPlaces.length >= 5) {
+      setMustVisitSearchError('꼭 가고 싶은 곳은 최대 5개까지 선택할 수 있어요.')
+      setMustVisitSearchStatus('error')
+      return
+    }
+
+    const query = mustVisitQuery.trim()
+    if (query.length < MIN_MUST_VISIT_QUERY_LENGTH) {
+      setMustVisitSearchError('장소명 또는 주소를 2글자 이상 입력해 주세요.')
+      setMustVisitSearchStatus('error')
+      return
+    }
+
+    const sequence = mustVisitSearchSequenceRef.current + 1
+    mustVisitSearchSequenceRef.current = sequence
+    setMustVisitSearchStatus('loading')
+    setMustVisitSearchError('')
+    try {
+      const response = await autocompletePlacesInDestination(accessToken, {
+        query,
+        destinationPlaceId: confirmedDestination.placeId,
+        languageCode: 'ko',
+      })
+      if (mustVisitSearchSequenceRef.current !== sequence) {
+        return
+      }
+      setMustVisitResults(response.items.slice(0, 5))
+      setMustVisitSearchStatus('success')
+    } catch (error: unknown) {
+      if (mustVisitSearchSequenceRef.current !== sequence) {
+        return
+      }
+      setMustVisitResults([])
+      setMustVisitSearchError(toSearchUserMessage(error))
+      setMustVisitSearchStatus('error')
+    }
   }
 
-  function removeMustVisitPlace(place: string) {
-    setMustVisitPlaces((current) => current.filter((item) => item !== place))
+  function handleMustVisitQueryChange(value: string) {
+    setMustVisitQuery(value)
+    setMustVisitSearchError('')
+    setFormError('')
+    if (value.trim().length < MIN_MUST_VISIT_QUERY_LENGTH) {
+      setMustVisitResults([])
+      setMustVisitSearchStatus('idle')
+    }
+  }
+
+  function handleMustVisitCompositionStart() {
+    mustVisitComposingRef.current = true
+    setIsMustVisitComposing(true)
+  }
+
+  function handleMustVisitCompositionEnd(event: CompositionEvent<HTMLInputElement>) {
+    mustVisitComposingRef.current = false
+    setIsMustVisitComposing(false)
+    setMustVisitQuery(event.currentTarget.value)
+  }
+
+  function handleMustVisitSelect(candidate: PlaceAutocompleteItem) {
+    setMustVisitPlaces((current) => {
+      if (current.some((place) => place.placeId === candidate.placeId)) {
+        return current
+      }
+      if (current.length >= 5) {
+        return current
+      }
+      return [...current, candidate]
+    })
+    setMustVisitQuery('')
+    setMustVisitResults([])
+    setMustVisitSearchError('')
+    setMustVisitSearchStatus('idle')
+    setFormError('')
+  }
+
+  function removeMustVisitPlace(placeId: string) {
+    setMustVisitPlaces((current) => current.filter((place) => place.placeId !== placeId))
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -813,7 +896,7 @@ export function TripCreatePage({
         dailyEndTime: scheduleTimeMode === 'CUSTOM' ? dailyEndTime : null,
       },
       additionalRequest: {
-        mustVisitPlaces,
+        mustVisitPlaceIds: mustVisitPlaces.map((place) => place.placeId),
         avoidConditions: avoidItems,
         freeRequest: freeRequest.trim() || null,
       },
@@ -999,8 +1082,12 @@ export function TripCreatePage({
           dailyEndTime={dailyEndTime}
           appliedDailyStartTime={appliedDailyStartTime}
           appliedDailyEndTime={appliedDailyEndTime}
-          mustVisitInput={mustVisitInput}
+          mustVisitQuery={mustVisitQuery}
+          mustVisitResults={mustVisitResults}
           mustVisitPlaces={mustVisitPlaces}
+          mustVisitSearchStatus={mustVisitSearchStatus}
+          mustVisitSearchError={mustVisitSearchError}
+          isMustVisitComposing={isMustVisitComposing}
           avoidItems={avoidItems}
           freeRequest={freeRequest}
           aiRequestJson={aiRequestJson}
@@ -1080,9 +1167,12 @@ export function TripCreatePage({
           onScheduleTimeModeChange={handleScheduleTimeModeChange}
           onDailyStartTimeChange={setDailyStartTime}
           onDailyEndTimeChange={setDailyEndTime}
-          onMustVisitInputChange={setMustVisitInput}
-          onMustVisitAdd={addMustVisitPlace}
+          onMustVisitQueryChange={handleMustVisitQueryChange}
+          onMustVisitSearch={handleMustVisitSearch}
+          onMustVisitSelect={handleMustVisitSelect}
           onMustVisitRemove={removeMustVisitPlace}
+          onMustVisitCompositionStart={handleMustVisitCompositionStart}
+          onMustVisitCompositionEnd={handleMustVisitCompositionEnd}
           onAvoidItemToggle={toggleAvoidItem}
           onFreeRequestChange={setFreeRequest}
         />
@@ -1512,8 +1602,12 @@ function TripConditionStep({
   dailyEndTime,
   appliedDailyStartTime,
   appliedDailyEndTime,
-  mustVisitInput,
+  mustVisitQuery,
+  mustVisitResults,
   mustVisitPlaces,
+  mustVisitSearchStatus,
+  mustVisitSearchError,
+  isMustVisitComposing,
   avoidItems,
   freeRequest,
   aiRequestJson,
@@ -1565,9 +1659,12 @@ function TripConditionStep({
   onScheduleTimeModeChange,
   onDailyStartTimeChange,
   onDailyEndTimeChange,
-  onMustVisitInputChange,
-  onMustVisitAdd,
+  onMustVisitQueryChange,
+  onMustVisitSearch,
+  onMustVisitSelect,
   onMustVisitRemove,
+  onMustVisitCompositionStart,
+  onMustVisitCompositionEnd,
   onAvoidItemToggle,
   onFreeRequestChange,
 }: {
@@ -1614,8 +1711,12 @@ function TripConditionStep({
   dailyEndTime: string
   appliedDailyStartTime: string
   appliedDailyEndTime: string
-  mustVisitInput: string
-  mustVisitPlaces: string[]
+  mustVisitQuery: string
+  mustVisitResults: PlaceAutocompleteItem[]
+  mustVisitPlaces: PlaceAutocompleteItem[]
+  mustVisitSearchStatus: AsyncStatus
+  mustVisitSearchError: string
+  isMustVisitComposing: boolean
   avoidItems: AvoidItem[]
   freeRequest: string
   aiRequestJson: string
@@ -1667,9 +1768,12 @@ function TripConditionStep({
   onScheduleTimeModeChange: (value: ScheduleTimeMode) => void
   onDailyStartTimeChange: (value: string) => void
   onDailyEndTimeChange: (value: string) => void
-  onMustVisitInputChange: (value: string) => void
-  onMustVisitAdd: () => void
+  onMustVisitQueryChange: (value: string) => void
+  onMustVisitSearch: () => void
+  onMustVisitSelect: (value: PlaceAutocompleteItem) => void
   onMustVisitRemove: (value: string) => void
+  onMustVisitCompositionStart: () => void
+  onMustVisitCompositionEnd: (event: CompositionEvent<HTMLInputElement>) => void
   onAvoidItemToggle: (value: AvoidItem) => void
   onFreeRequestChange: (value: string) => void
 }) {
@@ -1870,13 +1974,20 @@ function TripConditionStep({
             <RequestsInfoPanel
               avoidItems={avoidItems}
               freeRequest={freeRequest}
-              mustVisitInput={mustVisitInput}
+              mustVisitQuery={mustVisitQuery}
+              mustVisitResults={mustVisitResults}
               mustVisitPlaces={mustVisitPlaces}
+              mustVisitSearchStatus={mustVisitSearchStatus}
+              mustVisitSearchError={mustVisitSearchError}
+              isMustVisitComposing={isMustVisitComposing}
               onAvoidItemToggle={onAvoidItemToggle}
               onFreeRequestChange={onFreeRequestChange}
-              onMustVisitAdd={onMustVisitAdd}
-              onMustVisitInputChange={onMustVisitInputChange}
+              onMustVisitQueryChange={onMustVisitQueryChange}
+              onMustVisitSearch={onMustVisitSearch}
+              onMustVisitSelect={onMustVisitSelect}
               onMustVisitRemove={onMustVisitRemove}
+              onMustVisitCompositionStart={onMustVisitCompositionStart}
+              onMustVisitCompositionEnd={onMustVisitCompositionEnd}
             />
           )}
 
@@ -1947,7 +2058,7 @@ type TripInfoSummaryData = {
   selectedAccommodation: PlaceAutocompleteItem | null
   appliedDailyStartTime: string
   appliedDailyEndTime: string
-  mustVisitPlaces: string[]
+  mustVisitPlaces: PlaceAutocompleteItem[]
   avoidItems: AvoidItem[]
   freeRequest: string
 }
@@ -2005,7 +2116,7 @@ function TripInfoVisual({
   destination: PlaceAutocompleteItem | null
   infoStep: TripInfoStepId
   interests: InterestId[]
-  mustVisitPlaces: string[]
+  mustVisitPlaces: PlaceAutocompleteItem[]
   title: string
   travelPace: TravelPace
   tripDuration: TripDuration | null
@@ -2633,9 +2744,10 @@ function AccommodationInfoPanel({
               <ul className="destination-candidate-list" aria-label="숙소 검색 결과">
                 {accommodationResults.map((candidate) => (
                   <li key={candidate.placeId}>
-                    <AccommodationCandidateCard
+                    <PlaceCandidateCard
                       candidate={candidate}
                       isSelected={false}
+                      selectedLabel="선택된 숙소입니다."
                       onSelect={() => onAccommodationSelect(candidate)}
                     />
                   </li>
@@ -2644,9 +2756,10 @@ function AccommodationInfoPanel({
             )}
 
             {selectedAccommodation && (
-              <AccommodationCandidateCard
+              <PlaceCandidateCard
                 candidate={selectedAccommodation}
                 isSelected
+                selectedLabel="선택된 숙소입니다."
                 onSelect={() => undefined}
               />
             )}
@@ -2710,13 +2823,15 @@ function AccommodationInfoPanel({
   )
 }
 
-function AccommodationCandidateCard({
+function PlaceCandidateCard({
   candidate,
   isSelected,
+  selectedLabel,
   onSelect,
 }: {
   candidate: PlaceAutocompleteItem
   isSelected: boolean
+  selectedLabel: string
   onSelect: () => void
 }) {
   return (
@@ -2734,7 +2849,7 @@ function AccommodationCandidateCard({
             <em>{searchScopeLabel(candidate.searchScope)}</em>
           </span>
           {candidate.secondaryText && <small>{candidate.secondaryText}</small>}
-          {isSelected && <small className="candidate-status">선택된 숙소입니다.</small>}
+          {isSelected && <small className="candidate-status">{selectedLabel}</small>}
         </span>
       </button>
     </article>
@@ -2767,55 +2882,179 @@ function accommodationSearchGuide({
   return 'Enter를 누르거나 검색 아이콘을 클릭하면 Google Places에서 숙소를 검색합니다.'
 }
 
+function mustVisitSearchGuide({
+  isComposing,
+  queryLength,
+  searchStatus,
+  selectedCount,
+}: {
+  isComposing: boolean
+  queryLength: number
+  searchStatus: AsyncStatus
+  selectedCount: number
+}) {
+  if (selectedCount >= 5) {
+    return '꼭 가고 싶은 곳은 최대 5개까지 선택할 수 있어요.'
+  }
+  if (searchStatus === 'loading') {
+    return '장소를 검색하고 있어요.'
+  }
+  if (isComposing) {
+    return '한글 입력이 끝나면 Enter 또는 검색 아이콘으로 검색해 주세요.'
+  }
+  if (queryLength > 0 && queryLength < MIN_MUST_VISIT_QUERY_LENGTH) {
+    return '2글자 이상 입력한 뒤 Enter 또는 검색 아이콘을 눌러 주세요.'
+  }
+  return 'Enter를 누르거나 검색 아이콘을 클릭하면 목적지 주변 Google Places에서 장소를 검색합니다.'
+}
+
 function RequestsInfoPanel({
   avoidItems,
   freeRequest,
-  mustVisitInput,
+  mustVisitQuery,
+  mustVisitResults,
   mustVisitPlaces,
+  mustVisitSearchStatus,
+  mustVisitSearchError,
+  isMustVisitComposing,
   onAvoidItemToggle,
   onFreeRequestChange,
-  onMustVisitAdd,
-  onMustVisitInputChange,
+  onMustVisitQueryChange,
+  onMustVisitSearch,
+  onMustVisitSelect,
   onMustVisitRemove,
+  onMustVisitCompositionStart,
+  onMustVisitCompositionEnd,
 }: {
   avoidItems: AvoidItem[]
   freeRequest: string
-  mustVisitInput: string
-  mustVisitPlaces: string[]
+  mustVisitQuery: string
+  mustVisitResults: PlaceAutocompleteItem[]
+  mustVisitPlaces: PlaceAutocompleteItem[]
+  mustVisitSearchStatus: AsyncStatus
+  mustVisitSearchError: string
+  isMustVisitComposing: boolean
   onAvoidItemToggle: (value: AvoidItem) => void
   onFreeRequestChange: (value: string) => void
-  onMustVisitAdd: () => void
-  onMustVisitInputChange: (value: string) => void
+  onMustVisitQueryChange: (value: string) => void
+  onMustVisitSearch: () => void
+  onMustVisitSelect: (value: PlaceAutocompleteItem) => void
   onMustVisitRemove: (value: string) => void
+  onMustVisitCompositionStart: () => void
+  onMustVisitCompositionEnd: (event: CompositionEvent<HTMLInputElement>) => void
 }) {
+  const mustVisitQueryLength = mustVisitQuery.trim().length
+  const canSearchMustVisit = (
+    mustVisitPlaces.length < 5
+    && mustVisitSearchStatus !== 'loading'
+    && !isMustVisitComposing
+    && mustVisitQueryLength >= MIN_MUST_VISIT_QUERY_LENGTH
+  )
+  const showMustVisitNoResults = (
+    mustVisitSearchStatus === 'success'
+    && mustVisitResults.length === 0
+    && mustVisitQueryLength >= MIN_MUST_VISIT_QUERY_LENGTH
+  )
+  const mustVisitGuide = mustVisitSearchError
+    ? mustVisitSearchError
+    : mustVisitSearchGuide({
+        isComposing: isMustVisitComposing,
+        queryLength: mustVisitQueryLength,
+        searchStatus: mustVisitSearchStatus,
+        selectedCount: mustVisitPlaces.length,
+      })
+
   return (
     <div className="trip-info-fields">
-      <div className="must-visit-input">
-        <label className="trip-info-field">
-          <span>꼭 가고 싶은 곳</span>
-          <input
-            placeholder="예: 후시미이나리 신사"
-            value={mustVisitInput}
-            onChange={(event) => onMustVisitInputChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                onMustVisitAdd()
-              }
-            }}
-          />
-        </label>
-        <button type="button" disabled={mustVisitPlaces.length >= 5 || !mustVisitInput.trim()} onClick={onMustVisitAdd}>
-          추가
-        </button>
-      </div>
-      <div className="selected-chip-row">
-        {mustVisitPlaces.length === 0 && <span>최대 5개까지 추가할 수 있어요.</span>}
-        {mustVisitPlaces.map((place) => (
-          <button type="button" key={place} onClick={() => onMustVisitRemove(place)}>
-            {place} ×
-          </button>
-        ))}
+      <div className="input-cluster">
+        <div className="cluster-heading">
+          <strong>꼭 가고 싶은 곳</strong>
+          <span>{mustVisitPlaces.length} / 5 선택</span>
+        </div>
+        <div className="destination-search-section must-visit-search-section">
+          <label className="destination-search-label">
+            <span className="trip-create-sr-only">꼭 가고 싶은 장소 검색</span>
+            <span className="destination-search-control">
+              <input
+                type="text"
+                placeholder="장소명 또는 주소를 검색해 주세요"
+                value={mustVisitQuery}
+                maxLength={120}
+                onChange={(event) => onMustVisitQueryChange(event.target.value)}
+                onCompositionEnd={onMustVisitCompositionEnd}
+                onCompositionStart={onMustVisitCompositionStart}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    onMustVisitSearch()
+                  }
+                }}
+                autoComplete="off"
+                aria-busy={mustVisitSearchStatus === 'loading'}
+                aria-describedby="must-visit-search-guide must-visit-search-status"
+              />
+              <button
+                className="destination-search-icon-button"
+                type="button"
+                disabled={!canSearchMustVisit}
+                onClick={onMustVisitSearch}
+                aria-label="꼭 가고 싶은 장소 검색"
+              >
+                <span className="destination-search-icon" aria-hidden="true" />
+              </button>
+            </span>
+          </label>
+          <p
+            className={`destination-search-guide ${mustVisitSearchError ? 'error' : ''}`}
+            id="must-visit-search-guide"
+          >
+            {mustVisitGuide}
+          </p>
+        </div>
+
+        <section className="destination-candidate-area must-visit-candidate-area" id="must-visit-search-status" aria-live="polite">
+          {mustVisitSearchStatus === 'loading' && (
+            <p className="destination-search-state">장소를 검색하고 있어요.</p>
+          )}
+
+          {showMustVisitNoResults && (
+            <div className="destination-search-empty">
+              <strong>장소를 찾을 수 없어요.</strong>
+              <span>장소명, 지역명 또는 주소를 조금 더 구체적으로 입력해 주세요.</span>
+            </div>
+          )}
+
+          {mustVisitResults.length > 0 && (
+            <ul className="destination-candidate-list" aria-label="꼭 가고 싶은 장소 검색 결과">
+              {mustVisitResults.map((candidate) => {
+                const isSelected = mustVisitPlaces.some((place) => place.placeId === candidate.placeId)
+                return (
+                  <li key={candidate.placeId}>
+                    <PlaceCandidateCard
+                      candidate={candidate}
+                      isSelected={isSelected}
+                      selectedLabel="꼭 가보고 싶은 곳입니다."
+                      onSelect={() => onMustVisitSelect(candidate)}
+                    />
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+
+          <div className="selected-place-card-list" aria-label="선택한 꼭 가보고 싶은 곳">
+            {mustVisitPlaces.length === 0 && <span>최대 5개까지 추가할 수 있어요.</span>}
+            {mustVisitPlaces.map((place) => (
+              <PlaceCandidateCard
+                candidate={place}
+                isSelected
+                key={place.placeId}
+                selectedLabel="꼭 가보고 싶은 곳입니다. 다시 누르면 제외됩니다."
+                onSelect={() => onMustVisitRemove(place.placeId)}
+              />
+            ))}
+          </div>
+        </section>
       </div>
 
       <div className="input-cluster">
@@ -2902,7 +3141,7 @@ function ReviewInfoPanel({
 
       <ReviewCard title="추가 요청" onEdit={() => onEditStep('REQUESTS')}>
         <strong>꼭 가고 싶은 곳 {summary.mustVisitPlaces.length}개</strong>
-        <span>{summary.mustVisitPlaces.join(' · ') || '없음'}</span>
+        <span>{summary.mustVisitPlaces.map((place) => place.mainText).join(' · ') || '없음'}</span>
         <span>{summary.avoidItems.map(avoidItemLabel).join(' · ') || '피하고 싶은 일정 없음'}</span>
         {summary.freeRequest && <span>{summary.freeRequest}</span>}
       </ReviewCard>
@@ -3510,6 +3749,9 @@ function searchScopeLabel(searchScope: PlaceAutocompleteItem['searchScope']) {
   }
   if (searchScope === 'REGION') {
     return '지역'
+  }
+  if (searchScope === 'PLACE') {
+    return '장소'
   }
   return '숙소'
 }

@@ -160,6 +160,35 @@ class GooglePlacesServiceTest {
     }
 
     @Test
+    void autocompleteInDestinationSendsRectangleLocationBiasWithoutPrimaryTypeFilter() throws Exception {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+
+        server.expect(requestTo(containsString("/places/place-kyoto")))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(fixture("google/place-details-kyoto.json"), MediaType.APPLICATION_JSON));
+        server.expect(requestTo(containsString("/places:autocomplete")))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.input").value("Fushimi Inari"))
+                .andExpect(jsonPath("$.languageCode").value("ko"))
+                .andExpect(jsonPath("$.includedPrimaryTypes").doesNotExist())
+                .andExpect(jsonPath("$.locationBias.rectangle.low.latitude").value(34.8))
+                .andRespond(withSuccess(autocompleteFixture(), MediaType.APPLICATION_JSON));
+
+        PlaceAutocompleteResponse response = service.autocompleteInDestination(
+                "Fushimi Inari",
+                "place-kyoto",
+                "ko"
+        );
+
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().getFirst().placeId()).isEqualTo("accommodation-1");
+        assertThat(response.items().getFirst().searchScope()).isEqualTo("PLACE");
+        server.verify();
+    }
+
+    @Test
     void autocompleteAccommodationUsesCircleBiasWhenDestinationHasNoViewport() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();

@@ -187,6 +187,11 @@ function PlanningProfileSummary({ profile }: { profile: TripPlanningProfile }) {
         <strong>{formatTime(profile.dailyStartTime)} ~ {formatTime(profile.dailyEndTime)}</strong>
         <p>일정을 배치할 수 있는 하루 기준 시간입니다.</p>
       </article>
+      <article>
+        <span>꼭 가고 싶은 곳</span>
+        <strong>{profile.mustVisitPlaces.length}개 선택</strong>
+        <p>{profile.mustVisitPlaces.map((place) => place.name).join(' · ') || '선택한 장소 없음'}</p>
+      </article>
     </section>
   )
 }

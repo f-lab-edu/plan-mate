@@ -6,6 +6,7 @@ import com.planmate.itinerary.entity.PlaceCandidateEntity;
 import com.planmate.recommendation.domain.CandidateSearchCategory;
 import com.planmate.trip.domain.AvoidCondition;
 import com.planmate.trip.domain.BudgetItem;
+import com.planmate.trip.domain.MustVisitPlaceSnapshot;
 import com.planmate.trip.domain.TransportMode;
 import com.planmate.trip.domain.TripInterest;
 import com.planmate.trip.entity.TripEntity;
@@ -47,7 +48,7 @@ public class AiItineraryRequestFactory {
                 profile.getInterests().stream().map(TripInterest::name).toList(),
                 transportation(profile),
                 accommodation(profile),
-                profile.getMustVisitPlaces(),
+                mustVisitPlaces(profile),
                 profile.getAvoidConditions().stream().map(AvoidCondition::name).toList(),
                 profile.getFreeRequest(),
                 planningRules(),
@@ -105,6 +106,24 @@ public class AiItineraryRequestFactory {
         );
     }
 
+    private List<AiItineraryRequest.MustVisitPlace> mustVisitPlaces(TripPlanningProfileEntity profile) {
+        return profile.getMustVisitPlaces()
+                .stream()
+                .filter(MustVisitPlaceSnapshot::isResolved)
+                .map(this::mustVisitPlace)
+                .toList();
+    }
+
+    private AiItineraryRequest.MustVisitPlace mustVisitPlace(MustVisitPlaceSnapshot place) {
+        return new AiItineraryRequest.MustVisitPlace(
+                place.placeId(),
+                place.name(),
+                place.formattedAddress(),
+                place.latitude(),
+                place.longitude()
+        );
+    }
+
     private AiItineraryRequest.CandidateTable candidateTable(List<PlaceCandidateEntity> candidates) {
         return new AiItineraryRequest.CandidateTable(
                 CANDIDATE_FIELDS,
@@ -136,6 +155,8 @@ public class AiItineraryRequestFactory {
     private List<String> planningRules() {
         return List.of(
                 "Use only placeId values included in candidateTable.",
+                "Include all mustVisitPlaces in the itinerary unless impossible due to trip duration or opening hours.",
+                "mustVisitPlaces are user-selected required places and are also included in candidateTable. Use the same placeId, and use candidateTable.name as the response placeName.",
                 "Every itinerary item must include placeId and placeName.",
                 "placeName must exactly match the candidate name.",
                 "Do not invent places outside the candidate list.",

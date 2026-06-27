@@ -2093,9 +2093,22 @@
 }
 
 .accommodation-search-section,
-.accommodation-candidate-area {
+.accommodation-candidate-area,
+.must-visit-search-section,
+.must-visit-candidate-area {
   width: 100%;
   margin-top: 0;
+}
+
+.selected-place-card-list {
+  display: grid;
+  gap: 12px;
+}
+
+.selected-place-card-list > span {
+  color: var(--trip-muted);
+  font-size: 0.86rem;
+  font-weight: 800;
 }
 
 .schedule-time-help {

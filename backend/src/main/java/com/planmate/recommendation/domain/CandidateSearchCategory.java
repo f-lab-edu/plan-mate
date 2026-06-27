@@ -2,6 +2,11 @@ package com.planmate.recommendation.domain;
 
 public enum CandidateSearchCategory {
     /**
+     * 사용자가 직접 선택한 필수 방문 장소 후보군이다.
+     */
+    MUST_VISIT,
+
+    /**
      * 모든 여행에서 기본으로 찾는 대표 관광지 후보군이다.
      */
     CORE_VISIT,

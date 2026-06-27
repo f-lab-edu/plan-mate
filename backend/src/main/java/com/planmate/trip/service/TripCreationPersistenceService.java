@@ -3,6 +3,7 @@ package com.planmate.trip.service;
 import com.planmate.place.dto.GeoPoint;
 import com.planmate.place.dto.GeoViewport;
 import com.planmate.place.dto.ResolvedDestination;
+import com.planmate.trip.domain.MustVisitPlaceSnapshot;
 import com.planmate.trip.domain.ResolvedAccommodation;
 import com.planmate.trip.domain.ResolvedSchedulePreference;
 import com.planmate.trip.dto.TripCreateRequest;
@@ -17,6 +18,7 @@ import com.planmate.user.exception.UserNotFoundException;
 import com.planmate.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +51,7 @@ public class TripCreationPersistenceService {
             TripCreateRequest request,
             ResolvedDestination destination,
             ResolvedAccommodation accommodation,
+            List<MustVisitPlaceSnapshot> mustVisitPlaces,
             ResolvedSchedulePreference schedulePreference
     ) {
         UserEntity owner = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
@@ -81,6 +84,7 @@ public class TripCreationPersistenceService {
                 trip,
                 request,
                 accommodation,
+                mustVisitPlaces,
                 schedulePreference,
                 now
         ));

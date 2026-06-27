@@ -34,6 +34,7 @@ public class CandidateSearchQueryFactory {
 
     private List<CandidateSearchQuery> baseQueries(String destinationName, CandidateSearchCategory category) {
         return switch (category) {
+            case MUST_VISIT -> List.of();
             case CORE_VISIT -> List.of(
                     new CandidateSearchQuery(category, destinationName + " 인기 관광지"),
                     new CandidateSearchQuery(category, "top tourist attractions in " + destinationName)

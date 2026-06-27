@@ -223,7 +223,7 @@ public record TripCreateRequest(
     public record AdditionalRequest(
             @NotNull
             @Size(max = 5)
-            List<@NotBlank @Size(max = 80) String> mustVisitPlaces,
+            List<@NotBlank @Size(max = 255) String> mustVisitPlaceIds,
 
             @NotNull
             @Size(max = 9)
@@ -233,13 +233,12 @@ public record TripCreateRequest(
             String freeRequest
     ) {
 
-        @AssertTrue(message = "mustVisitPlaces cannot contain duplicates")
-        public boolean isMustVisitPlacesUnique() {
-            return mustVisitPlaces == null || mustVisitPlaces.stream()
+        @AssertTrue(message = "mustVisitPlaceIds cannot contain duplicates")
+        public boolean isMustVisitPlaceIdsUnique() {
+            return mustVisitPlaceIds == null || mustVisitPlaceIds.stream()
                     .map(String::trim)
-                    .map(String::toLowerCase)
                     .distinct()
-                    .count() == mustVisitPlaces.size();
+                    .count() == mustVisitPlaceIds.size();
         }
 
         @AssertTrue(message = "avoidConditions cannot contain duplicates")

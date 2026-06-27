@@ -1,6 +1,7 @@
 package com.planmate.place.controller;
 
 import com.planmate.place.dto.AccommodationAutocompleteRequest;
+import com.planmate.place.dto.PlaceInDestinationAutocompleteRequest;
 import com.planmate.place.dto.PlaceAutocompleteRequest;
 import com.planmate.place.dto.PlaceAutocompleteResponse;
 import com.planmate.place.service.GooglePlacesService;
@@ -33,6 +34,17 @@ public class PlaceController {
             @Valid @RequestBody AccommodationAutocompleteRequest request
     ) {
         return googlePlacesService.autocompleteAccommodation(
+                request.query(),
+                request.destinationPlaceId(),
+                request.languageCode()
+        );
+    }
+
+    @PostMapping("/destination/autocomplete")
+    public PlaceAutocompleteResponse autocompletePlaceInDestination(
+            @Valid @RequestBody PlaceInDestinationAutocompleteRequest request
+    ) {
+        return googlePlacesService.autocompleteInDestination(
                 request.query(),
                 request.destinationPlaceId(),
                 request.languageCode()

@@ -11,9 +11,11 @@ import com.planmate.recommendation.domain.CandidateSearchAnchor;
 import com.planmate.recommendation.domain.CandidateSearchQuery;
 import com.planmate.recommendation.domain.CollectedPlaceCandidate;
 import com.planmate.recommendation.service.PlaceCandidateAccumulator.CategorizedPlaceSearchCandidate;
+import com.planmate.trip.domain.MustVisitPlaceSnapshot;
 import com.planmate.trip.entity.TripPlanningProfileEntity;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -133,7 +135,61 @@ public class PlaceCandidateCollectionService {
                 .stream()
                 .map(candidate -> candidate.withScore(scorer.score(candidate, weights)))
                 .toList();
-        return selector.select(scoredCandidates, weights, targetCandidateCount);
+        List<CollectedPlaceCandidate> selectedCandidates = selector.select(scoredCandidates, weights, targetCandidateCount);
+        return mergeForcedCandidates(forcedCandidates(profile, searchAnchor), selectedCandidates);
+    }
+
+    private List<CollectedPlaceCandidate> forcedCandidates(
+            TripPlanningProfileEntity profile,
+            CandidateSearchAnchor searchAnchor
+    ) {
+        return profile.getMustVisitPlaces()
+                .stream()
+                .filter(MustVisitPlaceSnapshot::isResolved)
+                .map(place -> forcedCandidate(place, searchAnchor))
+                .toList();
+    }
+
+    private CollectedPlaceCandidate forcedCandidate(
+            MustVisitPlaceSnapshot place,
+            CandidateSearchAnchor searchAnchor
+    ) {
+        GeoPoint location = new GeoPoint(place.latitude(), place.longitude());
+        double distanceMeters = searchAnchor.location() == null
+                ? Double.MAX_VALUE
+                : distanceCalculator.distanceMeters(searchAnchor.location(), location);
+        return new CollectedPlaceCandidate(
+                place.placeId(),
+                place.name(),
+                place.formattedAddress(),
+                location,
+                place.primaryType(),
+                place.types(),
+                "OPERATIONAL",
+                null,
+                null,
+                List.of(),
+                List.of(CandidateSearchCategory.MUST_VISIT),
+                distanceMeters,
+                Double.MAX_VALUE
+        );
+    }
+
+    private List<CollectedPlaceCandidate> mergeForcedCandidates(
+            List<CollectedPlaceCandidate> forcedCandidates,
+            List<CollectedPlaceCandidate> selectedCandidates
+    ) {
+        LinkedHashMap<String, CollectedPlaceCandidate> merged = new LinkedHashMap<>();
+        for (CollectedPlaceCandidate candidate : forcedCandidates) {
+            merged.put(candidate.placeId(), candidate);
+        }
+        for (CollectedPlaceCandidate candidate : selectedCandidates) {
+            if (merged.size() >= targetCandidateCount) {
+                break;
+            }
+            merged.putIfAbsent(candidate.placeId(), candidate);
+        }
+        return new ArrayList<>(merged.values());
     }
 
     private boolean isUsableCandidate(PlaceSearchCandidate candidate, CandidateSearchAnchor searchAnchor) {

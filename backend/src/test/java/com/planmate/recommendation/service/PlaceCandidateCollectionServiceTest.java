@@ -14,6 +14,7 @@ import com.planmate.place.dto.ResolvedDestination;
 import com.planmate.place.service.GooglePlacesService;
 import com.planmate.recommendation.domain.CollectedPlaceCandidate;
 import com.planmate.trip.domain.AccommodationMode;
+import com.planmate.trip.domain.MustVisitPlaceSnapshot;
 import com.planmate.trip.domain.ResolvedAccommodation;
 import com.planmate.trip.domain.ResolvedSchedulePreference;
 import com.planmate.trip.dto.TripCreateRequest;
@@ -82,6 +83,33 @@ class PlaceCandidateCollectionServiceTest {
         assertThat(candidates.getFirst().distanceMeters()).isEqualTo(0.0);
     }
 
+    @Test
+    void mustVisitPlacesAreForcedToCandidateFront() {
+        GooglePlacesService googlePlacesService = mock(GooglePlacesService.class);
+        given(googlePlacesService.searchText(any()))
+                .willReturn(new PlaceTextSearchResponse(List.of(
+                        candidate("searched-place", new GeoPoint(35.0116, 135.7681))
+                ), null));
+        PlaceCandidateCollectionService service = service(googlePlacesService);
+
+        List<CollectedPlaceCandidate> candidates = service.collect(
+                destination(),
+                profile(AccommodationMode.UNDECIDED, null, List.of(new MustVisitPlaceSnapshot(
+                        "must-place",
+                        "Must Temple",
+                        "Kyoto, Japan",
+                        35.0,
+                        135.0,
+                        List.of("tourist_attraction"),
+                        "tourist_attraction"
+                )))
+        );
+
+        assertThat(candidates).extracting(CollectedPlaceCandidate::placeId).contains("must-place");
+        assertThat(candidates.getFirst().placeId()).isEqualTo("must-place");
+        assertThat(candidates.getFirst().sourceCategories()).contains(com.planmate.recommendation.domain.CandidateSearchCategory.MUST_VISIT);
+    }
+
     private PlaceCandidateCollectionService service(GooglePlacesService googlePlacesService) {
         return new PlaceCandidateCollectionService(
                 googlePlacesService,
@@ -115,10 +143,19 @@ class PlaceCandidateCollectionServiceTest {
             AccommodationMode accommodationMode,
             ResolvedAccommodation accommodation
     ) {
+        return profile(accommodationMode, accommodation, List.of());
+    }
+
+    private TripPlanningProfileEntity profile(
+            AccommodationMode accommodationMode,
+            ResolvedAccommodation accommodation,
+            List<MustVisitPlaceSnapshot> mustVisitPlaces
+    ) {
         return TripPlanningProfileEntity.create(
                 null,
                 request(accommodationMode),
                 accommodation,
+                mustVisitPlaces,
                 new ResolvedSchedulePreference(LocalTime.of(8, 0), LocalTime.of(20, 0)),
                 Instant.now()
         );

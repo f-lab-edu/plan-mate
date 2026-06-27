@@ -109,7 +109,12 @@ class TripControllerTest {
                 .satisfies(profile -> {
                     assertThat(profile.getCompanionCount()).isEqualTo(3);
                     assertThat(profile.getInterests()).contains(TripInterest.FOOD, TripInterest.SIGHTSEEING);
-                    assertThat(profile.getMustVisitPlaces()).containsExactly("Kiyomizu-dera");
+                    assertThat(profile.getMustVisitPlaces())
+                            .extracting("placeId")
+                            .containsExactly("place-kiyomizu");
+                    assertThat(profile.getMustVisitPlaces())
+                            .extracting("name")
+                            .containsExactly("Resolved place-kiyomizu");
                     assertThat(profile.getDailyStartTime()).isEqualTo(LocalTime.of(8, 0));
                     assertThat(profile.getDailyEndTime()).isEqualTo(LocalTime.of(20, 0));
                 });
@@ -437,7 +442,7 @@ class TripControllerTest {
                   "accommodation": %s,
                   "schedulePreference": %s,
                   "additionalRequest": {
-                    "mustVisitPlaces": ["Kiyomizu-dera"],
+                    "mustVisitPlaceIds": ["place-kiyomizu"],
                     "avoidConditions": ["LONG_WALK"],
                     "freeRequest": "Keep lunch flexible."
                   }

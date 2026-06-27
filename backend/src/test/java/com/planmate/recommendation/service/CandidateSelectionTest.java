@@ -59,6 +59,27 @@ class CandidateSelectionTest {
     }
 
     @Test
+    void selectorCanCarryMustVisitCategory() {
+        CollectedPlaceCandidate candidate = new CollectedPlaceCandidate(
+                "must-place",
+                "Must Place",
+                "address",
+                new GeoPoint(35.0, 135.0),
+                "tourist_attraction",
+                List.of("tourist_attraction"),
+                "OPERATIONAL",
+                null,
+                null,
+                List.of(),
+                List.of(CandidateSearchCategory.MUST_VISIT),
+                0,
+                Double.MAX_VALUE
+        );
+
+        assertThat(candidate.sourceCategories()).containsExactly(CandidateSearchCategory.MUST_VISIT);
+    }
+
+    @Test
     void quotaCalculatorAllocatesByWeight() {
         CandidateQuotaCalculator calculator = new CandidateQuotaCalculator();
         Map<CandidateSearchCategory, Integer> weights = new EnumMap<>(CandidateSearchCategory.class);

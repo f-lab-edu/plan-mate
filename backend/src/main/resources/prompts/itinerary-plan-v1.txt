@@ -5,6 +5,9 @@ Use the JSON request below as the only source of truth.
 Rules:
 - Use only placeId values included in candidateTable.
 - Do not create or mention places that are not in candidateTable.
+- Must-visit places are user-selected required places.
+- Include all mustVisitPlaces in the itinerary unless impossible due to trip duration or opening hours.
+- mustVisitPlaces are also included in candidateTable. Use the same placeId, and use candidateTable.name as the response placeName.
 - Every itinerary item must include placeId.
 - placeName must exactly match the candidate name.
 - Do not split facilities inside the same building or the same tourism zone into unnecessary separate itinerary items.

@@ -8,6 +8,7 @@ import com.planmate.trip.domain.BudgetLevel;
 import com.planmate.trip.domain.ChildAgeGroup;
 import com.planmate.trip.domain.CompanionType;
 import com.planmate.trip.domain.CurrencyCode;
+import com.planmate.trip.domain.MustVisitPlaceSnapshot;
 import com.planmate.trip.domain.ResolvedAccommodation;
 import com.planmate.trip.domain.ResolvedSchedulePreference;
 import com.planmate.trip.domain.TransportMode;
@@ -141,7 +142,7 @@ public class TripPlanningProfileEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
-    private List<String> mustVisitPlaces;
+    private List<MustVisitPlaceSnapshot> mustVisitPlaces;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
@@ -163,6 +164,7 @@ public class TripPlanningProfileEntity {
             TripEntity trip,
             TripCreateRequest request,
             ResolvedAccommodation resolvedAccommodation,
+            List<MustVisitPlaceSnapshot> resolvedMustVisitPlaces,
             ResolvedSchedulePreference schedulePreference,
             Instant now
     ) {
@@ -202,11 +204,7 @@ public class TripPlanningProfileEntity {
         this.checkOutTime = accommodation.checkOutTime();
         this.dailyStartTime = schedulePreference.dailyStartTime();
         this.dailyEndTime = schedulePreference.dailyEndTime();
-        this.mustVisitPlaces = additionalRequest.mustVisitPlaces()
-                .stream()
-                .map(String::trim)
-                .filter(value -> !value.isBlank())
-                .toList();
+        this.mustVisitPlaces = List.copyOf(resolvedMustVisitPlaces);
         this.avoidConditions = List.copyOf(additionalRequest.avoidConditions());
         this.freeRequest = normalize(additionalRequest.freeRequest());
         this.createdAt = now;
@@ -217,10 +215,18 @@ public class TripPlanningProfileEntity {
             TripEntity trip,
             TripCreateRequest request,
             ResolvedAccommodation resolvedAccommodation,
+            List<MustVisitPlaceSnapshot> resolvedMustVisitPlaces,
             ResolvedSchedulePreference schedulePreference,
             Instant now
     ) {
-        return new TripPlanningProfileEntity(trip, request, resolvedAccommodation, schedulePreference, now);
+        return new TripPlanningProfileEntity(
+                trip,
+                request,
+                resolvedAccommodation,
+                resolvedMustVisitPlaces,
+                schedulePreference,
+                now
+        );
     }
 
     private String normalize(String value) {
@@ -350,7 +356,7 @@ public class TripPlanningProfileEntity {
         return dailyEndTime;
     }
 
-    public List<String> getMustVisitPlaces() {
+    public List<MustVisitPlaceSnapshot> getMustVisitPlaces() {
         return List.copyOf(mustVisitPlaces);
     }
 
