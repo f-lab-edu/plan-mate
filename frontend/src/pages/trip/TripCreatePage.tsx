@@ -219,29 +219,29 @@ function isGenerationReadyForManualHandoff(generation: TrackedItineraryGeneratio
 function generationStatusMessage(generation: TrackedItineraryGeneration) {
   if (generation.status === 'FAILED') {
     return generation.failureReason
-      ? `?쇱젙 ?앹꽦???ㅽ뙣?덉뒿?덈떎. ${generation.failureReason}`
-      : '?쇱젙 ?앹꽦???ㅽ뙣?덉뒿?덈떎.'
+      ? `일정 생성에 실패했습니다. ${generation.failureReason}`
+      : '일정 생성에 실패했습니다.'
   }
   if (generation.status === 'COMPLETED') {
-    return '?쇱젙????λ릺?덉뒿?덈떎. ?곸꽭 ?붾㈃?쇰줈 ?대룞?⑸땲??'
+    return '일정 생성이 완료되었습니다. 여행 상세 화면으로 이동합니다.'
   }
   if (isGenerationReadyForManualHandoff(generation)) {
-    return `후보 ${generation.candidateCount}개를 수집했고 ${generation.status} 상태가 되었습니다.`
+    return `수동 handoff 준비가 완료되었습니다. 후보 ${generation.candidateCount}개를 확인할 수 있습니다.`
   }
-  return `일정 생성 요청을 접수했습니다. 현재 ${generation.status} 상태입니다.`
+  return `AI가 여행 일정을 생성하고 있습니다. 현재 상태는 ${generation.status}입니다.`
 }
 
 function generationCandidateMessage(generation: TrackedItineraryGeneration) {
   if (generation.status === 'FAILED') {
-    return generation.failureReason ?? '?꾨낫 ?섏쭛 ?먮뒗 ?쇱젙 以鍮?以??ㅽ뙣?덉뒿?덈떎.'
+    return generation.failureReason ?? '일정 생성에 실패했습니다.'
   }
   if (generation.status === 'COMPLETED') {
-    return '??λ맂 ?쇱젙???곸꽭 ?붾㈃?먯꽌 ?뺤씤?????덉뒿?덈떎.'
+    return '일정 생성이 완료되었습니다.'
   }
   if (isGenerationReadyForManualHandoff(generation)) {
-    return `후보 ${generation.candidateCount}개를 실제 Google Places 결과에서 수집했습니다.`
+    return `후보 ${generation.candidateCount}개가 준비되었습니다.`
   }
-  return '후보 수집은 비동기 작업으로 처리됩니다.'
+  return 'AI가 장소와 동선을 검토해 일정을 구성하고 있습니다.'
 }
 
 export function TripCreatePage({
@@ -362,7 +362,7 @@ export function TripCreatePage({
   useEffect(() => () => clearVisualTimers(), [])
 
   useEffect(() => {
-    if (!MANUAL_HANDOFF_ENABLED || !createdTripId || !itineraryGeneration?.generationId) {
+    if (!createdTripId || !itineraryGeneration?.generationId) {
       return undefined
     }
 
@@ -1060,15 +1060,13 @@ export function TripCreatePage({
     try {
       const created = await createTrip(accessToken, payload)
       setCreatedTripId(created.id)
-      if (MANUAL_HANDOFF_ENABLED) {
-        const generation = await createItineraryGeneration(accessToken, created.id)
-        setItineraryGeneration(generation)
-        setManualMessage(generationStatusMessage(generation))
-        setSubmitStatus('success')
-        return
-      }
+      const generation = await createItineraryGeneration(accessToken, created.id)
+      setItineraryGeneration(generation)
+      setManualMessage(generationStatusMessage(generation))
       setSubmitStatus('success')
-      scheduleVisualTimer(() => onCreatedTrip(created.id), 700)
+      if (generation.status === 'COMPLETED') {
+        await openCompletedTrip(created.id)
+      }
     } catch (error: unknown) {
       setSubmitStatus('error')
       setInfoStep('REVIEW')
@@ -1128,15 +1126,6 @@ export function TripCreatePage({
     try {
       const result = await submitManualResponse(accessToken, createdTripId, itineraryGeneration.generationId, parsed)
       await applyGenerationDetail(result)
-      return
-      setItineraryGeneration({
-        generationId: result.generationId,
-        status: result.status,
-        candidateCount: result.candidateCount,
-      })
-      setManualStatus('success')
-      setManualMessage('일정이 저장되었습니다. 여행 상세 화면으로 이동합니다.')
-      void openCompletedTrip(createdTripId)
     } catch (error: unknown) {
       setManualStatus('error')
       setManualMessage(toUserMessage(error))

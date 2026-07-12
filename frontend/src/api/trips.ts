@@ -276,8 +276,9 @@ export function getItineraryPlaceViews(accessToken: string, tripId: string, dayN
   })
 }
 
-export function createItineraryGeneration(accessToken: string, tripId: string) {
-  return request<ItineraryGenerationCreateResponse>(`/api/trips/${tripId}/itinerary-generations`, {
+export function createItineraryGeneration(accessToken: string, tripId: string, forceRegenerate = false) {
+  const search = forceRegenerate ? '?forceRegenerate=true' : ''
+  return request<ItineraryGenerationCreateResponse>(`/api/trips/${tripId}/itinerary-generations${search}`, {
     method: 'POST',
     headers: bearerHeaders(accessToken),
   })

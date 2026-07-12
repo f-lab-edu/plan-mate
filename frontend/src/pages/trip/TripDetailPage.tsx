@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AuthUser } from '../../api/auth'
 import { ApiError } from '../../api/client'
-import { getAiRequest, getItineraryPlaceViews, getLatestItineraryGeneration, getManualPrompt, getTripDetail, submitManualResponse } from '../../api/trips'
+import { createItineraryGeneration, getAiRequest, getItineraryPlaceViews, getLatestItineraryGeneration, getManualPrompt, getTripDetail, submitManualResponse } from '../../api/trips'
 import type { GroundedItineraryDraft, ItineraryPlaceView, ItineraryGenerationDetailResponse, TripDetail, TripMember, TripPlanningProfile } from '../../api/trips'
 import { connectTripRealtimeEvents, ITINERARY_GENERATION_STATUS_CHANGED } from '../../api/realtime'
 import './TripDetailPage.css'
@@ -15,6 +15,8 @@ type TripDetailPageProps = {
 }
 
 type AsyncStatus = 'idle' | 'loading' | 'success' | 'error'
+
+const MANUAL_HANDOFF_ENABLED = import.meta.env.VITE_MANUAL_HANDOFF_ENABLED === 'true'
 
 type ItineraryPlace = {
   id: string
@@ -150,15 +152,15 @@ export function TripDetailPage({
         })
         if (event.payload.status === 'READY_FOR_PLANNING') {
           setManualStatus('success')
-          setManualMessage('?쇱젙 ?앹꽦 ?꾨낫媛 以鍮꾨릺?덉뒿?덈떎.')
+          setManualMessage('일정 생성이 진행 중입니다.')
         }
         if (event.payload.status === 'FAILED') {
           setManualStatus('error')
-          setManualMessage(event.payload.failureReason ?? '?쇱젙 ?앹꽦???ㅽ뙣?덉뒿?덈떎.')
+          setManualMessage(event.payload.failureReason ?? '일정 생성에 실패했습니다.')
         }
         if (event.payload.status === 'COMPLETED') {
           setManualStatus('success')
-          setManualMessage('?쇱젙????λ릺?덉뒿?덈떎.')
+          setManualMessage('일정 생성이 완료되었습니다.')
           void refetchTrip().catch((error: unknown) => {
             if (active) {
               setManualStatus('error')
@@ -185,7 +187,7 @@ export function TripDetailPage({
       const prompt = await getManualPrompt(accessToken, tripId, latestGeneration.generationId)
       setManualPrompt(prompt)
       setManualStatus('success')
-      setManualMessage('?꾨＼?꾪듃瑜?遺덈윭?붿뒿?덈떎.')
+      setManualMessage('프롬프트를 불러왔습니다.')
     } catch (error: unknown) {
       setManualStatus('error')
       setManualMessage(errorMessageFrom(error))
@@ -202,7 +204,7 @@ export function TripDetailPage({
       const aiRequest = await getAiRequest(accessToken, tripId, latestGeneration.generationId)
       setAiRequestJson(JSON.stringify(aiRequest, null, 2))
       setManualStatus('success')
-      setManualMessage('AI request JSON??遺덈윭?붿뒿?덈떎.')
+      setManualMessage('AI request JSON을 불러왔습니다.')
     } catch (error: unknown) {
       setManualStatus('error')
       setManualMessage(errorMessageFrom(error))
@@ -218,7 +220,7 @@ export function TripDetailPage({
       parsed = JSON.parse(manualResponseJson) as GroundedItineraryDraft
     } catch {
       setManualStatus('error')
-      setManualMessage('ChatGPT ?묐떟 JSON ?뺤떇???щ컮瑜댁? ?딆뒿?덈떎.')
+      setManualMessage('ChatGPT 응답 JSON 형식이 올바르지 않습니다.')
       return
     }
 
@@ -228,13 +230,34 @@ export function TripDetailPage({
       const generation = await submitManualResponse(accessToken, tripId, latestGeneration.generationId, parsed)
       setLatestGeneration(generation)
       setManualStatus('success')
-      setManualMessage('?쇱젙????λ릺?덉뒿?덈떎.')
+      setManualMessage('일정이 저장되었습니다.')
       const [response, views] = await Promise.all([
         getTripDetail(accessToken, tripId),
         getItineraryPlaceViews(accessToken, tripId),
       ])
       setTrip(response)
       setPlaceViews(views)
+    } catch (error: unknown) {
+      setManualStatus('error')
+      setManualMessage(errorMessageFrom(error))
+    }
+  }
+
+  async function handleRetryGeneration() {
+    setManualStatus('loading')
+    setManualMessage('')
+    try {
+      const generation = await createItineraryGeneration(accessToken, tripId, true)
+      setLatestGeneration({
+        ...generation,
+        tripId,
+        promptVersion: '',
+        failureReason: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      setManualStatus('success')
+      setManualMessage('일정 재생성 요청을 접수했습니다.')
     } catch (error: unknown) {
       setManualStatus('error')
       setManualMessage(errorMessageFrom(error))
@@ -279,6 +302,7 @@ export function TripDetailPage({
         onManualPromptLoad={handleLoadManualPrompt}
         onManualResponseChange={setManualResponseJson}
         onManualResponseSubmit={handleSubmitManualResponse}
+        onRetryGeneration={handleRetryGeneration}
         placeViews={placeViews}
         trip={trip}
       />
@@ -301,6 +325,7 @@ function TripPlanningWorkspace({
   onManualPromptLoad,
   onManualResponseChange,
   onManualResponseSubmit,
+  onRetryGeneration,
   placeViews,
 }: {
   trip: TripDetail
@@ -318,6 +343,7 @@ function TripPlanningWorkspace({
   onManualPromptLoad: () => void
   onManualResponseChange: (value: string) => void
   onManualResponseSubmit: () => void
+  onRetryGeneration: () => void
 }) {
   const latestItinerary = trip.itineraries[0] ?? null
   const dayOptions = latestItinerary?.days.map((day) => day.day) ?? []
@@ -371,9 +397,10 @@ function TripPlanningWorkspace({
             onManualPromptLoad={onManualPromptLoad}
             onManualResponseChange={onManualResponseChange}
             onManualResponseSubmit={onManualResponseSubmit}
+            onRetryGeneration={onRetryGeneration}
           />
           <h2>저장된 일정이 아직 없습니다.</h2>
-          <p>manual handoff에서 ChatGPT 응답 JSON을 제출하면 이 화면에 실제 일정이 표시됩니다.</p>
+          <p>AI가 일정을 생성하는 중이면 완료 후 자동으로 일정 목록이 표시됩니다.</p>
         </section>
       )}
     </section>
@@ -391,6 +418,7 @@ function TripGenerationRecoveryPanel({
   onManualPromptLoad,
   onManualResponseChange,
   onManualResponseSubmit,
+  onRetryGeneration,
 }: {
   aiRequestJson: string
   generation: ItineraryGenerationDetailResponse | null
@@ -402,6 +430,7 @@ function TripGenerationRecoveryPanel({
   onManualPromptLoad: () => void
   onManualResponseChange: (value: string) => void
   onManualResponseSubmit: () => void
+  onRetryGeneration: () => void
 }) {
   if (!generation) {
     return null
@@ -409,42 +438,54 @@ function TripGenerationRecoveryPanel({
 
   const isReady = generation.status === 'READY_FOR_PLANNING'
   const isFailed = generation.status === 'FAILED'
+  const statusMessage = isFailed
+    ? generation.failureReason ?? '일정 생성에 실패했습니다.'
+    : generation.status === 'COMPLETED'
+      ? '일정 생성이 완료되었습니다.'
+      : 'AI가 장소와 동선을 검토해 일정을 구성하고 있습니다.'
 
   return (
     <section className="trip-generation-recovery" aria-live="polite">
       <div>
         <span>Generation</span>
         <strong>{generation.status}</strong>
-        <p>
-          {isFailed
-            ? generation.failureReason ?? '?쇱젙 ?앹꽦???ㅽ뙣?덉뒿?덈떎.'
-            : `?꾨낫 ${generation.candidateCount}媛쒕? ?뺤씤?덉뒿?덈떎.`}
-        </p>
+        <p>{statusMessage}</p>
       </div>
       <div className="trip-generation-actions">
-        <button type="button" onClick={onManualPromptLoad} disabled={!isReady || manualStatus === 'loading'}>
-          Prompt
+        <button type="button" onClick={onRetryGeneration} disabled={!isFailed || manualStatus === 'loading'}>
+          다시 생성
         </button>
-        <button type="button" onClick={onAiRequestLoad} disabled={!isReady || manualStatus === 'loading'}>
-          AI request
-        </button>
+        {MANUAL_HANDOFF_ENABLED && (
+          <>
+            <button type="button" onClick={onManualPromptLoad} disabled={!isReady || manualStatus === 'loading'}>
+              Prompt
+            </button>
+            <button type="button" onClick={onAiRequestLoad} disabled={!isReady || manualStatus === 'loading'}>
+              AI request
+            </button>
+          </>
+        )}
       </div>
       {manualMessage && <p className={`trip-generation-message ${manualStatus}`}>{manualMessage}</p>}
-      {manualPrompt && <textarea readOnly value={manualPrompt} />}
-      {aiRequestJson && <textarea readOnly value={aiRequestJson} />}
-      <textarea
-        placeholder="ChatGPT response JSON"
-        value={manualResponseJson}
-        onChange={(event) => onManualResponseChange(event.target.value)}
-      />
-      <button
-        className="trip-generation-submit"
-        type="button"
-        onClick={onManualResponseSubmit}
-        disabled={!isReady || manualStatus === 'loading' || !manualResponseJson.trim()}
-      >
-        Submit response
-      </button>
+      {MANUAL_HANDOFF_ENABLED && (
+        <>
+          {manualPrompt && <textarea readOnly value={manualPrompt} />}
+          {aiRequestJson && <textarea readOnly value={aiRequestJson} />}
+          <textarea
+            placeholder="ChatGPT response JSON"
+            value={manualResponseJson}
+            onChange={(event) => onManualResponseChange(event.target.value)}
+          />
+          <button
+            className="trip-generation-submit"
+            type="button"
+            onClick={onManualResponseSubmit}
+            disabled={!isReady || manualStatus === 'loading' || !manualResponseJson.trim()}
+          >
+            Submit response
+          </button>
+        </>
+      )}
     </section>
   )
 }

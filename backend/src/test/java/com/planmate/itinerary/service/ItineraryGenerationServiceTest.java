@@ -1,19 +1,26 @@
 package com.planmate.itinerary.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import com.planmate.itinerary.config.AiItineraryProperties;
+import com.planmate.itinerary.dto.GroundedItineraryDraft;
+import com.planmate.itinerary.dto.ItineraryDraftDay;
+import com.planmate.itinerary.dto.ItineraryDraftItem;
 import com.planmate.itinerary.dto.ItineraryGenerationCreateResponse;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.generation.ItineraryDraftGenerator;
+import com.planmate.itinerary.generation.ItineraryDraftGeneratorRegistry;
+import com.planmate.itinerary.generation.ItineraryDraftPromptBuilder;
+import com.planmate.itinerary.generation.ItineraryGenerationContext;
 import com.planmate.place.dto.GeoPoint;
-import com.planmate.place.dto.ResolvedDestination;
 import com.planmate.trip.entity.TripEntity;
-import com.planmate.trip.entity.TripPlanningProfileEntity;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -32,17 +39,26 @@ class ItineraryGenerationServiceTest {
     @Mock
     private ItineraryGenerationPersistenceService persistenceService;
 
+    @Mock
+    private ItineraryDraftGeneratorRegistry generatorRegistry;
+
+    @Mock
+    private ItineraryDraftGenerator generator;
+
+    private AiItineraryProperties properties;
     private ItineraryGenerationService service;
 
     @BeforeEach
     void setUp() {
-        service = new ItineraryGenerationService(persistenceService);
+        properties = new AiItineraryProperties();
+        properties.setProvider(AiItineraryProperties.PROVIDER_GEMINI_MAPS_GROUNDING);
+        service = new ItineraryGenerationService(persistenceService, properties, generatorRegistry);
     }
 
     @Test
-    void createOnlyCreatesGenerationRequestAndDoesNotCollectCandidates() {
+    void createOnlyCreatesGenerationRequestAndDoesNotGenerateInHttpRequest() {
         ItineraryGenerationEntity generation = generation(123L, trip(45L));
-        given(persistenceService.createGenerationRequest(7L, 45L, ItineraryPromptService.PROMPT_VERSION))
+        given(persistenceService.createGenerationRequest(7L, 45L, ItineraryDraftPromptBuilder.PROMPT_VERSION, false))
                 .willReturn(generation);
 
         ItineraryGenerationCreateResponse response = service.create(7L, 45L);
@@ -50,40 +66,90 @@ class ItineraryGenerationServiceTest {
         assertThat(response.generationId()).isEqualTo("123");
         assertThat(response.status()).isEqualTo(ItineraryGenerationStatus.CREATED);
         assertThat(response.candidateCount()).isZero();
-        verify(persistenceService).createGenerationRequest(7L, 45L, ItineraryPromptService.PROMPT_VERSION);
-        verify(persistenceService, never()).markCollecting(anyLong());
+        verify(persistenceService).createGenerationRequest(7L, 45L, ItineraryDraftPromptBuilder.PROMPT_VERSION, false);
+        verify(persistenceService, never()).saveValidatedDraftAndComplete(any(), any(), any(), any(), any(Long.class));
         verifyNoMoreInteractions(persistenceService);
     }
 
     @Test
-    void collectCandidatesValidatesContextAndMarksReadyForPlanning() {
-        ResolvedDestination destination = new ResolvedDestination(
-                "place-kyoto",
-                "Kyoto",
-                "Kyoto, Japan",
-                new GeoPoint(35.0, 135.0),
-                null,
-                List.of("locality"),
-                "locality"
-        );
-        TripPlanningProfileEntity profile = org.mockito.Mockito.mock(TripPlanningProfileEntity.class);
-        given(persistenceService.loadCollectionContext(7L, 45L, 123L))
-                .willReturn(new ItineraryGenerationPersistenceService.GenerationCollectionContext(123L, destination, profile));
+    void createPassesForceRegenerateOption() {
+        ItineraryGenerationEntity generation = generation(123L, trip(45L));
+        given(persistenceService.createGenerationRequest(7L, 45L, ItineraryDraftPromptBuilder.PROMPT_VERSION, true))
+                .willReturn(generation);
 
-        service.collectCandidates(7L, 45L, 123L);
+        service.create(7L, 45L, true);
 
-        verify(persistenceService).loadCollectionContext(7L, 45L, 123L);
+        verify(persistenceService).createGenerationRequest(7L, 45L, ItineraryDraftPromptBuilder.PROMPT_VERSION, true);
+    }
+
+    @Test
+    void generateItineraryCallsProviderAndPersistsValidatedDraft() {
+        ItineraryGenerationContext context = context();
+        GroundedItineraryDraft draft = draft("123");
+        given(persistenceService.loadGenerationContext(7L, 45L, 123L)).willReturn(context);
+        given(generatorRegistry.get(AiItineraryProperties.PROVIDER_GEMINI_MAPS_GROUNDING)).willReturn(generator);
+        given(generator.generate(context)).willReturn(draft);
+
+        service.generateItinerary(7L, 45L, 123L);
+
+        verify(generator).generate(context);
+        verify(persistenceService).saveValidatedDraftAndComplete(eq(7L), eq(45L), eq(123L), eq(draft), any(Long.class));
+    }
+
+    @Test
+    void generateItineraryFallsBackToReadyForPlanningWhenProviderIsManual() {
+        properties.setProvider(AiItineraryProperties.PROVIDER_MANUAL);
+        given(persistenceService.loadGenerationContext(7L, 45L, 123L)).willReturn(context());
+
+        service.generateItinerary(7L, 45L, 123L);
+
+        verify(persistenceService).loadGenerationContext(7L, 45L, 123L);
         verify(persistenceService).markReadyForPlanning(123L);
+        verifyNoMoreInteractions(generatorRegistry);
     }
 
     private ItineraryGenerationEntity generation(Long generationId, TripEntity trip) {
         ItineraryGenerationEntity generation = ItineraryGenerationEntity.create(
                 trip,
-                ItineraryPromptService.PROMPT_VERSION,
+                ItineraryDraftPromptBuilder.PROMPT_VERSION,
+                AiItineraryProperties.PROVIDER_GEMINI_MAPS_GROUNDING,
+                "gemini-3.5-flash",
+                "grounded-itinerary-draft-v1",
+                "fingerprint",
                 NOW
         );
         ReflectionTestUtils.setField(generation, "id", generationId);
         return generation;
+    }
+
+    private GroundedItineraryDraft draft(String generationId) {
+        return new GroundedItineraryDraft(
+                generationId,
+                List.of(new ItineraryDraftDay(1, List.of(new ItineraryDraftItem(1, "place-1", "09:00", 120))))
+        );
+    }
+
+    private ItineraryGenerationContext context() {
+        return new ItineraryGenerationContext(
+                123L,
+                45L,
+                "Kyoto trip",
+                ItineraryDraftPromptBuilder.PROMPT_VERSION,
+                "grounded-itinerary-draft-v1",
+                "fingerprint",
+                new ItineraryGenerationContext.Destination(
+                        "place-kyoto",
+                        "Kyoto",
+                        "Kyoto, Japan",
+                        new GeoPoint(35.0, 135.0),
+                        null,
+                        List.of("locality"),
+                        "locality"
+                ),
+                LocalDate.of(2026, 4, 1),
+                LocalDate.of(2026, 4, 1),
+                null
+        );
     }
 
     private TripEntity trip(Long tripId) {

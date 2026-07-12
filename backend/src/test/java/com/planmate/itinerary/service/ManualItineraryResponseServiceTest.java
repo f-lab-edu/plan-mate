@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.planmate.itinerary.config.AiItineraryProperties;
 import com.planmate.itinerary.dto.GroundedItineraryDraft;
 import com.planmate.itinerary.dto.ItineraryDraftDay;
 import com.planmate.itinerary.dto.ItineraryDraftItem;
@@ -47,6 +48,8 @@ class ManualItineraryResponseServiceTest {
     private final ItineraryItemRepository itineraryItemRepository = Mockito.mock(ItineraryItemRepository.class);
     private final ApplicationEventPublisher eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
+    private final GroundedItineraryDraftValidator draftValidator =
+            new GroundedItineraryDraftValidator(new AiItineraryProperties());
     private final ManualItineraryResponseService service = new ManualItineraryResponseService(
             tripRepository,
             generationRepository,
@@ -54,6 +57,7 @@ class ManualItineraryResponseServiceTest {
             itineraryRepository,
             itineraryDayRepository,
             itineraryItemRepository,
+            draftValidator,
             clock,
             eventPublisher
     );
@@ -113,7 +117,7 @@ class ManualItineraryResponseServiceTest {
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
                 .isInstanceOf(ItineraryException.class)
-                .hasMessage("days 개수는 여행 일수와 일치해야 합니다.");
+                .hasMessage("AI 일정의 days 개수는 여행 일수와 일치해야 합니다.");
         verify(itineraryRepository, never()).save(Mockito.any());
     }
 
@@ -129,7 +133,7 @@ class ManualItineraryResponseServiceTest {
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
                 .isInstanceOf(ItineraryException.class)
-                .hasMessage("mustVisitPlaceIds는 일정에 포함되어야 합니다.");
+                .hasMessage("AI 일정에는 필수 방문지가 포함되어야 합니다.");
         verify(itineraryRepository, never()).save(Mockito.any());
     }
 
@@ -145,7 +149,7 @@ class ManualItineraryResponseServiceTest {
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
                 .isInstanceOf(ItineraryException.class)
-                .hasMessage("startTime은 HH:mm 형식이어야 합니다.");
+                .hasMessage("AI 일정 항목의 startTime은 HH:mm 형식이어야 합니다.");
         verify(itineraryRepository, never()).save(Mockito.any());
     }
 

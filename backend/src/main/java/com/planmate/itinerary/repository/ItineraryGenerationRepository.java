@@ -4,6 +4,7 @@ import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,6 +21,13 @@ public interface ItineraryGenerationRepository extends JpaRepository<ItineraryGe
 
     @EntityGraph(attributePaths = {"trip"})
     Optional<ItineraryGenerationEntity> findFirstByTrip_IdOrderByCreatedAtDesc(Long tripId);
+
+    @EntityGraph(attributePaths = {"trip"})
+    Optional<ItineraryGenerationEntity> findFirstByTrip_IdAndRequestFingerprintAndStatusInOrderByCreatedAtDesc(
+            Long tripId,
+            String requestFingerprint,
+            Collection<ItineraryGenerationStatus> statuses
+    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<ItineraryGenerationEntity> findWithLockById(Long id);

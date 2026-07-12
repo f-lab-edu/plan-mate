@@ -8,11 +8,17 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.planmate.common.outbox.OutboxEventEntity;
 import com.planmate.common.outbox.OutboxEventRepository;
+import com.planmate.itinerary.config.AiItineraryProperties;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.generation.ItineraryDraftPromptBuilder;
 import com.planmate.itinerary.realtime.ItineraryGenerationStatusChangedEvent;
+import com.planmate.itinerary.repository.ItineraryDayRepository;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
+import com.planmate.itinerary.repository.ItineraryItemRepository;
+import com.planmate.itinerary.repository.ItineraryRepository;
 import com.planmate.trip.entity.TripEntity;
+import com.planmate.trip.entity.TripPlanningProfileEntity;
 import com.planmate.trip.repository.TripPlanningProfileRepository;
 import com.planmate.trip.repository.TripRepository;
 import java.time.Clock;
@@ -48,17 +54,42 @@ class ItineraryGenerationPersistenceServiceTest {
     private TripPlanningProfileRepository tripPlanningProfileRepository;
 
     @Mock
+    private ItineraryRepository itineraryRepository;
+
+    @Mock
+    private ItineraryDayRepository itineraryDayRepository;
+
+    @Mock
+    private ItineraryItemRepository itineraryItemRepository;
+
+    @Mock
+    private ItineraryGenerationRequestFingerprinter fingerprinter;
+
+    @Mock
+    private GroundedItineraryDraftValidator draftValidator;
+
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
+    private AiItineraryProperties aiItineraryProperties;
     private ItineraryGenerationPersistenceService service;
 
     @BeforeEach
     void setUp() {
+        aiItineraryProperties = new AiItineraryProperties();
+        aiItineraryProperties.setProvider(AiItineraryProperties.PROVIDER_GEMINI_MAPS_GROUNDING);
+        aiItineraryProperties.setModel("gemini-3.5-flash");
         service = new ItineraryGenerationPersistenceService(
                 generationRepository,
                 outboxEventRepository,
                 tripRepository,
                 tripPlanningProfileRepository,
+                itineraryRepository,
+                itineraryDayRepository,
+                itineraryItemRepository,
+                aiItineraryProperties,
+                fingerprinter,
+                draftValidator,
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 eventPublisher
         );
@@ -67,7 +98,23 @@ class ItineraryGenerationPersistenceServiceTest {
     @Test
     void createGenerationRequestStoresGenerationAndOutboxEventInOneServiceCall() {
         TripEntity trip = trip(45L);
+        TripPlanningProfileEntity profile = org.mockito.Mockito.mock(TripPlanningProfileEntity.class);
         given(tripRepository.findAccessibleTrip(45L, 7L)).willReturn(Optional.of(trip));
+        given(tripPlanningProfileRepository.findByTrip_Id(45L)).willReturn(Optional.of(profile));
+        given(fingerprinter.create(trip, profile, ItineraryDraftPromptBuilder.PROMPT_VERSION, "grounded-itinerary-draft-v1"))
+                .willReturn("fingerprint");
+        given(generationRepository.findFirstByTrip_IdAndRequestFingerprintAndStatusInOrderByCreatedAtDesc(
+                45L,
+                "fingerprint",
+                List.of(
+                        ItineraryGenerationStatus.CREATED,
+                        ItineraryGenerationStatus.COLLECTING_CANDIDATES,
+                        ItineraryGenerationStatus.PLANNING,
+                        ItineraryGenerationStatus.VALIDATING,
+                        ItineraryGenerationStatus.READY_FOR_PLANNING,
+                        ItineraryGenerationStatus.COMPLETED
+                )
+        )).willReturn(Optional.empty());
         given(generationRepository.save(any(ItineraryGenerationEntity.class)))
                 .willAnswer(invocation -> {
                     ItineraryGenerationEntity generation = invocation.getArgument(0);
@@ -78,10 +125,13 @@ class ItineraryGenerationPersistenceServiceTest {
         ItineraryGenerationEntity generation = service.createGenerationRequest(
                 7L,
                 45L,
-                ItineraryPromptService.PROMPT_VERSION
+                ItineraryDraftPromptBuilder.PROMPT_VERSION,
+                false
         );
 
         assertThat(generation.getId()).isEqualTo(123L);
+        assertThat(generation.getProvider()).isEqualTo(AiItineraryProperties.PROVIDER_GEMINI_MAPS_GROUNDING);
+        assertThat(generation.getRequestFingerprint()).isEqualTo("fingerprint");
         ArgumentCaptor<OutboxEventEntity> outboxCaptor = ArgumentCaptor.forClass(OutboxEventEntity.class);
         verify(outboxEventRepository).save(outboxCaptor.capture());
         OutboxEventEntity outboxEvent = outboxCaptor.getValue();
@@ -107,6 +157,20 @@ class ItineraryGenerationPersistenceServiceTest {
 
         assertThat(result).isTrue();
         assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.COLLECTING_CANDIDATES);
+        verify(eventPublisher).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void markPlanningIfCreatedMarksCreatedGenerationAndReturnsTrue() {
+        TripEntity trip = trip(45L);
+        ItineraryGenerationEntity generation = generation(123L, trip);
+        given(tripRepository.findAccessibleTrip(45L, 7L)).willReturn(Optional.of(trip));
+        given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
+
+        boolean result = service.markPlanningIfCreated(7L, 45L, 123L);
+
+        assertThat(result).isTrue();
+        assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.PLANNING);
         verify(eventPublisher).publishEvent(any(Object.class));
     }
 

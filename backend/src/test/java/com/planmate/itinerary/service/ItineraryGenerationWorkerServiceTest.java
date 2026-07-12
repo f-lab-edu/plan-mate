@@ -11,7 +11,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.planmate.itinerary.config.AiItineraryProperties;
 import com.planmate.itinerary.config.ItineraryGenerationWorkerProperties;
+import com.planmate.itinerary.generation.ItineraryDraftGenerationException;
+import com.planmate.itinerary.generation.ItineraryDraftGenerationFailureCode;
 import com.planmate.itinerary.messaging.ItineraryGenerationRequestedMessage;
 import com.planmate.itinerary.metrics.ItineraryGenerationWorkerMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -43,20 +46,21 @@ class ItineraryGenerationWorkerServiceTest {
                 persistenceService,
                 generationService,
                 properties,
+                new AiItineraryProperties(),
                 new ItineraryGenerationWorkerMetrics(meterRegistry)
         );
     }
 
     @Test
-    void processCollectsCandidatesWhenGenerationIsCreated() {
+    void processGeneratesItineraryWhenGenerationIsCreated() {
         ItineraryGenerationRequestedMessage message = new ItineraryGenerationRequestedMessage(123L, 45L, 7L);
-        given(persistenceService.markCollectingIfCreated(7L, 45L, 123L)).willReturn(true);
+        given(persistenceService.markPlanningIfCreated(7L, 45L, 123L)).willReturn(true);
 
         workerService.process(message);
 
-        verify(persistenceService).markCollectingIfCreated(7L, 45L, 123L);
-        verify(generationService).collectCandidates(7L, 45L, 123L);
-        verify(persistenceService, never()).markFailed(anyLong(), anyString());
+        verify(persistenceService).markPlanningIfCreated(7L, 45L, 123L);
+        verify(generationService).generateItinerary(7L, 45L, 123L);
+        verify(persistenceService, never()).markFailed(anyLong(), anyString(), anyString());
         assertProcessedCount("success", 1.0);
         assertDurationCount("success", 1L);
     }
@@ -64,31 +68,57 @@ class ItineraryGenerationWorkerServiceTest {
     @Test
     void processIgnoresAlreadyHandledGeneration() {
         ItineraryGenerationRequestedMessage message = new ItineraryGenerationRequestedMessage(123L, 45L, 7L);
-        given(persistenceService.markCollectingIfCreated(7L, 45L, 123L)).willReturn(false);
+        given(persistenceService.markPlanningIfCreated(7L, 45L, 123L)).willReturn(false);
 
         workerService.process(message);
 
-        verify(persistenceService).markCollectingIfCreated(7L, 45L, 123L);
+        verify(persistenceService).markPlanningIfCreated(7L, 45L, 123L);
         verifyNoInteractions(generationService);
         assertProcessedCount("skipped", 1.0);
         assertDurationCount("skipped", 1L);
     }
 
     @Test
-    void processRetriesAndMarksFailedWhenCandidateCollectionKeepsFailing() {
+    void processRetriesAndMarksFailedWhenProviderFailureIsRetryable() {
         ItineraryGenerationRequestedMessage message = new ItineraryGenerationRequestedMessage(123L, 45L, 7L);
-        RuntimeException failure = new IllegalStateException("google places unavailable");
-        given(persistenceService.markCollectingIfCreated(7L, 45L, 123L)).willReturn(true);
-        doThrow(failure).when(generationService).collectCandidates(7L, 45L, 123L);
+        ItineraryDraftGenerationException failure = new ItineraryDraftGenerationException(
+                ItineraryDraftGenerationFailureCode.AI_TIMEOUT,
+                true
+        );
+        given(persistenceService.markPlanningIfCreated(7L, 45L, 123L)).willReturn(true);
+        doThrow(failure).when(generationService).generateItinerary(7L, 45L, 123L);
 
         assertThatThrownBy(() -> workerService.process(message))
                 .isSameAs(failure);
 
-        verify(generationService, times(2)).collectCandidates(7L, 45L, 123L);
-        verify(persistenceService).markFailed(123L, "IllegalStateException");
+        verify(generationService, times(2)).generateItinerary(7L, 45L, 123L);
+        verify(persistenceService).markFailed(
+                123L,
+                "AI_TIMEOUT",
+                ItineraryDraftGenerationFailureCode.AI_TIMEOUT.userMessage()
+        );
         assertProcessedCount("failed", 1.0);
         assertDurationCount("failed", 1L);
         assertRetryCount(1.0);
+    }
+
+    @Test
+    void processDoesNotRetryValidationFailure() {
+        ItineraryGenerationRequestedMessage message = new ItineraryGenerationRequestedMessage(123L, 45L, 7L);
+        ItineraryDraftGenerationException failure = new ItineraryDraftGenerationException(
+                ItineraryDraftGenerationFailureCode.AI_RESPONSE_VALIDATION_FAILED,
+                "AI 일정에 필수 방문지가 누락되었습니다.",
+                false
+        );
+        given(persistenceService.markPlanningIfCreated(7L, 45L, 123L)).willReturn(true);
+        doThrow(failure).when(generationService).generateItinerary(7L, 45L, 123L);
+
+        assertThatThrownBy(() -> workerService.process(message))
+                .isSameAs(failure);
+
+        verify(generationService).generateItinerary(7L, 45L, 123L);
+        verify(persistenceService).markFailed(123L, "AI_RESPONSE_VALIDATION_FAILED", "AI 일정에 필수 방문지가 누락되었습니다.");
+        assertRetryCount(0.0);
     }
 
     @Test
@@ -121,9 +151,8 @@ class ItineraryGenerationWorkerServiceTest {
     }
 
     private void assertRetryCount(double count) {
-        assertThat(meterRegistry.get("planmate.itinerary.generation.worker.retry")
-                        .counter()
-                        .count())
-                .isEqualTo(count);
+        var counter = meterRegistry.find("planmate.itinerary.generation.worker.retry").counter();
+        double actualCount = counter == null ? 0.0 : counter.count();
+        assertThat(actualCount).isEqualTo(count);
     }
 }

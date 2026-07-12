@@ -127,6 +127,18 @@ app:
     places:
       api-key: ${GOOGLE_PLACES_API_KEY:}
       text-search-radius-meters: ${GOOGLE_PLACES_TEXT_SEARCH_RADIUS_METERS:30000}
+  ai:
+    itinerary:
+      enabled: ${APP_AI_ITINERARY_ENABLED:true}
+      provider: ${APP_AI_ITINERARY_PROVIDER:gemini-maps-grounding}
+      model: ${APP_AI_ITINERARY_MODEL:gemini-3.5-flash}
+      api-key: ${GEMINI_API_KEY:}
+      base-url: ${APP_AI_ITINERARY_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
+      timeout: ${APP_AI_ITINERARY_TIMEOUT:60s}
+      temperature: ${APP_AI_ITINERARY_TEMPERATURE:0.2}
+      schema-version: ${APP_AI_ITINERARY_SCHEMA_VERSION:grounded-itinerary-draft-v1}
+      max-items-per-day: ${APP_AI_ITINERARY_MAX_ITEMS_PER_DAY:8}
+      max-repeat-per-place: ${APP_AI_ITINERARY_MAX_REPEAT_PER_PLACE:1}
   itinerary:
     manual-handoff-enabled: ${APP_ITINERARY_MANUAL_HANDOFF_ENABLED:false}
     generation-worker:
