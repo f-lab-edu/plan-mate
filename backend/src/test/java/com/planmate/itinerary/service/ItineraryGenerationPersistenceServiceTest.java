@@ -268,7 +268,7 @@ class ItineraryGenerationPersistenceServiceTest {
     private ItineraryGenerationEntity generation(Long generationId, TripEntity trip) {
         ItineraryGenerationEntity generation = ItineraryGenerationEntity.create(
                 trip,
-                ItineraryPromptService.PROMPT_VERSION,
+                ItineraryDraftPromptBuilder.PROMPT_VERSION,
                 NOW
         );
         ReflectionTestUtils.setField(generation, "id", generationId);

@@ -7,13 +7,10 @@ import type { PlaceAutocompleteItem } from '../../api/places'
 import {
   createItineraryGeneration,
   createTrip,
-  getAiRequest,
   getItineraryGeneration,
-  getManualPrompt,
   getTripDetail,
-  submitManualResponse,
 } from '../../api/trips'
-import type { CreateTripRequest, GroundedItineraryDraft, ItineraryGenerationCreateResponse, ItineraryGenerationDetailResponse } from '../../api/trips'
+import type { CreateTripRequest, ItineraryGenerationCreateResponse, ItineraryGenerationDetailResponse } from '../../api/trips'
 import { connectTripRealtimeEvents, ITINERARY_GENERATION_STATUS_CHANGED } from '../../api/realtime'
 import type { ItineraryGenerationStatusChangedPayload } from '../../api/realtime'
 import coupleMascotUrl from '../../assets/mascots/couple.png'
@@ -210,12 +207,6 @@ const AVOID_OPTIONS: Array<{ id: AvoidItem; label: string }> = [
   { id: 'EXPENSIVE_RESTAURANT', label: '비싼 식당' },
   { id: 'TIGHT_SCHEDULE', label: '빡빡한 일정' },
 ]
-const MANUAL_HANDOFF_ENABLED = import.meta.env.VITE_MANUAL_HANDOFF_ENABLED === 'true'
-
-function isGenerationReadyForManualHandoff(generation: TrackedItineraryGeneration | null) {
-  return generation?.status === 'READY_FOR_PLANNING'
-}
-
 function generationStatusMessage(generation: TrackedItineraryGeneration) {
   if (generation.status === 'FAILED') {
     return generation.failureReason
@@ -225,23 +216,10 @@ function generationStatusMessage(generation: TrackedItineraryGeneration) {
   if (generation.status === 'COMPLETED') {
     return '일정 생성이 완료되었습니다. 여행 상세 화면으로 이동합니다.'
   }
-  if (isGenerationReadyForManualHandoff(generation)) {
-    return `수동 handoff 준비가 완료되었습니다. 후보 ${generation.candidateCount}개를 확인할 수 있습니다.`
+  if (generation.status === 'READY_FOR_PLANNING' || generation.status === 'VALIDATING') {
+    return 'AI가 생성한 일정을 검증하고 저장하는 중입니다.'
   }
   return `AI가 여행 일정을 생성하고 있습니다. 현재 상태는 ${generation.status}입니다.`
-}
-
-function generationCandidateMessage(generation: TrackedItineraryGeneration) {
-  if (generation.status === 'FAILED') {
-    return generation.failureReason ?? '일정 생성에 실패했습니다.'
-  }
-  if (generation.status === 'COMPLETED') {
-    return '일정 생성이 완료되었습니다.'
-  }
-  if (isGenerationReadyForManualHandoff(generation)) {
-    return `후보 ${generation.candidateCount}개가 준비되었습니다.`
-  }
-  return 'AI가 장소와 동선을 검토해 일정을 구성하고 있습니다.'
 }
 
 export function TripCreatePage({
@@ -264,11 +242,8 @@ export function TripCreatePage({
   const [submitStatus, setSubmitStatus] = useState<AsyncStatus>('idle')
   const [createdTripId, setCreatedTripId] = useState('')
   const [itineraryGeneration, setItineraryGeneration] = useState<TrackedItineraryGeneration | null>(null)
-  const [manualPrompt, setManualPrompt] = useState('')
-  const [aiRequestJson, setAiRequestJson] = useState('')
-  const [manualResponseJson, setManualResponseJson] = useState('')
-  const [manualStatus, setManualStatus] = useState<AsyncStatus>('idle')
-  const [manualMessage, setManualMessage] = useState('')
+  const [generationFeedbackStatus, setGenerationFeedbackStatus] = useState<AsyncStatus>('idle')
+  const [generationFeedbackMessage, setGenerationFeedbackMessage] = useState('')
   const [searchError, setSearchError] = useState('')
   const [formError, setFormError] = useState('')
   const [submitError, setSubmitError] = useState('')
@@ -380,8 +355,8 @@ export function TripCreatePage({
         if (!active) {
           return
         }
-        setManualStatus('error')
-        setManualMessage(toUserMessage(error))
+        setGenerationFeedbackStatus('error')
+        setGenerationFeedbackMessage(toUserMessage(error))
       }
     }
 
@@ -393,7 +368,7 @@ export function TripCreatePage({
       },
       onError: (message) => {
         if (active) {
-          setManualMessage(message)
+          setGenerationFeedbackMessage(message)
         }
       },
       onEvent: (event) => {
@@ -402,8 +377,8 @@ export function TripCreatePage({
         }
         void applyGenerationPayload(event.payload).catch((error: unknown) => {
           if (active) {
-            setManualStatus('error')
-            setManualMessage(toUserMessage(error))
+            setGenerationFeedbackStatus('error')
+            setGenerationFeedbackMessage(toUserMessage(error))
           }
         })
       },
@@ -490,19 +465,19 @@ export function TripCreatePage({
 
   async function applyGenerationSnapshot(generation: TrackedItineraryGeneration) {
     setItineraryGeneration(generation)
-    setManualMessage(generationStatusMessage(generation))
+    setGenerationFeedbackMessage(generationStatusMessage(generation))
 
     if (generation.status === 'READY_FOR_PLANNING') {
-      setManualStatus('success')
+      setGenerationFeedbackStatus('success')
       setSubmitStatus('success')
     }
     if (generation.status === 'FAILED') {
-      setManualStatus('error')
+      setGenerationFeedbackStatus('error')
       setSubmitStatus('error')
       return
     }
     if (generation.status === 'COMPLETED' && createdTripId) {
-      setManualStatus('success')
+      setGenerationFeedbackStatus('success')
       setSubmitStatus('success')
       await openCompletedTrip(createdTripId)
     }
@@ -1048,11 +1023,8 @@ export function TripCreatePage({
     setSubmitError('')
     setCreatedTripId('')
     setItineraryGeneration(null)
-    setManualPrompt('')
-    setAiRequestJson('')
-    setManualResponseJson('')
-    setManualStatus('idle')
-    setManualMessage('')
+    setGenerationFeedbackStatus('idle')
+    setGenerationFeedbackMessage('')
     completedNavigationScheduledRef.current = false
     setStepDirection('forward')
     setInfoStep('GENERATING')
@@ -1062,7 +1034,7 @@ export function TripCreatePage({
       setCreatedTripId(created.id)
       const generation = await createItineraryGeneration(accessToken, created.id)
       setItineraryGeneration(generation)
-      setManualMessage(generationStatusMessage(generation))
+      setGenerationFeedbackMessage(generationStatusMessage(generation))
       setSubmitStatus('success')
       if (generation.status === 'COMPLETED') {
         await openCompletedTrip(created.id)
@@ -1072,72 +1044,6 @@ export function TripCreatePage({
       setInfoStep('REVIEW')
       setSubmitError(toUserMessage(error))
     }
-  }
-
-  async function handleLoadManualPrompt() {
-    if (!createdTripId || !itineraryGeneration) {
-      return
-    }
-    setManualStatus('loading')
-    setManualMessage('')
-    try {
-      const prompt = await getManualPrompt(accessToken, createdTripId, itineraryGeneration.generationId)
-      setManualPrompt(prompt)
-      setManualStatus('success')
-      setManualMessage('프롬프트를 불러왔습니다.')
-    } catch (error: unknown) {
-      setManualStatus('error')
-      setManualMessage(toUserMessage(error))
-    }
-  }
-
-  async function handleLoadAiRequest() {
-    if (!createdTripId || !itineraryGeneration) {
-      return
-    }
-    setManualStatus('loading')
-    setManualMessage('')
-    try {
-      const aiRequest = await getAiRequest(accessToken, createdTripId, itineraryGeneration.generationId)
-      setAiRequestJson(JSON.stringify(aiRequest, null, 2))
-      setManualStatus('success')
-      setManualMessage('AI request JSON을 불러왔습니다.')
-    } catch (error: unknown) {
-      setManualStatus('error')
-      setManualMessage(toUserMessage(error))
-    }
-  }
-
-  async function handleSubmitManualResponse() {
-    if (!createdTripId || !itineraryGeneration) {
-      return
-    }
-    let parsed: GroundedItineraryDraft
-    try {
-      parsed = JSON.parse(manualResponseJson) as GroundedItineraryDraft
-    } catch {
-      setManualStatus('error')
-      setManualMessage('ChatGPT 응답 JSON 형식이 올바르지 않습니다.')
-      return
-    }
-
-    setManualStatus('loading')
-    setManualMessage('')
-    try {
-      const result = await submitManualResponse(accessToken, createdTripId, itineraryGeneration.generationId, parsed)
-      await applyGenerationDetail(result)
-    } catch (error: unknown) {
-      setManualStatus('error')
-      setManualMessage(toUserMessage(error))
-    }
-  }
-
-  async function copyText(value: string) {
-    if (!value) {
-      return
-    }
-    await navigator.clipboard.writeText(value)
-    setManualMessage('클립보드에 복사했습니다.')
   }
 
   return (
@@ -1223,22 +1129,14 @@ export function TripCreatePage({
           isMustVisitComposing={isMustVisitComposing}
           avoidItems={avoidItems}
           freeRequest={freeRequest}
-          aiRequestJson={aiRequestJson}
           createdTripId={createdTripId}
           generation={itineraryGeneration}
-          manualMessage={manualMessage}
-          manualPrompt={manualPrompt}
-          manualResponseJson={manualResponseJson}
-          manualStatus={manualStatus}
+          generationFeedbackMessage={generationFeedbackMessage}
+          generationFeedbackStatus={generationFeedbackStatus}
           onBack={handleBackToDestinationStep}
-          onAiRequestLoad={handleLoadAiRequest}
-          onCopyText={copyText}
           onInfoBack={handleInfoBack}
           onInfoNext={handleInfoNext}
           onInfoEditStep={handleInfoEditStep}
-          onManualPromptLoad={handleLoadManualPrompt}
-          onManualResponseChange={setManualResponseJson}
-          onManualResponseSubmit={handleSubmitManualResponse}
           onOpenCreatedTrip={onCreatedTrip}
           onEndDateChange={(value) => {
             setEndDate(value)
@@ -1743,22 +1641,14 @@ function TripConditionStep({
   isMustVisitComposing,
   avoidItems,
   freeRequest,
-  aiRequestJson,
   createdTripId,
   generation,
-  manualMessage,
-  manualPrompt,
-  manualResponseJson,
-  manualStatus,
+  generationFeedbackMessage,
+  generationFeedbackStatus,
   onBack,
-  onAiRequestLoad,
-  onCopyText,
   onInfoBack,
   onInfoNext,
   onInfoEditStep,
-  onManualPromptLoad,
-  onManualResponseChange,
-  onManualResponseSubmit,
   onOpenCreatedTrip,
   onEndDateChange,
   onStartDateChange,
@@ -1852,22 +1742,14 @@ function TripConditionStep({
   isMustVisitComposing: boolean
   avoidItems: AvoidItem[]
   freeRequest: string
-  aiRequestJson: string
   createdTripId: string
   generation: TrackedItineraryGeneration | null
-  manualMessage: string
-  manualPrompt: string
-  manualResponseJson: string
-  manualStatus: AsyncStatus
+  generationFeedbackMessage: string
+  generationFeedbackStatus: AsyncStatus
   onBack: () => void
-  onAiRequestLoad: () => void
-  onCopyText: (value: string) => void
   onInfoBack: () => void
   onInfoNext: () => void
   onInfoEditStep: (stepId: Exclude<TripInfoStepId, 'GENERATING'>) => void
-  onManualPromptLoad: () => void
-  onManualResponseChange: (value: string) => void
-  onManualResponseSubmit: () => void
   onOpenCreatedTrip: (tripId: string) => void
   onEndDateChange: (value: string) => void
   onStartDateChange: (value: string) => void
@@ -1950,21 +1832,13 @@ function TripConditionStep({
     return (
       <section className="trip-info-page" aria-label="일정 생성 진행">
         <GeneratingTripPanel
-          aiRequestJson={aiRequestJson}
           companionType={companionType}
           createdTripId={createdTripId}
           destination={destination}
           generation={generation}
-          manualMessage={manualMessage}
-          manualPrompt={manualPrompt}
-          manualResponseJson={manualResponseJson}
-          manualStatus={manualStatus}
-          onAiRequestLoad={onAiRequestLoad}
-          onCopyText={onCopyText}
+          generationFeedbackMessage={generationFeedbackMessage}
+          generationFeedbackStatus={generationFeedbackStatus}
           onOpenCreatedTrip={onOpenCreatedTrip}
-          onManualPromptLoad={onManualPromptLoad}
-          onManualResponseChange={onManualResponseChange}
-          onManualResponseSubmit={onManualResponseSubmit}
           submitError={submitError}
           submitStatus={submitStatus}
           title={title}
@@ -3310,47 +3184,30 @@ function ReviewCard({
 }
 
 function GeneratingTripPanel({
-  aiRequestJson,
   companionType,
   createdTripId,
   destination,
   generation,
-  manualMessage,
-  manualPrompt,
-  manualResponseJson,
-  manualStatus,
-  onAiRequestLoad,
-  onCopyText,
+  generationFeedbackMessage,
+  generationFeedbackStatus,
   onOpenCreatedTrip,
-  onManualPromptLoad,
-  onManualResponseChange,
-  onManualResponseSubmit,
   submitError,
   submitStatus,
   title,
 }: {
-  aiRequestJson: string
   companionType: CompanionType
   createdTripId: string
   destination: PlaceAutocompleteItem | null
   generation: TrackedItineraryGeneration | null
-  manualMessage: string
-  manualPrompt: string
-  manualResponseJson: string
-  manualStatus: AsyncStatus
-  onAiRequestLoad: () => void
-  onCopyText: (value: string) => void
+  generationFeedbackMessage: string
+  generationFeedbackStatus: AsyncStatus
   onOpenCreatedTrip: (tripId: string) => void
-  onManualPromptLoad: () => void
-  onManualResponseChange: (value: string) => void
-  onManualResponseSubmit: () => void
   submitError: string
   submitStatus: AsyncStatus
   title: string
 }) {
   const destinationName = destination?.mainText ?? '여행지'
   const mascotImage = MASCOT_IMAGE_BY_COMPANION[companionType]
-  const isManualHandoffReady = isGenerationReadyForManualHandoff(generation)
   const steps = [
     '여행 정보 확인',
     '목적지 주변 장소 탐색',
@@ -3380,61 +3237,16 @@ function GeneratingTripPanel({
           </li>
         ))}
       </ol>
-      {MANUAL_HANDOFF_ENABLED && generation && (
-        <section className="manual-handoff-panel" aria-label="Manual handoff">
-          <div className="manual-handoff-heading">
-            <span>Manual handoff</span>
-            <strong>{generation.status}</strong>
-            <p>{generationCandidateMessage(generation)}</p>
-          </div>
-          <div className="manual-handoff-actions">
-            <button type="button" onClick={onManualPromptLoad} disabled={manualStatus === 'loading' || !isManualHandoffReady}>
-              프롬프트 조회
+      {generation && (
+        <div className={`generation-status-message ${generationFeedbackStatus}`}>
+          <strong>{generation.status}</strong>
+          {generationFeedbackMessage && <p>{generationFeedbackMessage}</p>}
+          {generation.status === 'FAILED' && createdTripId && (
+            <button type="button" onClick={() => onOpenCreatedTrip(createdTripId)}>
+              상세 화면에서 다시 생성
             </button>
-            <button type="button" onClick={onAiRequestLoad} disabled={manualStatus === 'loading' || !isManualHandoffReady}>
-              AI request JSON 조회
-            </button>
-            <button type="button" onClick={() => onOpenCreatedTrip(createdTripId)} disabled={!createdTripId}>
-              상세 화면 열기
-            </button>
-          </div>
-          {manualMessage && <p className={`manual-handoff-message ${manualStatus}`}>{manualMessage}</p>}
-          {manualPrompt && (
-            <div className="manual-handoff-output">
-              <div>
-                <strong>Prompt</strong>
-                <button type="button" onClick={() => onCopyText(manualPrompt)}>복사</button>
-              </div>
-              <textarea readOnly value={manualPrompt} />
-            </div>
           )}
-          {aiRequestJson && (
-            <div className="manual-handoff-output">
-              <div>
-                <strong>AI request JSON</strong>
-                <button type="button" onClick={() => onCopyText(aiRequestJson)}>복사</button>
-              </div>
-              <textarea readOnly value={aiRequestJson} />
-            </div>
-          )}
-          <div className="manual-handoff-output">
-            <div>
-              <strong>ChatGPT response JSON</strong>
-              <button
-                type="button"
-                onClick={onManualResponseSubmit}
-                disabled={manualStatus === 'loading' || !manualResponseJson.trim()}
-              >
-                응답 제출
-              </button>
-            </div>
-            <textarea
-              placeholder="ChatGPT가 반환한 JSON을 붙여넣으세요."
-              value={manualResponseJson}
-              onChange={(event) => onManualResponseChange(event.target.value)}
-            />
-          </div>
-        </section>
+        </div>
       )}
       {submitError && <p className="trip-create-submit-error" role="alert">{submitError}</p>}
     </section>

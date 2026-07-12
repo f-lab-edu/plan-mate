@@ -188,20 +188,6 @@ public class ItineraryGenerationPersistenceService {
     }
 
     @Transactional(readOnly = true)
-    public GenerationCollectionContext loadCollectionContext(Long userId, Long tripId, Long generationId) {
-        TripEntity trip = tripRepository.findAccessibleTrip(tripId, userId)
-                .orElseThrow(TripNotFoundException::new);
-        ItineraryGenerationEntity generation = generationRepository.findById(generationId)
-                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
-        if (!generation.getTrip().getId().equals(trip.getId())) {
-            throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
-        }
-        TripPlanningProfileEntity profile = tripPlanningProfileRepository.findByTrip_Id(trip.getId())
-                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.PLANNING_PROFILE_NOT_FOUND));
-        return new GenerationCollectionContext(generation.getId(), toResolvedDestination(trip), profile);
-    }
-
-    @Transactional(readOnly = true)
     public ItineraryGenerationContext loadGenerationContext(Long userId, Long tripId, Long generationId) {
         TripEntity trip = tripRepository.findAccessibleTrip(tripId, userId)
                 .orElseThrow(TripNotFoundException::new);
@@ -314,20 +300,6 @@ public class ItineraryGenerationPersistenceService {
                 .orElseThrow(TripNotFoundException::new);
         return generationRepository.findFirstByTrip_IdOrderByCreatedAtDesc(trip.getId())
                 .map(generation -> toDetailResponse(trip, generation));
-    }
-
-    @Transactional(readOnly = true)
-    public AiRequestContext loadAiRequestContext(Long userId, Long tripId, Long generationId) {
-        TripEntity trip = tripRepository.findAccessibleTrip(tripId, userId)
-                .orElseThrow(TripNotFoundException::new);
-        ItineraryGenerationEntity generation = generationRepository.findWithTripById(generationId)
-                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
-        if (!generation.getTrip().getId().equals(trip.getId())) {
-            throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
-        }
-        TripPlanningProfileEntity profile = tripPlanningProfileRepository.findByTrip_Id(trip.getId())
-                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.PLANNING_PROFILE_NOT_FOUND));
-        return new AiRequestContext(generation, profile);
     }
 
     private ItineraryGenerationEntity findGeneration(Long generationId) {
@@ -462,16 +434,4 @@ public class ItineraryGenerationPersistenceService {
         );
     }
 
-    public record GenerationCollectionContext(
-            Long generationId,
-            ResolvedDestination destination,
-            TripPlanningProfileEntity profile
-    ) {
-    }
-
-    public record AiRequestContext(
-            ItineraryGenerationEntity generation,
-            TripPlanningProfileEntity profile
-    ) {
-    }
 }

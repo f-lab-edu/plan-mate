@@ -51,11 +51,11 @@ public class ItineraryGenerationService {
     }
 
     public void generateItinerary(Long userId, Long tripId, Long generationId) {
-        if (!aiItineraryProperties.isEnabled()
-                || AiItineraryProperties.PROVIDER_MANUAL.equals(aiItineraryProperties.getProvider())) {
-            persistenceService.loadGenerationContext(userId, tripId, generationId);
-            persistenceService.markReadyForPlanning(generationId);
-            return;
+        if (!aiItineraryProperties.isEnabled()) {
+            throw new ItineraryDraftGenerationException(
+                    ItineraryDraftGenerationFailureCode.AI_ITINERARY_DISABLED,
+                    false
+            );
         }
 
         ItineraryGenerationContext context = persistenceService.loadGenerationContext(userId, tripId, generationId);
@@ -78,11 +78,6 @@ public class ItineraryGenerationService {
                 draft,
                 stopWatch.getTotalTimeMillis()
         );
-    }
-
-    public void collectCandidates(Long userId, Long tripId, Long generationId) {
-        persistenceService.loadGenerationContext(userId, tripId, generationId);
-        persistenceService.markReadyForPlanning(generationId);
     }
 
     public ItineraryGenerationDetailResponse getDetail(Long userId, Long tripId, Long generationId) {

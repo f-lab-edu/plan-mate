@@ -10,8 +10,9 @@ PR #76 이후 PlanMate의 일정 저장 경계는 `placeId`와 일정 구조 중
 장소명, 주소, 좌표, 평점, 영업시간, route 정보, source link, AI 추천 이유, grounded output은
 영구 저장하지 않고 조회 시점 resolve로 화면에 내려준다.
 
-기존 manual handoff는 prompt와 AI request JSON을 사용자가 직접 ChatGPT에 넣고 응답 JSON을 제출하는 개발용 흐름이다.
-이 흐름은 저장 계약 검증에는 유효하지만, 실제 사용자 흐름에서는 여행방 생성 후 backend worker가 비동기로 일정을 생성해야 한다.
+기존 manual handoff는 prompt와 AI request JSON을 사용자가 직접 ChatGPT에 넣고 응답 JSON을 제출하는 개발용 흐름이었다.
+자동 생성 흐름이 기본 경로가 되면서 사용자 화면과 공개 API에서 이 handoff 경로를 제거하고,
+여행방 생성 후 backend worker가 비동기로 일정을 생성하는 구조로 정리한다.
 
 ## Decision
 
@@ -20,7 +21,7 @@ itinerary generation worker가 LLM/Maps Grounding Lite 기반 자동 생성 흐�
 * HTTP 요청에서는 generation row와 outbox event만 만들고 외부 AI 호출을 기다리지 않는다.
 * 기존 outbox/RabbitMQ worker 흐름을 재사용한다.
 * `ItineraryDraftGenerator` provider abstraction을 둔다.
-* 기본 provider는 `gemini-maps-grounding`으로 두고, `manual` provider는 fallback/legacy 경로로 남긴다.
+* 기본 provider는 `gemini-maps-grounding`으로 두고, 수동 prompt/API handoff provider와 endpoint는 제거한다.
 * prompt builder는 trip, planning profile, destination/accommodation/must-visit placeId, 날짜, 예산, 취향, 이동수단, 요청사항을 context로 만든다.
 * provider 응답은 `GroundedItineraryDraft` JSON으로 파싱한다.
 * 저장 전 `GroundedItineraryDraftValidator`가 day 수, day/sequence 중복, placeId, startTime, durationMinutes, mustVisit 포함 여부, 반복 장소 수를 검증한다.
@@ -32,11 +33,11 @@ itinerary generation worker가 LLM/Maps Grounding Lite 기반 자동 생성 흐�
 
 ## Consequences
 
-* 사용자는 manual prompt 복사 없이 여행방 생성 후 자동 일정 생성을 기다릴 수 있다.
+* 사용자는 prompt 복사 없이 여행방 생성 후 자동 일정 생성을 기다릴 수 있다.
 * 외부 AI 호출 비용과 실패 가능성이 생기므로 timeout, retry, failureCode, 한국어 사용자 메시지가 필요하다.
 * 원문 prompt/response를 저장하지 않기 때문에 장애 분석은 provider, model, promptVersion, schemaVersion, requestFingerprint, latencyMillis, failureCode 중심으로 해야 한다.
 * Maps Grounding Lite grounded output을 DB에 저장하지 않으므로 정책상 장기 저장 경계가 유지된다.
-* manual handoff는 운영 기본 UX가 아니라 fallback/개발 검증 경로가 된다.
+* 수동 handoff UI와 endpoint가 사라져 자동 생성 실패 시에는 실패 메시지와 재생성 요청 UX로 복구한다.
 * 실제 Google Map 마커 UI, route duration/distance 저장, Gemini 외 provider 확장은 별도 PR 범위로 남는다.
 
 ## Evidence
@@ -57,4 +58,4 @@ itinerary generation worker가 LLM/Maps Grounding Lite 기반 자동 생성 흐�
 
 Medium for provider abstraction, validation, persistence boundary, and worker orchestration.
 
-Medium-low for exact Gemini/Maps Grounding Lite request shape until a real API key and quota 환경에서 manual local 검증을 완료한다.
+Medium-low for exact Gemini/Maps Grounding Lite request shape until a real API key and quota 환경에서 자동 생성 검증을 완료한다.

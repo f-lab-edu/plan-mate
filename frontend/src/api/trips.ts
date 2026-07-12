@@ -1,4 +1,4 @@
-import { bearerHeaders, request, requestText } from './client'
+import { bearerHeaders, request } from './client'
 
 export type TripStatus = 'PLANNING' | 'UPCOMING' | 'COMPLETED'
 export type GenerationStatus =
@@ -211,20 +211,6 @@ export type ItineraryGenerationDetailResponse = ItineraryGenerationCreateRespons
   updatedAt: string
 }
 
-export type AiItineraryRequest = Record<string, unknown>
-export type GroundedItineraryDraft = {
-  generationId: string
-  days: Array<{
-    day: number
-    items: Array<{
-      sequence: number
-      placeId: string
-      startTime: string
-      durationMinutes: number
-    }>
-  }>
-}
-
 export type ItineraryPlaceView = {
   itineraryId: number
   itemId: number
@@ -297,31 +283,4 @@ export async function getLatestItineraryGeneration(accessToken: string, tripId: 
     headers: bearerHeaders(accessToken),
   })
   return response ?? null
-}
-
-export function getManualPrompt(accessToken: string, tripId: string, generationId: string) {
-  return requestText(`/api/trips/${tripId}/itinerary-generations/${generationId}/manual-prompt`, {
-    method: 'GET',
-    headers: bearerHeaders(accessToken),
-  })
-}
-
-export function getAiRequest(accessToken: string, tripId: string, generationId: string) {
-  return request<AiItineraryRequest>(`/api/trips/${tripId}/itinerary-generations/${generationId}/ai-request`, {
-    method: 'GET',
-    headers: bearerHeaders(accessToken),
-  })
-}
-
-export function submitManualResponse(
-  accessToken: string,
-  tripId: string,
-  generationId: string,
-  payload: GroundedItineraryDraft,
-) {
-  return request<ItineraryGenerationDetailResponse>(`/api/trips/${tripId}/itinerary-generations/${generationId}/manual-response`, {
-    method: 'POST',
-    headers: bearerHeaders(accessToken),
-    body: JSON.stringify(payload),
-  })
 }

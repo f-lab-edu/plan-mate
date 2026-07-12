@@ -1,6 +1,7 @@
 package com.planmate.itinerary.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -16,6 +17,8 @@ import com.planmate.itinerary.dto.ItineraryGenerationCreateResponse;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
 import com.planmate.itinerary.generation.ItineraryDraftGenerator;
+import com.planmate.itinerary.generation.ItineraryDraftGenerationException;
+import com.planmate.itinerary.generation.ItineraryDraftGenerationFailureCode;
 import com.planmate.itinerary.generation.ItineraryDraftGeneratorRegistry;
 import com.planmate.itinerary.generation.ItineraryDraftPromptBuilder;
 import com.planmate.itinerary.generation.ItineraryGenerationContext;
@@ -97,14 +100,14 @@ class ItineraryGenerationServiceTest {
     }
 
     @Test
-    void generateItineraryFallsBackToReadyForPlanningWhenProviderIsManual() {
-        properties.setProvider(AiItineraryProperties.PROVIDER_MANUAL);
-        given(persistenceService.loadGenerationContext(7L, 45L, 123L)).willReturn(context());
+    void generateItineraryFailsWhenAiItineraryIsDisabled() {
+        properties.setEnabled(false);
 
-        service.generateItinerary(7L, 45L, 123L);
-
-        verify(persistenceService).loadGenerationContext(7L, 45L, 123L);
-        verify(persistenceService).markReadyForPlanning(123L);
+        assertThatThrownBy(() -> service.generateItinerary(7L, 45L, 123L))
+                .isInstanceOfSatisfying(ItineraryDraftGenerationException.class, exception ->
+                        assertThat(exception.failureCode())
+                                .isEqualTo(ItineraryDraftGenerationFailureCode.AI_ITINERARY_DISABLED));
+        verifyNoMoreInteractions(persistenceService);
         verifyNoMoreInteractions(generatorRegistry);
     }
 

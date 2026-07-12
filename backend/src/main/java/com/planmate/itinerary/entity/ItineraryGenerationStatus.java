@@ -17,7 +17,7 @@ public enum ItineraryGenerationStatus {
     READY_FOR_PLANNING,
 
     /**
-     * AI 또는 수동 입력을 통해 일정 계획을 생성하고 있는 상태다.
+     * AI provider가 일정 계획을 생성하고 있는 상태다.
      */
     PLANNING,
 

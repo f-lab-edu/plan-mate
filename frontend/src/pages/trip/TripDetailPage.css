@@ -72,8 +72,7 @@
   gap: 8px;
 }
 
-.trip-generation-actions button,
-.trip-generation-submit {
+.trip-generation-actions button {
   min-height: 40px;
   border: 0;
   border-radius: 8px;
@@ -83,21 +82,9 @@
   background: var(--trip-green);
 }
 
-.trip-generation-actions button:disabled,
-.trip-generation-submit:disabled {
+.trip-generation-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-}
-
-.trip-generation-recovery textarea {
-  width: 100%;
-  min-height: 120px;
-  resize: vertical;
-  border: 1px solid rgba(27, 78, 66, 0.16);
-  border-radius: 8px;
-  padding: 12px;
-  color: var(--trip-ink);
-  background: rgba(255, 255, 255, 0.9);
 }
 
 .trip-generation-message.error {

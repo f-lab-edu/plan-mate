@@ -140,7 +140,6 @@ app:
       max-items-per-day: ${APP_AI_ITINERARY_MAX_ITEMS_PER_DAY:8}
       max-repeat-per-place: ${APP_AI_ITINERARY_MAX_REPEAT_PER_PLACE:1}
   itinerary:
-    manual-handoff-enabled: ${APP_ITINERARY_MANUAL_HANDOFF_ENABLED:false}
     generation-worker:
       enabled: ${APP_ITINERARY_GENERATION_WORKER_ENABLED:true}
       max-attempts: ${APP_ITINERARY_GENERATION_WORKER_MAX_ATTEMPTS:3}

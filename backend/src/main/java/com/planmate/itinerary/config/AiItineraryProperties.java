@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "app.ai.itinerary")
 public class AiItineraryProperties {
 
-    public static final String PROVIDER_MANUAL = "manual";
     public static final String PROVIDER_GEMINI_MAPS_GROUNDING = "gemini-maps-grounding";
 
     private boolean enabled = true;
@@ -35,7 +34,7 @@ public class AiItineraryProperties {
     }
 
     public void setProvider(String provider) {
-        this.provider = normalize(provider, PROVIDER_MANUAL);
+        this.provider = normalize(provider, PROVIDER_GEMINI_MAPS_GROUNDING);
     }
 
     public String getModel() {
