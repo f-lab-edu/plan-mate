@@ -1,4 +1,4 @@
-package com.planmate.place.service;
+package com.planmate.place.google;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -31,17 +31,45 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.client.RestClient;
 
-class GooglePlacesServiceTest {
+class GooglePlacesAdapterTest {
+
+    private static final String PLACE_DETAILS_FIELD_MASK = String.join(",",
+            "id",
+            "displayName.text",
+            "formattedAddress",
+            "location.latitude",
+            "location.longitude",
+            "viewport.low.latitude",
+            "viewport.low.longitude",
+            "viewport.high.latitude",
+            "viewport.high.longitude",
+            "types",
+            "primaryType"
+    );
+    private static final String TEXT_SEARCH_FIELD_MASK = String.join(",",
+            "places.id",
+            "places.displayName.text",
+            "places.formattedAddress",
+            "places.location.latitude",
+            "places.location.longitude",
+            "places.types",
+            "places.primaryType",
+            "places.businessStatus",
+            "places.rating",
+            "places.userRatingCount",
+            "places.regularOpeningHours.weekdayDescriptions",
+            "nextPageToken"
+    );
 
     @Test
     void resolveReturnsInternalDto() throws Exception {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+        GooglePlacesAdapter service = new GooglePlacesAdapter(builder, "test-key", 30000);
 
         server.expect(requestTo(containsString("/places/place-kyoto")))
                 .andExpect(method(HttpMethod.GET))
-                .andExpect(header("X-Goog-FieldMask", GooglePlacesService.DESTINATION_DETAILS_FIELD_MASK))
+                .andExpect(header("X-Goog-FieldMask", PLACE_DETAILS_FIELD_MASK))
                 .andRespond(withSuccess(fixture("google/place-details-kyoto.json"), MediaType.APPLICATION_JSON));
 
         ResolvedPlace destination = service.resolve("place-kyoto", "ko");
@@ -57,7 +85,7 @@ class GooglePlacesServiceTest {
     void resolveRejectsInvalidPlaceId() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+        GooglePlacesAdapter service = new GooglePlacesAdapter(builder, "test-key", 30000);
 
         server.expect(requestTo(containsString("/places/bad-place")))
                 .andRespond(withResourceNotFound());
@@ -71,7 +99,7 @@ class GooglePlacesServiceTest {
     void searchTextSendsLocationRestrictionAndReturnsCandidates() throws Exception {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+        GooglePlacesAdapter service = new GooglePlacesAdapter(builder, "test-key", 30000);
         ResolvedPlace destination = new ResolvedPlace(
                 "place-kyoto",
                 "Kyoto",
@@ -84,7 +112,7 @@ class GooglePlacesServiceTest {
 
         server.expect(requestTo(containsString("/places:searchText")))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(header("X-Goog-FieldMask", GooglePlacesService.TEXT_SEARCH_FIELD_MASK))
+                .andExpect(header("X-Goog-FieldMask", TEXT_SEARCH_FIELD_MASK))
                 .andExpect(jsonPath("$.textQuery").value("Kyoto popular attractions"))
                 .andExpect(jsonPath("$.locationRestriction.rectangle.low.latitude").value(34.8))
                 .andRespond(withSuccess(fixture("google/text-search-kyoto.json"), MediaType.APPLICATION_JSON));
@@ -107,7 +135,7 @@ class GooglePlacesServiceTest {
     void searchTextUsesCircleLocationBiasWhenViewportIsMissing() throws Exception {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+        GooglePlacesAdapter service = new GooglePlacesAdapter(builder, "test-key", 30000);
 
         server.expect(requestTo(containsString("/places:searchText")))
                 .andExpect(method(HttpMethod.POST))
@@ -134,7 +162,7 @@ class GooglePlacesServiceTest {
     void autocompleteAccommodationSendsRectangleLocationBiasWithoutPrimaryTypeFilter() throws Exception {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+        GooglePlacesAdapter service = new GooglePlacesAdapter(builder, "test-key", 30000);
 
         server.expect(requestTo(containsString("/places/place-kyoto")))
                 .andExpect(method(HttpMethod.GET))
@@ -163,7 +191,7 @@ class GooglePlacesServiceTest {
     void autocompleteInDestinationSendsRectangleLocationBiasWithoutPrimaryTypeFilter() throws Exception {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+        GooglePlacesAdapter service = new GooglePlacesAdapter(builder, "test-key", 30000);
 
         server.expect(requestTo(containsString("/places/place-kyoto")))
                 .andExpect(method(HttpMethod.GET))
@@ -192,7 +220,7 @@ class GooglePlacesServiceTest {
     void autocompleteAccommodationUsesCircleBiasWhenDestinationHasNoViewport() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+        GooglePlacesAdapter service = new GooglePlacesAdapter(builder, "test-key", 30000);
 
         server.expect(requestTo(containsString("/places/place-without-viewport")))
                 .andExpect(method(HttpMethod.GET))
@@ -213,7 +241,7 @@ class GooglePlacesServiceTest {
     void autocompleteAccommodationKeepsProviderUnavailablePolicy() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
+        GooglePlacesAdapter service = new GooglePlacesAdapter(builder, "test-key", 30000);
 
         server.expect(requestTo(containsString("/places/place-kyoto")))
                 .andRespond(withServerError());

@@ -1,4 +1,4 @@
-package com.planmate.place.service;
+package com.planmate.place.google;
 
 import com.planmate.place.api.GeoPoint;
 import com.planmate.place.api.GeoViewport;
@@ -31,7 +31,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Service
-public class GooglePlacesService implements
+public class GooglePlacesAdapter implements
         PlaceAutocompleteQuery,
         PlaceDetailsResolver,
         PlaceDisplayReader,
@@ -47,7 +47,7 @@ public class GooglePlacesService implements
             "suggestions.placePrediction.structuredFormat.secondaryText.text",
             "suggestions.placePrediction.types"
     );
-    public static final String PLACE_DETAILS_FIELD_MASK = String.join(",",
+    private static final String PLACE_DETAILS_FIELD_MASK = String.join(",",
             "id",
             "displayName.text",
             "formattedAddress",
@@ -60,25 +60,13 @@ public class GooglePlacesService implements
             "types",
             "primaryType"
     );
-    public static final String DESTINATION_DETAILS_FIELD_MASK = PLACE_DETAILS_FIELD_MASK;
-    public static final String PLACE_DISPLAY_LIST_FIELD_MASK = String.join(",",
+    private static final String PLACE_DISPLAY_LIST_FIELD_MASK = String.join(",",
             "id",
             "displayName",
             "location",
             "googleMapsUri"
     );
-    public static final String PLACE_DISPLAY_DETAIL_FIELD_MASK = String.join(",",
-            "id",
-            "displayName",
-            "formattedAddress",
-            "googleMapsUri",
-            "businessStatus",
-            "regularOpeningHours",
-            "rating",
-            "userRatingCount",
-            "attributions"
-    );
-    public static final String TEXT_SEARCH_FIELD_MASK = String.join(",",
+    private static final String TEXT_SEARCH_FIELD_MASK = String.join(",",
             "places.id",
             "places.displayName.text",
             "places.formattedAddress",
@@ -99,7 +87,7 @@ public class GooglePlacesService implements
     private final String apiKey;
     private final double fallbackRadiusMeters;
 
-    public GooglePlacesService(
+    public GooglePlacesAdapter(
             RestClient.Builder restClientBuilder,
             @Value("${app.google.places.api-key:}") String apiKey,
             @Value("${app.google.places.text-search-radius-meters:30000}") double fallbackRadiusMeters
@@ -183,10 +171,6 @@ public class GooglePlacesService implements
         } catch (RestClientException exception) {
             throw new PlaceProviderUnavailableException(exception);
         }
-    }
-
-    public void validatePlaceId(String placeId) {
-        resolve(placeId, null);
     }
 
     @Override
@@ -510,10 +494,6 @@ public class GooglePlacesService implements
     private record GoogleText(
             String text
     ) {
-    }
-
-    public double fallbackRadiusMeters() {
-        return fallbackRadiusMeters;
     }
 
     private record GooglePlaceDetailsResponse(

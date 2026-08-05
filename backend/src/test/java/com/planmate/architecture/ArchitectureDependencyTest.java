@@ -42,4 +42,42 @@ class ArchitectureDependencyTest {
                             "com.planmate.trip.entity..",
                             "com.planmate.trip.repository.."
                     );
+
+    @ArchTest
+    static final ArchRule consumers_do_not_depend_on_place_implementations =
+            noClasses()
+                    .that()
+                    .resideInAnyPackage(
+                            "com.planmate.trip..",
+                            "com.planmate.recommendation..",
+                            "com.planmate.itinerary.."
+                    )
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.planmate.place.service..",
+                            "com.planmate.place.google.."
+                    );
+
+    @ArchTest
+    static final ArchRule place_controller_does_not_depend_on_google_adapter =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.planmate.place.controller..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.planmate.place.google..");
+
+    @ArchTest
+    static final ArchRule place_api_does_not_depend_on_google_or_spring_web_clients =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.planmate.place.api..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.planmate.place.google..",
+                            "org.springframework.web.client..",
+                            "org.springframework.http.."
+                    );
 }
