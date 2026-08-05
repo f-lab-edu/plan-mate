@@ -1,6 +1,6 @@
 package com.planmate.itinerary.entity;
 
-import com.planmate.recommendation.api.RecommendedPlaceCandidate;
+import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -18,9 +18,12 @@ import org.hibernate.type.SqlTypes;
 @Entity
 @Table(
         name = "place_candidates",
-        uniqueConstraints = @UniqueConstraint(name = "place_candidates_generation_place_unique", columnNames = {"generation_id", "place_id"})
+        uniqueConstraints = {
+                @UniqueConstraint(name = "place_candidates_generation_place_unique", columnNames = {"generation_id", "place_id"}),
+                @UniqueConstraint(name = "place_candidates_generation_rank_unique", columnNames = {"generation_id", "rank"})
+        }
 )
-public class PlaceCandidateEntity {
+public class GenerationCandidateSnapshotEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,6 +51,13 @@ public class PlaceCandidateEntity {
     @Column(name = "primary_type", length = 100)
     private String primaryType;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
+    private List<String> types;
+
+    @Column(name = "business_status", length = 40)
+    private String businessStatus;
+
     @Column
     private Double rating;
 
@@ -62,33 +72,49 @@ public class PlaceCandidateEntity {
     @Column(name = "opening_periods", nullable = false, columnDefinition = "jsonb")
     private List<String> openingPeriods;
 
+    @Column(name = "forced_must_visit", nullable = false)
+    private boolean forcedMustVisit;
+
+    @Column(name = "distance_meters")
+    private Double distanceMeters;
+
     @Column(nullable = false)
     private Double score;
 
     @Column(nullable = false)
     private int rank;
 
-    protected PlaceCandidateEntity() {
+    protected GenerationCandidateSnapshotEntity() {
     }
 
-    private PlaceCandidateEntity(ItineraryGenerationEntity generation, RecommendedPlaceCandidate candidate) {
+    private GenerationCandidateSnapshotEntity(
+            ItineraryGenerationEntity generation,
+            GenerationCandidateSnapshot snapshot
+    ) {
         this.generation = generation;
-        this.placeId = candidate.placeId();
-        this.name = candidate.displayName();
-        this.address = candidate.formattedAddress();
-        this.latitude = candidate.location().latitude();
-        this.longitude = candidate.location().longitude();
-        this.primaryType = candidate.primaryType();
-        this.rating = candidate.rating();
-        this.userRatingCount = candidate.userRatingCount();
-        this.sourceCategories = List.copyOf(candidate.sourceCategories());
-        this.openingPeriods = List.copyOf(candidate.openingPeriods());
-        this.score = candidate.score();
-        this.rank = candidate.rank();
+        this.placeId = snapshot.placeId();
+        this.name = snapshot.displayName();
+        this.address = snapshot.formattedAddress();
+        this.latitude = snapshot.location().latitude();
+        this.longitude = snapshot.location().longitude();
+        this.primaryType = snapshot.primaryType();
+        this.types = List.copyOf(snapshot.types());
+        this.businessStatus = snapshot.businessStatus();
+        this.rating = snapshot.rating();
+        this.userRatingCount = snapshot.userRatingCount();
+        this.sourceCategories = List.copyOf(snapshot.sourceCategories());
+        this.openingPeriods = List.copyOf(snapshot.openingPeriods());
+        this.forcedMustVisit = snapshot.forcedMustVisit();
+        this.distanceMeters = snapshot.distanceMeters();
+        this.score = snapshot.score();
+        this.rank = snapshot.rank();
     }
 
-    public static PlaceCandidateEntity from(ItineraryGenerationEntity generation, RecommendedPlaceCandidate candidate) {
-        return new PlaceCandidateEntity(generation, candidate);
+    public static GenerationCandidateSnapshotEntity from(
+            ItineraryGenerationEntity generation,
+            GenerationCandidateSnapshot snapshot
+    ) {
+        return new GenerationCandidateSnapshotEntity(generation, snapshot);
     }
 
     public Long getId() {
@@ -123,6 +149,14 @@ public class PlaceCandidateEntity {
         return primaryType;
     }
 
+    public List<String> getTypes() {
+        return List.copyOf(types);
+    }
+
+    public String getBusinessStatus() {
+        return businessStatus;
+    }
+
     public Double getRating() {
         return rating;
     }
@@ -137,6 +171,14 @@ public class PlaceCandidateEntity {
 
     public List<String> getOpeningPeriods() {
         return List.copyOf(openingPeriods);
+    }
+
+    public boolean isForcedMustVisit() {
+        return forcedMustVisit;
+    }
+
+    public Double getDistanceMeters() {
+        return distanceMeters;
     }
 
     public Double getScore() {
