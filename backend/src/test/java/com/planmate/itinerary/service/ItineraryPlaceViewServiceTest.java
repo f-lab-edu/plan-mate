@@ -26,12 +26,12 @@ class ItineraryPlaceViewServiceTest {
 
     @Test
     void checksTripAccessBeforeReadingLatestItineraryPlaces() {
-        given(itineraryRepository.findFirstByTrip_IdOrderByCreatedAtDesc(45L)).willReturn(Optional.empty());
+        given(itineraryRepository.findFirstByTripIdOrderByCreatedAtDesc(45L)).willReturn(Optional.empty());
 
         assertThat(service.listLatestItineraryPlaceViews(7L, 45L, null)).isEmpty();
 
         verify(tripAccessChecker).checkAccessible(7L, 45L);
-        verify(itineraryRepository).findFirstByTrip_IdOrderByCreatedAtDesc(45L);
+        verify(itineraryRepository).findFirstByTripIdOrderByCreatedAtDesc(45L);
         verifyNoInteractions(placeDisplayResolver);
     }
 

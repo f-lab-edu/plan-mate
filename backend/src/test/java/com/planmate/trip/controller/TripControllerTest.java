@@ -374,10 +374,24 @@ class TripControllerTest {
                 LocalDate.now().plusDays(5)
         );
         TripEntity trip = tripRepository.findById(Long.valueOf(tripId)).orElseThrow();
-        createItinerary(trip, Instant.parse("2026-08-01T00:00:00Z"), "old-place");
+        ItineraryEntity oldItinerary = createItinerary(trip, Instant.parse("2026-08-01T00:00:00Z"), "old-place");
         ItineraryEntity latestItinerary = createItinerary(trip, Instant.parse("2026-08-02T00:00:00Z"), "new-place");
         Long latestItineraryId = latestItinerary.getId();
         Long latestGenerationId = latestItinerary.getGeneration().getId();
+
+        assertThat(itineraryRepository.findByTripIdOrderByCreatedAtDesc(Long.valueOf(tripId)))
+                .extracting(ItineraryEntity::getId)
+                .containsExactly(latestItineraryId, oldItinerary.getId());
+        assertThat(itineraryRepository.findFirstByTripIdOrderByCreatedAtDesc(Long.valueOf(tripId)))
+                .isPresent()
+                .get()
+                .extracting(ItineraryEntity::getId)
+                .isEqualTo(latestItineraryId);
+        assertThat(itineraryGenerationRepository.findFirstByTripIdOrderByCreatedAtDesc(Long.valueOf(tripId)))
+                .isPresent()
+                .get()
+                .extracting(ItineraryGenerationEntity::getId)
+                .isEqualTo(latestGenerationId);
 
         entityManager.flush();
         entityManager.clear();
@@ -451,11 +465,11 @@ class TripControllerTest {
 
     private ItineraryEntity createItinerary(TripEntity trip, Instant createdAt, String placeId) {
         ItineraryGenerationEntity generation = itineraryGenerationRepository.save(
-                ItineraryGenerationEntity.create(trip, "test", createdAt)
+                ItineraryGenerationEntity.create(trip.getId(), "test", createdAt)
         );
         generation.markCompleted(createdAt);
         ItineraryEntity itinerary = itineraryRepository.save(
-                ItineraryEntity.create(trip, generation, createdAt)
+                ItineraryEntity.create(generation, createdAt)
         );
         ItineraryDayEntity day = itineraryDayRepository.save(
                 ItineraryDayEntity.create(itinerary, 1, trip.getStartDate())

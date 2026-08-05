@@ -17,8 +17,6 @@ import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.trip.api.TripAccessChecker;
 import com.planmate.trip.api.TripPlanningSnapshot;
 import com.planmate.trip.api.TripPlanningSnapshotReader;
-import com.planmate.trip.entity.TripEntity;
-import com.planmate.trip.repository.TripRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -52,9 +50,6 @@ class ItineraryGenerationPersistenceServiceTest {
     private TripPlanningSnapshotReader tripPlanningSnapshotReader;
 
     @Mock
-    private TripRepository tripRepository;
-
-    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     private ItineraryGenerationPersistenceService service;
@@ -66,7 +61,6 @@ class ItineraryGenerationPersistenceServiceTest {
                 outboxEventRepository,
                 tripAccessChecker,
                 tripPlanningSnapshotReader,
-                tripRepository,
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 eventPublisher
         );
@@ -74,8 +68,6 @@ class ItineraryGenerationPersistenceServiceTest {
 
     @Test
     void createGenerationRequestStoresGenerationAndOutboxEventInOneServiceCall() {
-        TripEntity trip = trip(45L);
-        given(tripRepository.findById(45L)).willReturn(Optional.of(trip));
         given(generationRepository.save(any(ItineraryGenerationEntity.class)))
                 .willAnswer(invocation -> {
                     ItineraryGenerationEntity generation = invocation.getArgument(0);
@@ -90,6 +82,7 @@ class ItineraryGenerationPersistenceServiceTest {
         );
 
         assertThat(generation.getId()).isEqualTo(123L);
+        assertThat(generation.getTripId()).isEqualTo(45L);
         ArgumentCaptor<OutboxEventEntity> outboxCaptor = ArgumentCaptor.forClass(OutboxEventEntity.class);
         verify(outboxEventRepository).save(outboxCaptor.capture());
         OutboxEventEntity outboxEvent = outboxCaptor.getValue();
@@ -107,8 +100,7 @@ class ItineraryGenerationPersistenceServiceTest {
 
     @Test
     void markCollectingIfCreatedMarksCreatedGenerationAndReturnsTrue() {
-        TripEntity trip = trip(45L);
-        ItineraryGenerationEntity generation = generation(123L, trip);
+        ItineraryGenerationEntity generation = generation(123L, 45L);
         given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
 
         boolean result = service.markCollectingIfCreated(7L, 45L, 123L);
@@ -121,8 +113,7 @@ class ItineraryGenerationPersistenceServiceTest {
 
     @Test
     void markCollectingIfCreatedReturnsFalseForAlreadyProcessedGeneration() {
-        TripEntity trip = trip(45L);
-        ItineraryGenerationEntity generation = generation(123L, trip);
+        ItineraryGenerationEntity generation = generation(123L, 45L);
         generation.markReady(NOW);
         given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
 
@@ -136,8 +127,7 @@ class ItineraryGenerationPersistenceServiceTest {
 
     @Test
     void markFailedPublishesStatusChangedEvent() {
-        TripEntity trip = trip(45L);
-        ItineraryGenerationEntity generation = generation(123L, trip);
+        ItineraryGenerationEntity generation = generation(123L, 45L);
         generation.markCollecting(NOW);
         given(generationRepository.findById(123L)).willReturn(Optional.of(generation));
 
@@ -158,10 +148,9 @@ class ItineraryGenerationPersistenceServiceTest {
 
     @Test
     void getLatestReturnsLatestGenerationAfterTripAccessCheck() {
-        TripEntity trip = trip(45L);
-        ItineraryGenerationEntity generation = generation(123L, trip);
+        ItineraryGenerationEntity generation = generation(123L, 45L);
         generation.markReady(NOW);
-        given(generationRepository.findFirstByTrip_IdOrderByCreatedAtDesc(45L)).willReturn(Optional.of(generation));
+        given(generationRepository.findFirstByTripIdOrderByCreatedAtDesc(45L)).willReturn(Optional.of(generation));
 
         Optional<com.planmate.itinerary.dto.ItineraryGenerationDetailResponse> result = service.getLatest(7L, 45L);
 
@@ -178,7 +167,7 @@ class ItineraryGenerationPersistenceServiceTest {
 
     @Test
     void getLatestReturnsEmptyWhenTripHasNoGeneration() {
-        given(generationRepository.findFirstByTrip_IdOrderByCreatedAtDesc(45L)).willReturn(Optional.empty());
+        given(generationRepository.findFirstByTripIdOrderByCreatedAtDesc(45L)).willReturn(Optional.empty());
 
         Optional<com.planmate.itinerary.dto.ItineraryGenerationDetailResponse> result = service.getLatest(7L, 45L);
 
@@ -188,10 +177,9 @@ class ItineraryGenerationPersistenceServiceTest {
 
     @Test
     void loadAiRequestContextReturnsPlanningSnapshot() {
-        TripEntity trip = trip(45L);
-        ItineraryGenerationEntity generation = generation(123L, trip);
+        ItineraryGenerationEntity generation = generation(123L, 45L);
         TripPlanningSnapshot snapshot = snapshot(45L);
-        given(generationRepository.findWithTripById(123L)).willReturn(Optional.of(generation));
+        given(generationRepository.findById(123L)).willReturn(Optional.of(generation));
         given(tripPlanningSnapshotReader.findByTripId(45L)).willReturn(Optional.of(snapshot));
 
         ItineraryGenerationPersistenceService.AiRequestContext result = service.loadAiRequestContext(7L, 45L, 123L);
@@ -203,9 +191,8 @@ class ItineraryGenerationPersistenceServiceTest {
 
     @Test
     void loadAiRequestContextThrowsWhenPlanningProfileIsMissing() {
-        TripEntity trip = trip(45L);
-        ItineraryGenerationEntity generation = generation(123L, trip);
-        given(generationRepository.findWithTripById(123L)).willReturn(Optional.of(generation));
+        ItineraryGenerationEntity generation = generation(123L, 45L);
+        given(generationRepository.findById(123L)).willReturn(Optional.of(generation));
         given(tripPlanningSnapshotReader.findByTripId(45L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.loadAiRequestContext(7L, 45L, 123L))
@@ -213,32 +200,19 @@ class ItineraryGenerationPersistenceServiceTest {
                 .hasMessage("Trip planning profile not found.");
     }
 
-    private TripEntity trip(Long tripId) {
-        TripEntity trip = TripEntity.create(
-                "Kyoto trip",
-                "Kyoto",
-                "place-kyoto",
-                "Kyoto, Japan",
-                35.0,
-                135.0,
-                null,
-                null,
-                null,
-                null,
-                List.of("locality"),
-                "locality",
-                LocalDate.of(2026, 4, 1),
-                LocalDate.of(2026, 4, 3),
-                null,
-                NOW
-        );
-        ReflectionTestUtils.setField(trip, "id", tripId);
-        return trip;
+    @Test
+    void loadAiRequestContextRejectsGenerationFromDifferentTrip() {
+        ItineraryGenerationEntity generation = generation(123L, 45L);
+        given(generationRepository.findById(123L)).willReturn(Optional.of(generation));
+
+        assertThatThrownBy(() -> service.loadAiRequestContext(7L, 46L, 123L))
+                .isInstanceOf(ItineraryException.class)
+                .hasMessage("Itinerary generation not found.");
     }
 
-    private ItineraryGenerationEntity generation(Long generationId, TripEntity trip) {
+    private ItineraryGenerationEntity generation(Long generationId, Long tripId) {
         ItineraryGenerationEntity generation = ItineraryGenerationEntity.create(
-                trip,
+                tripId,
                 ItineraryPromptService.PROMPT_VERSION,
                 NOW
         );

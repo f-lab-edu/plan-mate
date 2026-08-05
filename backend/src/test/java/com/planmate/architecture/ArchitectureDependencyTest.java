@@ -18,4 +18,16 @@ class ArchitectureDependencyTest {
                     .should()
                     .dependOnClassesThat()
                     .resideInAnyPackage("com.planmate.itinerary..");
+
+    @ArchTest
+    static final ArchRule itinerary_package_does_not_depend_on_trip_persistence =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.planmate.itinerary..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.planmate.trip.entity..",
+                            "com.planmate.trip.repository.."
+                    );
 }

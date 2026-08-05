@@ -11,7 +11,6 @@ import com.planmate.itinerary.dto.ItineraryGenerationCreateResponse;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
 import com.planmate.trip.api.TripPlanningSnapshot;
-import com.planmate.trip.entity.TripEntity;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -40,7 +39,7 @@ class ItineraryGenerationServiceTest {
 
     @Test
     void createOnlyCreatesGenerationRequestAndDoesNotCollectCandidates() {
-        ItineraryGenerationEntity generation = generation(123L, trip(45L));
+        ItineraryGenerationEntity generation = generation(123L, 45L);
         given(persistenceService.createGenerationRequest(7L, 45L, ItineraryPromptService.PROMPT_VERSION))
                 .willReturn(generation);
 
@@ -65,37 +64,14 @@ class ItineraryGenerationServiceTest {
         verify(persistenceService).markReadyForPlanning(123L);
     }
 
-    private ItineraryGenerationEntity generation(Long generationId, TripEntity trip) {
+    private ItineraryGenerationEntity generation(Long generationId, Long tripId) {
         ItineraryGenerationEntity generation = ItineraryGenerationEntity.create(
-                trip,
+                tripId,
                 ItineraryPromptService.PROMPT_VERSION,
                 NOW
         );
         ReflectionTestUtils.setField(generation, "id", generationId);
         return generation;
-    }
-
-    private TripEntity trip(Long tripId) {
-        TripEntity trip = TripEntity.create(
-                "Kyoto trip",
-                "Kyoto",
-                "place-kyoto",
-                "Kyoto, Japan",
-                35.0,
-                135.0,
-                null,
-                null,
-                null,
-                null,
-                List.of("locality"),
-                "locality",
-                LocalDate.of(2026, 4, 1),
-                LocalDate.of(2026, 4, 3),
-                null,
-                NOW
-        );
-        ReflectionTestUtils.setField(trip, "id", tripId);
-        return trip;
     }
 
     private TripPlanningSnapshot snapshot(Long tripId) {

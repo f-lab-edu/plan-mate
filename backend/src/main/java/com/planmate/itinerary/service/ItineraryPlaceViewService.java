@@ -33,7 +33,7 @@ public class ItineraryPlaceViewService {
     @Transactional(readOnly = true)
     public List<ItineraryPlaceView> listLatestItineraryPlaceViews(Long userId, Long tripId, Integer dayNo) {
         tripAccessChecker.checkAccessible(userId, tripId);
-        ItineraryEntity itinerary = itineraryRepository.findFirstByTrip_IdOrderByCreatedAtDesc(tripId)
+        ItineraryEntity itinerary = itineraryRepository.findFirstByTripIdOrderByCreatedAtDesc(tripId)
                 .orElse(null);
         if (itinerary == null) {
             return List.of();

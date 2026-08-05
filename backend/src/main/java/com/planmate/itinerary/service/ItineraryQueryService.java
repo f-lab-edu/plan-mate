@@ -23,7 +23,7 @@ public class ItineraryQueryService implements LatestItineraryReader {
     @Override
     @Transactional(readOnly = true)
     public Optional<ItineraryReadModel> findLatestByTripId(Long tripId) {
-        return itineraryRepository.findFirstByTrip_IdOrderByCreatedAtDesc(tripId)
+        return itineraryRepository.findFirstByTripIdOrderByCreatedAtDesc(tripId)
                 .map(this::toReadModel);
     }
 

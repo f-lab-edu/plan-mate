@@ -12,9 +12,6 @@ import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.trip.api.TripAccessChecker;
 import com.planmate.trip.api.TripPlanningSnapshot;
 import com.planmate.trip.api.TripPlanningSnapshotReader;
-import com.planmate.trip.entity.TripEntity;
-import com.planmate.trip.exception.TripNotFoundException;
-import com.planmate.trip.repository.TripRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -34,7 +31,6 @@ public class ItineraryGenerationPersistenceService {
     private final OutboxEventRepository outboxEventRepository;
     private final TripAccessChecker tripAccessChecker;
     private final TripPlanningSnapshotReader tripPlanningSnapshotReader;
-    private final TripRepository tripRepository;
     private final Clock clock;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -43,7 +39,6 @@ public class ItineraryGenerationPersistenceService {
             OutboxEventRepository outboxEventRepository,
             TripAccessChecker tripAccessChecker,
             TripPlanningSnapshotReader tripPlanningSnapshotReader,
-            TripRepository tripRepository,
             Clock clock,
             ApplicationEventPublisher eventPublisher
     ) {
@@ -51,7 +46,6 @@ public class ItineraryGenerationPersistenceService {
         this.outboxEventRepository = outboxEventRepository;
         this.tripAccessChecker = tripAccessChecker;
         this.tripPlanningSnapshotReader = tripPlanningSnapshotReader;
-        this.tripRepository = tripRepository;
         this.clock = clock;
         this.eventPublisher = eventPublisher;
     }
@@ -59,14 +53,13 @@ public class ItineraryGenerationPersistenceService {
     @Transactional
     public ItineraryGenerationEntity createGenerationRequest(Long userId, Long tripId, String promptVersion) {
         tripAccessChecker.checkAccessible(userId, tripId);
-        TripEntity trip = findTripForAssociation(tripId);
         Instant now = Instant.now(clock);
-        ItineraryGenerationEntity generation = generationRepository.save(ItineraryGenerationEntity.create(trip, promptVersion, now));
+        ItineraryGenerationEntity generation = generationRepository.save(ItineraryGenerationEntity.create(tripId, promptVersion, now));
         outboxEventRepository.save(OutboxEventEntity.create(
                 ITINERARY_GENERATION_AGGREGATE_TYPE,
                 generation.getId().toString(),
                 ITINERARY_GENERATION_REQUESTED_EVENT_TYPE,
-                itineraryGenerationRequestedPayload(generation.getId(), trip.getId(), userId),
+                itineraryGenerationRequestedPayload(generation.getId(), tripId, userId),
                 now
         ));
         return generation;
@@ -114,7 +107,7 @@ public class ItineraryGenerationPersistenceService {
         ItineraryGenerationEntity generation = findGeneration(generationId);
         ItineraryGenerationStatus previousStatus = generation.getStatus();
         generation.markReady(Instant.now(clock));
-        publishStatusChanged(generation.getTrip().getId(), generation, previousStatus, 0);
+        publishStatusChanged(generation.getTripId(), generation, previousStatus, 0);
     }
 
     @Transactional
@@ -123,7 +116,7 @@ public class ItineraryGenerationPersistenceService {
         ItineraryGenerationStatus previousStatus = generation.getStatus();
         generation.markFailed(safeReason, Instant.now(clock));
         publishStatusChanged(
-                generation.getTrip().getId(),
+                generation.getTripId(),
                 generation,
                 previousStatus,
                 0
@@ -153,14 +146,14 @@ public class ItineraryGenerationPersistenceService {
     @Transactional(readOnly = true)
     public Optional<ItineraryGenerationDetailResponse> getLatest(Long userId, Long tripId) {
         tripAccessChecker.checkAccessible(userId, tripId);
-        return generationRepository.findFirstByTrip_IdOrderByCreatedAtDesc(tripId)
+        return generationRepository.findFirstByTripIdOrderByCreatedAtDesc(tripId)
                 .map(generation -> toDetailResponse(tripId, generation));
     }
 
     @Transactional(readOnly = true)
     public AiRequestContext loadAiRequestContext(Long userId, Long tripId, Long generationId) {
         tripAccessChecker.checkAccessible(userId, tripId);
-        ItineraryGenerationEntity generation = generationRepository.findWithTripById(generationId)
+        ItineraryGenerationEntity generation = generationRepository.findById(generationId)
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
         if (!generationBelongsToTrip(generation, tripId)) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
@@ -174,13 +167,8 @@ public class ItineraryGenerationPersistenceService {
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
     }
 
-    private TripEntity findTripForAssociation(Long tripId) {
-        return tripRepository.findById(tripId)
-                .orElseThrow(TripNotFoundException::new);
-    }
-
     private boolean generationBelongsToTrip(ItineraryGenerationEntity generation, Long tripId) {
-        return generation.getTrip().getId().equals(tripId);
+        return generation.getTripId().equals(tripId);
     }
 
     private TripPlanningSnapshot findPlanningSnapshot(Long tripId) {

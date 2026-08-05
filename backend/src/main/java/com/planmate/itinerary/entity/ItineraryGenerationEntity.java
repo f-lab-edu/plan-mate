@@ -1,16 +1,12 @@
 package com.planmate.itinerary.entity;
 
-import com.planmate.trip.entity.TripEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
@@ -22,9 +18,8 @@ public class ItineraryGenerationEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "trip_id", nullable = false)
-    private TripEntity trip;
+    @Column(name = "trip_id", nullable = false)
+    private Long tripId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 40)
@@ -45,16 +40,16 @@ public class ItineraryGenerationEntity {
     protected ItineraryGenerationEntity() {
     }
 
-    private ItineraryGenerationEntity(TripEntity trip, String promptVersion, Instant now) {
-        this.trip = trip;
+    private ItineraryGenerationEntity(Long tripId, String promptVersion, Instant now) {
+        this.tripId = tripId;
         this.status = ItineraryGenerationStatus.CREATED;
         this.promptVersion = promptVersion;
         this.createdAt = now;
         this.updatedAt = now;
     }
 
-    public static ItineraryGenerationEntity create(TripEntity trip, String promptVersion, Instant now) {
-        return new ItineraryGenerationEntity(trip, promptVersion, now);
+    public static ItineraryGenerationEntity create(Long tripId, String promptVersion, Instant now) {
+        return new ItineraryGenerationEntity(tripId, promptVersion, now);
     }
 
     public void markCollecting(Instant now) {
@@ -90,8 +85,8 @@ public class ItineraryGenerationEntity {
         return id;
     }
 
-    public TripEntity getTrip() {
-        return trip;
+    public Long getTripId() {
+        return tripId;
     }
 
     public ItineraryGenerationStatus getStatus() {

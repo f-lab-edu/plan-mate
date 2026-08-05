@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import com.planmate.itinerary.dto.GroundedItineraryDraft;
 import com.planmate.itinerary.dto.ItineraryDraftDay;
 import com.planmate.itinerary.dto.ItineraryDraftItem;
+import com.planmate.itinerary.entity.ItineraryEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
 import com.planmate.itinerary.entity.ItineraryItemEntity;
@@ -21,9 +22,6 @@ import com.planmate.itinerary.repository.ItineraryRepository;
 import com.planmate.trip.api.TripAccessChecker;
 import com.planmate.trip.api.TripPlanningSnapshot;
 import com.planmate.trip.api.TripPlanningSnapshotReader;
-import com.planmate.trip.entity.TripEntity;
-import com.planmate.trip.repository.TripRepository;
-import com.planmate.user.entity.UserEntity;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -42,7 +40,6 @@ class ManualItineraryResponseServiceTest {
 
     private final TripAccessChecker tripAccessChecker = Mockito.mock(TripAccessChecker.class);
     private final TripPlanningSnapshotReader tripPlanningSnapshotReader = Mockito.mock(TripPlanningSnapshotReader.class);
-    private final TripRepository tripRepository = Mockito.mock(TripRepository.class);
     private final ItineraryGenerationRepository generationRepository = Mockito.mock(ItineraryGenerationRepository.class);
     private final ItineraryRepository itineraryRepository = Mockito.mock(ItineraryRepository.class);
     private final ItineraryDayRepository itineraryDayRepository = Mockito.mock(ItineraryDayRepository.class);
@@ -52,7 +49,6 @@ class ManualItineraryResponseServiceTest {
     private final ManualItineraryResponseService service = new ManualItineraryResponseService(
             tripAccessChecker,
             tripPlanningSnapshotReader,
-            tripRepository,
             generationRepository,
             itineraryRepository,
             itineraryDayRepository,
@@ -61,18 +57,15 @@ class ManualItineraryResponseServiceTest {
             eventPublisher
     );
 
-    private TripEntity trip;
     private ItineraryGenerationEntity generation;
 
     @BeforeEach
     void setUp() {
-        trip = trip();
-        generation = ItineraryGenerationEntity.create(trip, ItineraryPromptService.PROMPT_VERSION, Instant.now(clock));
+        generation = ItineraryGenerationEntity.create(1L, ItineraryPromptService.PROMPT_VERSION, Instant.now(clock));
         generation.markReady(Instant.now(clock));
         ReflectionTestUtils.setField(generation, "id", 10L);
 
-        given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
-        given(generationRepository.findWithTripById(10L)).willReturn(Optional.of(generation));
+        given(generationRepository.findById(10L)).willReturn(Optional.of(generation));
         given(tripPlanningSnapshotReader.findByTripId(1L)).willReturn(Optional.of(snapshot()));
     }
 
@@ -102,7 +95,19 @@ class ManualItineraryResponseServiceTest {
             assertThat(event.candidateCount()).isZero();
             assertThat(event.failureReason()).isNull();
         });
+        ArgumentCaptor<ItineraryEntity> itineraryCaptor = ArgumentCaptor.forClass(ItineraryEntity.class);
+        verify(itineraryRepository).save(itineraryCaptor.capture());
+        assertThat(itineraryCaptor.getValue().getTripId()).isEqualTo(generation.getTripId());
+        assertThat(itineraryCaptor.getValue().getGeneration()).isSameAs(generation);
         verify(tripAccessChecker).checkAccessible(99L, 1L);
+    }
+
+    @Test
+    void rejectsDraftWhenGenerationBelongsToDifferentTrip() {
+        assertThatThrownBy(() -> service.submit(99L, 2L, 10L, validDraft()))
+                .isInstanceOf(ItineraryException.class)
+                .hasMessage("Itinerary generation not found.");
+        verify(itineraryRepository, never()).save(Mockito.any());
     }
 
     @Test
@@ -166,36 +171,6 @@ class ManualItineraryResponseServiceTest {
 
     private ItineraryDraftItem item(int sequence, String placeId) {
         return new ItineraryDraftItem(sequence, placeId, "09:00", 120);
-    }
-
-    private TripEntity trip() {
-        UserEntity owner = UserEntity.createOauthUser(
-                "owner@example.com",
-                "owner@example.com",
-                "owner",
-                true,
-                Instant.now(clock)
-        );
-        TripEntity trip = TripEntity.create(
-                "Trip",
-                "Kyoto",
-                "place-kyoto",
-                "Kyoto, Japan",
-                35.0,
-                135.0,
-                34.8,
-                134.8,
-                35.2,
-                135.2,
-                List.of("locality"),
-                "locality",
-                LocalDate.of(2026, 10, 9),
-                LocalDate.of(2026, 10, 10),
-                owner,
-                Instant.now(clock)
-        );
-        ReflectionTestUtils.setField(trip, "id", 1L);
-        return trip;
     }
 
     private TripPlanningSnapshot snapshot() {

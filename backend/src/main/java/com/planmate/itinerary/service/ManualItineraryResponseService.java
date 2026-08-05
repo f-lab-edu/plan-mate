@@ -19,9 +19,6 @@ import com.planmate.itinerary.repository.ItineraryRepository;
 import com.planmate.trip.api.TripAccessChecker;
 import com.planmate.trip.api.TripPlanningSnapshot;
 import com.planmate.trip.api.TripPlanningSnapshotReader;
-import com.planmate.trip.entity.TripEntity;
-import com.planmate.trip.exception.TripNotFoundException;
-import com.planmate.trip.repository.TripRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalTime;
@@ -42,7 +39,6 @@ public class ManualItineraryResponseService {
 
     private final TripAccessChecker tripAccessChecker;
     private final TripPlanningSnapshotReader tripPlanningSnapshotReader;
-    private final TripRepository tripRepository;
     private final ItineraryGenerationRepository generationRepository;
     private final ItineraryRepository itineraryRepository;
     private final ItineraryDayRepository itineraryDayRepository;
@@ -53,7 +49,6 @@ public class ManualItineraryResponseService {
     public ManualItineraryResponseService(
             TripAccessChecker tripAccessChecker,
             TripPlanningSnapshotReader tripPlanningSnapshotReader,
-            TripRepository tripRepository,
             ItineraryGenerationRepository generationRepository,
             ItineraryRepository itineraryRepository,
             ItineraryDayRepository itineraryDayRepository,
@@ -63,7 +58,6 @@ public class ManualItineraryResponseService {
     ) {
         this.tripAccessChecker = tripAccessChecker;
         this.tripPlanningSnapshotReader = tripPlanningSnapshotReader;
-        this.tripRepository = tripRepository;
         this.generationRepository = generationRepository;
         this.itineraryRepository = itineraryRepository;
         this.itineraryDayRepository = itineraryDayRepository;
@@ -75,10 +69,9 @@ public class ManualItineraryResponseService {
     @Transactional
     public void submit(Long userId, Long tripId, Long generationId, GroundedItineraryDraft draft) {
         tripAccessChecker.checkAccessible(userId, tripId);
-        TripEntity trip = findTripForAssociation(tripId);
-        ItineraryGenerationEntity generation = generationRepository.findWithTripById(generationId)
+        ItineraryGenerationEntity generation = generationRepository.findById(generationId)
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
-        if (!generation.getTrip().getId().equals(tripId)) {
+        if (!generation.getTripId().equals(tripId)) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
         if (generation.getStatus() != ItineraryGenerationStatus.READY_FOR_PLANNING) {
@@ -93,7 +86,7 @@ public class ManualItineraryResponseService {
 
         Instant now = Instant.now(clock);
         generation.markValidating(now);
-        ItineraryEntity itinerary = itineraryRepository.save(ItineraryEntity.create(trip, generation, now));
+        ItineraryEntity itinerary = itineraryRepository.save(ItineraryEntity.create(generation, now));
         for (ItineraryDraftDay responseDay : draft.days()) {
             ItineraryDayEntity day = itineraryDayRepository.save(ItineraryDayEntity.create(
                     itinerary,
@@ -203,11 +196,6 @@ public class ManualItineraryResponseService {
 
     private String normalizePlaceId(String value) {
         return value == null ? "" : value.trim();
-    }
-
-    private TripEntity findTripForAssociation(Long tripId) {
-        return tripRepository.findById(tripId)
-                .orElseThrow(TripNotFoundException::new);
     }
 
     private TripPlanningSnapshot findPlanningSnapshot(Long tripId) {
