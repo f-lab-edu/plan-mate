@@ -19,6 +19,12 @@ public record CollectedPlaceCandidate(
         double score
 ) {
 
+    public CollectedPlaceCandidate {
+        types = types == null ? List.of() : List.copyOf(types);
+        openingPeriods = openingPeriods == null ? List.of() : List.copyOf(openingPeriods);
+        sourceCategories = sourceCategories == null ? List.of() : List.copyOf(sourceCategories);
+    }
+
     public CollectedPlaceCandidate withScore(double score) {
         return new CollectedPlaceCandidate(
                 placeId,

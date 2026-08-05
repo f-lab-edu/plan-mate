@@ -1,7 +1,6 @@
 package com.planmate.itinerary.entity;
 
-import com.planmate.recommendation.domain.CandidateSearchCategory;
-import com.planmate.recommendation.domain.CollectedPlaceCandidate;
+import com.planmate.recommendation.api.RecommendedPlaceCandidate;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -57,7 +56,7 @@ public class PlaceCandidateEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "source_categories", nullable = false, columnDefinition = "jsonb")
-    private List<CandidateSearchCategory> sourceCategories;
+    private List<String> sourceCategories;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "opening_periods", nullable = false, columnDefinition = "jsonb")
@@ -72,11 +71,11 @@ public class PlaceCandidateEntity {
     protected PlaceCandidateEntity() {
     }
 
-    private PlaceCandidateEntity(ItineraryGenerationEntity generation, CollectedPlaceCandidate candidate, int rank) {
+    private PlaceCandidateEntity(ItineraryGenerationEntity generation, RecommendedPlaceCandidate candidate) {
         this.generation = generation;
         this.placeId = candidate.placeId();
-        this.name = candidate.name();
-        this.address = candidate.address();
+        this.name = candidate.displayName();
+        this.address = candidate.formattedAddress();
         this.latitude = candidate.location().latitude();
         this.longitude = candidate.location().longitude();
         this.primaryType = candidate.primaryType();
@@ -85,11 +84,11 @@ public class PlaceCandidateEntity {
         this.sourceCategories = List.copyOf(candidate.sourceCategories());
         this.openingPeriods = List.copyOf(candidate.openingPeriods());
         this.score = candidate.score();
-        this.rank = rank;
+        this.rank = candidate.rank();
     }
 
-    public static PlaceCandidateEntity from(ItineraryGenerationEntity generation, CollectedPlaceCandidate candidate, int rank) {
-        return new PlaceCandidateEntity(generation, candidate, rank);
+    public static PlaceCandidateEntity from(ItineraryGenerationEntity generation, RecommendedPlaceCandidate candidate) {
+        return new PlaceCandidateEntity(generation, candidate);
     }
 
     public Long getId() {
@@ -132,7 +131,7 @@ public class PlaceCandidateEntity {
         return userRatingCount;
     }
 
-    public List<CandidateSearchCategory> getSourceCategories() {
+    public List<String> getSourceCategories() {
         return List.copyOf(sourceCategories);
     }
 

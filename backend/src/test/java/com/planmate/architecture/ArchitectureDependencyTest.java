@@ -80,4 +80,44 @@ class ArchitectureDependencyTest {
                             "org.springframework.web.client..",
                             "org.springframework.http.."
                     );
+
+    @ArchTest
+    static final ArchRule recommendation_package_does_not_depend_on_trip_package =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.planmate.recommendation..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.planmate.trip..");
+
+    @ArchTest
+    static final ArchRule itinerary_package_does_not_depend_on_recommendation_internals =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.planmate.itinerary..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.planmate.recommendation.domain..",
+                            "com.planmate.recommendation.service..",
+                            "com.planmate.recommendation.entity..",
+                            "com.planmate.recommendation.repository.."
+                    );
+
+    @ArchTest
+    static final ArchRule recommendation_api_does_not_depend_on_internal_or_technical_packages =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.planmate.recommendation.api..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.planmate.recommendation.domain..",
+                            "com.planmate.recommendation.service..",
+                            "com.planmate.recommendation.entity..",
+                            "com.planmate.recommendation.repository..",
+                            "com.planmate.place..",
+                            "org.springframework..",
+                            "jakarta.persistence.."
+                    );
 }
