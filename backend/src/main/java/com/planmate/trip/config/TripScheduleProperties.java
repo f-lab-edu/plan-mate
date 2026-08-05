@@ -1,4 +1,4 @@
-package com.planmate.itinerary.config;
+package com.planmate.trip.config;
 
 import java.time.LocalTime;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @ConfigurationProperties(prefix = "app.itinerary.schedule")
-public class ItineraryScheduleProperties {
+public class TripScheduleProperties {
 
     private LocalTime defaultStartTime = LocalTime.of(8, 0);
     private LocalTime defaultEndTime = LocalTime.of(20, 0);
