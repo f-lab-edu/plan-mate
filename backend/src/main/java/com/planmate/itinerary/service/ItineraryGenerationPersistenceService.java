@@ -9,13 +9,11 @@ import com.planmate.itinerary.exception.ItineraryErrorCode;
 import com.planmate.itinerary.exception.ItineraryException;
 import com.planmate.itinerary.realtime.ItineraryGenerationStatusChangedEvent;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
-import com.planmate.place.dto.GeoPoint;
-import com.planmate.place.dto.GeoViewport;
-import com.planmate.place.dto.ResolvedDestination;
+import com.planmate.trip.api.TripAccessChecker;
+import com.planmate.trip.api.TripPlanningSnapshot;
+import com.planmate.trip.api.TripPlanningSnapshotReader;
 import com.planmate.trip.entity.TripEntity;
-import com.planmate.trip.entity.TripPlanningProfileEntity;
 import com.planmate.trip.exception.TripNotFoundException;
-import com.planmate.trip.repository.TripPlanningProfileRepository;
 import com.planmate.trip.repository.TripRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -34,31 +32,34 @@ public class ItineraryGenerationPersistenceService {
 
     private final ItineraryGenerationRepository generationRepository;
     private final OutboxEventRepository outboxEventRepository;
+    private final TripAccessChecker tripAccessChecker;
+    private final TripPlanningSnapshotReader tripPlanningSnapshotReader;
     private final TripRepository tripRepository;
-    private final TripPlanningProfileRepository tripPlanningProfileRepository;
     private final Clock clock;
     private final ApplicationEventPublisher eventPublisher;
 
     public ItineraryGenerationPersistenceService(
             ItineraryGenerationRepository generationRepository,
             OutboxEventRepository outboxEventRepository,
+            TripAccessChecker tripAccessChecker,
+            TripPlanningSnapshotReader tripPlanningSnapshotReader,
             TripRepository tripRepository,
-            TripPlanningProfileRepository tripPlanningProfileRepository,
             Clock clock,
             ApplicationEventPublisher eventPublisher
     ) {
         this.generationRepository = generationRepository;
         this.outboxEventRepository = outboxEventRepository;
+        this.tripAccessChecker = tripAccessChecker;
+        this.tripPlanningSnapshotReader = tripPlanningSnapshotReader;
         this.tripRepository = tripRepository;
-        this.tripPlanningProfileRepository = tripPlanningProfileRepository;
         this.clock = clock;
         this.eventPublisher = eventPublisher;
     }
 
     @Transactional
     public ItineraryGenerationEntity createGenerationRequest(Long userId, Long tripId, String promptVersion) {
-        TripEntity trip = tripRepository.findAccessibleTrip(tripId, userId)
-                .orElseThrow(TripNotFoundException::new);
+        tripAccessChecker.checkAccessible(userId, tripId);
+        TripEntity trip = findTripForAssociation(tripId);
         Instant now = Instant.now(clock);
         ItineraryGenerationEntity generation = generationRepository.save(ItineraryGenerationEntity.create(trip, promptVersion, now));
         outboxEventRepository.save(OutboxEventEntity.create(
@@ -79,11 +80,10 @@ public class ItineraryGenerationPersistenceService {
 
     @Transactional
     public boolean markCollectingIfCreated(Long userId, Long tripId, Long generationId) {
-        TripEntity trip = tripRepository.findAccessibleTrip(tripId, userId)
-                .orElseThrow(TripNotFoundException::new);
+        tripAccessChecker.checkAccessible(userId, tripId);
         ItineraryGenerationEntity generation = generationRepository.findWithLockById(generationId)
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
-        if (!generation.getTrip().getId().equals(trip.getId())) {
+        if (!generationBelongsToTrip(generation, tripId)) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
         if (generation.getStatus() != ItineraryGenerationStatus.CREATED) {
@@ -92,22 +92,21 @@ public class ItineraryGenerationPersistenceService {
         ItineraryGenerationStatus previousStatus = generation.getStatus();
         Instant now = Instant.now(clock);
         generation.markCollecting(now);
-        publishStatusChanged(trip.getId(), generation, previousStatus, 0);
+        publishStatusChanged(tripId, generation, previousStatus, 0);
         return true;
     }
 
     @Transactional(readOnly = true)
     public GenerationCollectionContext loadCollectionContext(Long userId, Long tripId, Long generationId) {
-        TripEntity trip = tripRepository.findAccessibleTrip(tripId, userId)
-                .orElseThrow(TripNotFoundException::new);
+        tripAccessChecker.checkAccessible(userId, tripId);
         ItineraryGenerationEntity generation = generationRepository.findById(generationId)
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
-        if (!generation.getTrip().getId().equals(trip.getId())) {
+        if (!generationBelongsToTrip(generation, tripId)) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
-        TripPlanningProfileEntity profile = tripPlanningProfileRepository.findByTrip_Id(trip.getId())
-                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.PLANNING_PROFILE_NOT_FOUND));
-        return new GenerationCollectionContext(generation.getId(), toResolvedDestination(trip), profile);
+        TripPlanningSnapshot snapshot = findPlanningSnapshot(tripId);
+        ensureDestinationResolved(snapshot);
+        return new GenerationCollectionContext(generation.getId(), snapshot);
     }
 
     @Transactional
@@ -133,16 +132,15 @@ public class ItineraryGenerationPersistenceService {
 
     @Transactional(readOnly = true)
     public ItineraryGenerationDetailResponse getDetail(Long userId, Long tripId, Long generationId) {
-        TripEntity trip = tripRepository.findAccessibleTrip(tripId, userId)
-                .orElseThrow(TripNotFoundException::new);
+        tripAccessChecker.checkAccessible(userId, tripId);
         ItineraryGenerationEntity generation = generationRepository.findById(generationId)
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
-        if (!generation.getTrip().getId().equals(trip.getId())) {
+        if (!generationBelongsToTrip(generation, tripId)) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
         return new ItineraryGenerationDetailResponse(
                 generation.getId().toString(),
-                trip.getId().toString(),
+                tripId.toString(),
                 generation.getStatus(),
                 generation.getPromptVersion(),
                 0,
@@ -154,24 +152,21 @@ public class ItineraryGenerationPersistenceService {
 
     @Transactional(readOnly = true)
     public Optional<ItineraryGenerationDetailResponse> getLatest(Long userId, Long tripId) {
-        TripEntity trip = tripRepository.findAccessibleTrip(tripId, userId)
-                .orElseThrow(TripNotFoundException::new);
-        return generationRepository.findFirstByTrip_IdOrderByCreatedAtDesc(trip.getId())
-                .map(generation -> toDetailResponse(trip, generation));
+        tripAccessChecker.checkAccessible(userId, tripId);
+        return generationRepository.findFirstByTrip_IdOrderByCreatedAtDesc(tripId)
+                .map(generation -> toDetailResponse(tripId, generation));
     }
 
     @Transactional(readOnly = true)
     public AiRequestContext loadAiRequestContext(Long userId, Long tripId, Long generationId) {
-        TripEntity trip = tripRepository.findAccessibleTrip(tripId, userId)
-                .orElseThrow(TripNotFoundException::new);
+        tripAccessChecker.checkAccessible(userId, tripId);
         ItineraryGenerationEntity generation = generationRepository.findWithTripById(generationId)
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
-        if (!generation.getTrip().getId().equals(trip.getId())) {
+        if (!generationBelongsToTrip(generation, tripId)) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
-        TripPlanningProfileEntity profile = tripPlanningProfileRepository.findByTrip_Id(trip.getId())
-                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.PLANNING_PROFILE_NOT_FOUND));
-        return new AiRequestContext(generation, profile);
+        TripPlanningSnapshot snapshot = findPlanningSnapshot(tripId);
+        return new AiRequestContext(generation, snapshot);
     }
 
     private ItineraryGenerationEntity findGeneration(Long generationId) {
@@ -179,10 +174,30 @@ public class ItineraryGenerationPersistenceService {
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
     }
 
-    private ItineraryGenerationDetailResponse toDetailResponse(TripEntity trip, ItineraryGenerationEntity generation) {
+    private TripEntity findTripForAssociation(Long tripId) {
+        return tripRepository.findById(tripId)
+                .orElseThrow(TripNotFoundException::new);
+    }
+
+    private boolean generationBelongsToTrip(ItineraryGenerationEntity generation, Long tripId) {
+        return generation.getTrip().getId().equals(tripId);
+    }
+
+    private TripPlanningSnapshot findPlanningSnapshot(Long tripId) {
+        return tripPlanningSnapshotReader.findByTripId(tripId)
+                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.PLANNING_PROFILE_NOT_FOUND));
+    }
+
+    private void ensureDestinationResolved(TripPlanningSnapshot snapshot) {
+        if (snapshot.destination().latitude() == null || snapshot.destination().longitude() == null) {
+            throw new ItineraryException(ItineraryErrorCode.DESTINATION_NOT_RESOLVED);
+        }
+    }
+
+    private ItineraryGenerationDetailResponse toDetailResponse(Long tripId, ItineraryGenerationEntity generation) {
         return new ItineraryGenerationDetailResponse(
                 generation.getId().toString(),
-                trip.getId().toString(),
+                tripId.toString(),
                 generation.getStatus(),
                 generation.getPromptVersion(),
                 0,
@@ -217,42 +232,15 @@ public class ItineraryGenerationPersistenceService {
         return payload;
     }
 
-    private ResolvedDestination toResolvedDestination(TripEntity trip) {
-        if (trip.getDestinationLatitude() == null || trip.getDestinationLongitude() == null) {
-            throw new ItineraryException(ItineraryErrorCode.DESTINATION_NOT_RESOLVED);
-        }
-        GeoPoint location = new GeoPoint(trip.getDestinationLatitude(), trip.getDestinationLongitude());
-        GeoViewport viewport = null;
-        if (trip.getDestinationViewportLowLatitude() != null
-                && trip.getDestinationViewportLowLongitude() != null
-                && trip.getDestinationViewportHighLatitude() != null
-                && trip.getDestinationViewportHighLongitude() != null) {
-            viewport = new GeoViewport(
-                    new GeoPoint(trip.getDestinationViewportLowLatitude(), trip.getDestinationViewportLowLongitude()),
-                    new GeoPoint(trip.getDestinationViewportHighLatitude(), trip.getDestinationViewportHighLongitude())
-            );
-        }
-        return new ResolvedDestination(
-                trip.getDestinationPlaceId(),
-                trip.getDestination(),
-                trip.getDestinationFormattedAddress(),
-                location,
-                viewport,
-                trip.getDestinationTypes(),
-                trip.getDestinationPrimaryType()
-        );
-    }
-
     public record GenerationCollectionContext(
             Long generationId,
-            ResolvedDestination destination,
-            TripPlanningProfileEntity profile
+            TripPlanningSnapshot snapshot
     ) {
     }
 
     public record AiRequestContext(
             ItineraryGenerationEntity generation,
-            TripPlanningProfileEntity profile
+            TripPlanningSnapshot snapshot
     ) {
     }
 }

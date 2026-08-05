@@ -16,18 +16,17 @@ import com.planmate.itinerary.repository.ItineraryDayRepository;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.itinerary.repository.ItineraryItemRepository;
 import com.planmate.itinerary.repository.ItineraryRepository;
-import com.planmate.trip.domain.MustVisitPlaceSnapshot;
+import com.planmate.trip.api.TripAccessChecker;
+import com.planmate.trip.api.TripPlanningSnapshot;
+import com.planmate.trip.api.TripPlanningSnapshotReader;
 import com.planmate.trip.entity.TripEntity;
-import com.planmate.trip.entity.TripPlanningProfileEntity;
 import com.planmate.trip.exception.TripNotFoundException;
-import com.planmate.trip.repository.TripPlanningProfileRepository;
 import com.planmate.trip.repository.TripRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -41,9 +40,10 @@ public class ManualItineraryResponseService {
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
+    private final TripAccessChecker tripAccessChecker;
+    private final TripPlanningSnapshotReader tripPlanningSnapshotReader;
     private final TripRepository tripRepository;
     private final ItineraryGenerationRepository generationRepository;
-    private final TripPlanningProfileRepository tripPlanningProfileRepository;
     private final ItineraryRepository itineraryRepository;
     private final ItineraryDayRepository itineraryDayRepository;
     private final ItineraryItemRepository itineraryItemRepository;
@@ -51,18 +51,20 @@ public class ManualItineraryResponseService {
     private final ApplicationEventPublisher eventPublisher;
 
     public ManualItineraryResponseService(
+            TripAccessChecker tripAccessChecker,
+            TripPlanningSnapshotReader tripPlanningSnapshotReader,
             TripRepository tripRepository,
             ItineraryGenerationRepository generationRepository,
-            TripPlanningProfileRepository tripPlanningProfileRepository,
             ItineraryRepository itineraryRepository,
             ItineraryDayRepository itineraryDayRepository,
             ItineraryItemRepository itineraryItemRepository,
             Clock clock,
             ApplicationEventPublisher eventPublisher
     ) {
+        this.tripAccessChecker = tripAccessChecker;
+        this.tripPlanningSnapshotReader = tripPlanningSnapshotReader;
         this.tripRepository = tripRepository;
         this.generationRepository = generationRepository;
-        this.tripPlanningProfileRepository = tripPlanningProfileRepository;
         this.itineraryRepository = itineraryRepository;
         this.itineraryDayRepository = itineraryDayRepository;
         this.itineraryItemRepository = itineraryItemRepository;
@@ -72,11 +74,11 @@ public class ManualItineraryResponseService {
 
     @Transactional
     public void submit(Long userId, Long tripId, Long generationId, GroundedItineraryDraft draft) {
-        TripEntity trip = tripRepository.findAccessibleTrip(tripId, userId)
-                .orElseThrow(TripNotFoundException::new);
+        tripAccessChecker.checkAccessible(userId, tripId);
+        TripEntity trip = findTripForAssociation(tripId);
         ItineraryGenerationEntity generation = generationRepository.findWithTripById(generationId)
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
-        if (!generation.getTrip().getId().equals(trip.getId())) {
+        if (!generation.getTrip().getId().equals(tripId)) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
         if (generation.getStatus() != ItineraryGenerationStatus.READY_FOR_PLANNING) {
@@ -86,9 +88,8 @@ public class ManualItineraryResponseService {
             throw invalid("generationId가 현재 생성 작업과 일치하지 않습니다.");
         }
 
-        TripPlanningProfileEntity profile = tripPlanningProfileRepository.findByTrip_Id(trip.getId())
-                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.PLANNING_PROFILE_NOT_FOUND));
-        validateDraft(trip, profile.getMustVisitPlaces(), draft);
+        TripPlanningSnapshot snapshot = findPlanningSnapshot(tripId);
+        validateDraft(snapshot, draft);
 
         Instant now = Instant.now(clock);
         generation.markValidating(now);
@@ -97,7 +98,7 @@ public class ManualItineraryResponseService {
             ItineraryDayEntity day = itineraryDayRepository.save(ItineraryDayEntity.create(
                     itinerary,
                     responseDay.day(),
-                    trip.getStartDate().plusDays(responseDay.day() - 1L)
+                    snapshot.startDate().plusDays(responseDay.day() - 1L)
             ));
             for (ItineraryDraftItem responseItem : responseDay.items()) {
                 itineraryItemRepository.save(ItineraryItemEntity.create(
@@ -113,7 +114,7 @@ public class ManualItineraryResponseService {
         ItineraryGenerationStatus previousStatus = generation.getStatus();
         generation.markCompleted(now);
         eventPublisher.publishEvent(new ItineraryGenerationStatusChangedEvent(
-                trip.getId(),
+                tripId,
                 generation.getId(),
                 previousStatus,
                 generation.getStatus(),
@@ -124,14 +125,13 @@ public class ManualItineraryResponseService {
     }
 
     private void validateDraft(
-            TripEntity trip,
-            List<MustVisitPlaceSnapshot> mustVisitPlaces,
+            TripPlanningSnapshot snapshot,
             GroundedItineraryDraft draft
     ) {
         if (draft.days() == null || draft.days().isEmpty()) {
             throw invalid("days는 필수입니다.");
         }
-        int tripDayCount = tripDayCount(trip);
+        int tripDayCount = snapshot.tripDayCount();
         if (draft.days().size() != tripDayCount) {
             throw invalid("days 개수는 여행 일수와 일치해야 합니다.");
         }
@@ -141,7 +141,7 @@ public class ManualItineraryResponseService {
         for (ItineraryDraftDay day : draft.days()) {
             validateDay(tripDayCount, day, days, includedPlaceIds);
         }
-        validateMustVisitPlaces(mustVisitPlaces, includedPlaceIds);
+        validateMustVisitPlaces(snapshot.mustVisitPlaces(), includedPlaceIds);
     }
 
     private void validateDay(
@@ -182,8 +182,11 @@ public class ManualItineraryResponseService {
         }
     }
 
-    private void validateMustVisitPlaces(List<MustVisitPlaceSnapshot> mustVisitPlaces, Set<String> includedPlaceIds) {
-        for (MustVisitPlaceSnapshot mustVisitPlace : mustVisitPlaces) {
+    private void validateMustVisitPlaces(
+            List<TripPlanningSnapshot.MustVisitPlace> mustVisitPlaces,
+            Set<String> includedPlaceIds
+    ) {
+        for (TripPlanningSnapshot.MustVisitPlace mustVisitPlace : mustVisitPlaces) {
             if (StringUtils.hasText(mustVisitPlace.placeId()) && !includedPlaceIds.contains(mustVisitPlace.placeId())) {
                 throw invalid("mustVisitPlaceIds는 일정에 포함되어야 합니다.");
             }
@@ -202,8 +205,14 @@ public class ManualItineraryResponseService {
         return value == null ? "" : value.trim();
     }
 
-    private int tripDayCount(TripEntity trip) {
-        return Math.toIntExact(ChronoUnit.DAYS.between(trip.getStartDate(), trip.getEndDate()) + 1);
+    private TripEntity findTripForAssociation(Long tripId) {
+        return tripRepository.findById(tripId)
+                .orElseThrow(TripNotFoundException::new);
+    }
+
+    private TripPlanningSnapshot findPlanningSnapshot(Long tripId) {
+        return tripPlanningSnapshotReader.findByTripId(tripId)
+                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.PLANNING_PROFILE_NOT_FOUND));
     }
 
     private ItineraryException invalid(String message) {

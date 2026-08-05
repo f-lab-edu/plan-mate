@@ -1,6 +1,7 @@
 package com.planmate.itinerary.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -10,10 +11,13 @@ import com.planmate.common.outbox.OutboxEventEntity;
 import com.planmate.common.outbox.OutboxEventRepository;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.exception.ItineraryException;
 import com.planmate.itinerary.realtime.ItineraryGenerationStatusChangedEvent;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
+import com.planmate.trip.api.TripAccessChecker;
+import com.planmate.trip.api.TripPlanningSnapshot;
+import com.planmate.trip.api.TripPlanningSnapshotReader;
 import com.planmate.trip.entity.TripEntity;
-import com.planmate.trip.repository.TripPlanningProfileRepository;
 import com.planmate.trip.repository.TripRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -42,10 +46,13 @@ class ItineraryGenerationPersistenceServiceTest {
     private OutboxEventRepository outboxEventRepository;
 
     @Mock
-    private TripRepository tripRepository;
+    private TripAccessChecker tripAccessChecker;
 
     @Mock
-    private TripPlanningProfileRepository tripPlanningProfileRepository;
+    private TripPlanningSnapshotReader tripPlanningSnapshotReader;
+
+    @Mock
+    private TripRepository tripRepository;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -57,8 +64,9 @@ class ItineraryGenerationPersistenceServiceTest {
         service = new ItineraryGenerationPersistenceService(
                 generationRepository,
                 outboxEventRepository,
+                tripAccessChecker,
+                tripPlanningSnapshotReader,
                 tripRepository,
-                tripPlanningProfileRepository,
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 eventPublisher
         );
@@ -67,7 +75,7 @@ class ItineraryGenerationPersistenceServiceTest {
     @Test
     void createGenerationRequestStoresGenerationAndOutboxEventInOneServiceCall() {
         TripEntity trip = trip(45L);
-        given(tripRepository.findAccessibleTrip(45L, 7L)).willReturn(Optional.of(trip));
+        given(tripRepository.findById(45L)).willReturn(Optional.of(trip));
         given(generationRepository.save(any(ItineraryGenerationEntity.class)))
                 .willAnswer(invocation -> {
                     ItineraryGenerationEntity generation = invocation.getArgument(0);
@@ -94,13 +102,13 @@ class ItineraryGenerationPersistenceServiceTest {
                 .containsEntry("tripId", 45L)
                 .containsEntry("userId", 7L);
         assertThat(outboxEvent.getCreatedAt()).isEqualTo(NOW);
+        verify(tripAccessChecker).checkAccessible(7L, 45L);
     }
 
     @Test
     void markCollectingIfCreatedMarksCreatedGenerationAndReturnsTrue() {
         TripEntity trip = trip(45L);
         ItineraryGenerationEntity generation = generation(123L, trip);
-        given(tripRepository.findAccessibleTrip(45L, 7L)).willReturn(Optional.of(trip));
         given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
 
         boolean result = service.markCollectingIfCreated(7L, 45L, 123L);
@@ -108,6 +116,7 @@ class ItineraryGenerationPersistenceServiceTest {
         assertThat(result).isTrue();
         assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.COLLECTING_CANDIDATES);
         verify(eventPublisher).publishEvent(any(Object.class));
+        verify(tripAccessChecker).checkAccessible(7L, 45L);
     }
 
     @Test
@@ -115,7 +124,6 @@ class ItineraryGenerationPersistenceServiceTest {
         TripEntity trip = trip(45L);
         ItineraryGenerationEntity generation = generation(123L, trip);
         generation.markReady(NOW);
-        given(tripRepository.findAccessibleTrip(45L, 7L)).willReturn(Optional.of(trip));
         given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
 
         boolean result = service.markCollectingIfCreated(7L, 45L, 123L);
@@ -123,6 +131,7 @@ class ItineraryGenerationPersistenceServiceTest {
         assertThat(result).isFalse();
         assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
         verifyNoInteractions(eventPublisher);
+        verify(tripAccessChecker).checkAccessible(7L, 45L);
     }
 
     @Test
@@ -152,7 +161,6 @@ class ItineraryGenerationPersistenceServiceTest {
         TripEntity trip = trip(45L);
         ItineraryGenerationEntity generation = generation(123L, trip);
         generation.markReady(NOW);
-        given(tripRepository.findAccessibleTrip(45L, 7L)).willReturn(Optional.of(trip));
         given(generationRepository.findFirstByTrip_IdOrderByCreatedAtDesc(45L)).willReturn(Optional.of(generation));
 
         Optional<com.planmate.itinerary.dto.ItineraryGenerationDetailResponse> result = service.getLatest(7L, 45L);
@@ -165,17 +173,44 @@ class ItineraryGenerationPersistenceServiceTest {
                     assertThat(response.status()).isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
                     assertThat(response.candidateCount()).isZero();
                 });
+        verify(tripAccessChecker).checkAccessible(7L, 45L);
     }
 
     @Test
     void getLatestReturnsEmptyWhenTripHasNoGeneration() {
-        TripEntity trip = trip(45L);
-        given(tripRepository.findAccessibleTrip(45L, 7L)).willReturn(Optional.of(trip));
         given(generationRepository.findFirstByTrip_IdOrderByCreatedAtDesc(45L)).willReturn(Optional.empty());
 
         Optional<com.planmate.itinerary.dto.ItineraryGenerationDetailResponse> result = service.getLatest(7L, 45L);
 
         assertThat(result).isEmpty();
+        verify(tripAccessChecker).checkAccessible(7L, 45L);
+    }
+
+    @Test
+    void loadAiRequestContextReturnsPlanningSnapshot() {
+        TripEntity trip = trip(45L);
+        ItineraryGenerationEntity generation = generation(123L, trip);
+        TripPlanningSnapshot snapshot = snapshot(45L);
+        given(generationRepository.findWithTripById(123L)).willReturn(Optional.of(generation));
+        given(tripPlanningSnapshotReader.findByTripId(45L)).willReturn(Optional.of(snapshot));
+
+        ItineraryGenerationPersistenceService.AiRequestContext result = service.loadAiRequestContext(7L, 45L, 123L);
+
+        assertThat(result.generation()).isSameAs(generation);
+        assertThat(result.snapshot()).isSameAs(snapshot);
+        verify(tripAccessChecker).checkAccessible(7L, 45L);
+    }
+
+    @Test
+    void loadAiRequestContextThrowsWhenPlanningProfileIsMissing() {
+        TripEntity trip = trip(45L);
+        ItineraryGenerationEntity generation = generation(123L, trip);
+        given(generationRepository.findWithTripById(123L)).willReturn(Optional.of(generation));
+        given(tripPlanningSnapshotReader.findByTripId(45L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.loadAiRequestContext(7L, 45L, 123L))
+                .isInstanceOf(ItineraryException.class)
+                .hasMessage("Trip planning profile not found.");
     }
 
     private TripEntity trip(Long tripId) {
@@ -209,5 +244,24 @@ class ItineraryGenerationPersistenceServiceTest {
         );
         ReflectionTestUtils.setField(generation, "id", generationId);
         return generation;
+    }
+
+    private TripPlanningSnapshot snapshot(Long tripId) {
+        return new TripPlanningSnapshot(
+                tripId,
+                LocalDate.of(2026, 4, 1),
+                LocalDate.of(2026, 4, 3),
+                new TripPlanningSnapshot.Destination("place-kyoto", "Kyoto", "Kyoto, Japan", 35.0, 135.0, null, List.of("locality"), "locality"),
+                new TripPlanningSnapshot.Companion(3, "FRIENDS", false, 0, null, false, 0),
+                new TripPlanningSnapshot.Budget("KRW", 1_000_000L, "BALANCED", List.of("FOOD")),
+                new TripPlanningSnapshot.Preference("BALANCED", List.of("FOOD")),
+                new TripPlanningSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
+                new TripPlanningSnapshot.Accommodation("UNDECIDED", null, null, null, null, null, null, List.of(), null, null, null),
+                java.time.LocalTime.of(8, 0),
+                java.time.LocalTime.of(20, 0),
+                List.of(),
+                List.of(),
+                null
+        );
     }
 }

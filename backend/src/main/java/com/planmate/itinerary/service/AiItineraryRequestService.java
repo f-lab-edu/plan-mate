@@ -29,7 +29,7 @@ public class AiItineraryRequestService {
         if (context.generation().getStatus() != ItineraryGenerationStatus.READY_FOR_PLANNING) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_READY);
         }
-        return requestFactory.create(context.generation(), context.profile());
+        return requestFactory.create(context.generation(), context.snapshot());
     }
 
     public String getPrompt(Long userId, Long tripId, Long generationId) {

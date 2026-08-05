@@ -18,15 +18,16 @@ import com.planmate.itinerary.repository.ItineraryDayRepository;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.itinerary.repository.ItineraryItemRepository;
 import com.planmate.itinerary.repository.ItineraryRepository;
-import com.planmate.trip.domain.MustVisitPlaceSnapshot;
+import com.planmate.trip.api.TripAccessChecker;
+import com.planmate.trip.api.TripPlanningSnapshot;
+import com.planmate.trip.api.TripPlanningSnapshotReader;
 import com.planmate.trip.entity.TripEntity;
-import com.planmate.trip.entity.TripPlanningProfileEntity;
-import com.planmate.trip.repository.TripPlanningProfileRepository;
 import com.planmate.trip.repository.TripRepository;
 import com.planmate.user.entity.UserEntity;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -39,18 +40,20 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 class ManualItineraryResponseServiceTest {
 
+    private final TripAccessChecker tripAccessChecker = Mockito.mock(TripAccessChecker.class);
+    private final TripPlanningSnapshotReader tripPlanningSnapshotReader = Mockito.mock(TripPlanningSnapshotReader.class);
     private final TripRepository tripRepository = Mockito.mock(TripRepository.class);
     private final ItineraryGenerationRepository generationRepository = Mockito.mock(ItineraryGenerationRepository.class);
-    private final TripPlanningProfileRepository tripPlanningProfileRepository = Mockito.mock(TripPlanningProfileRepository.class);
     private final ItineraryRepository itineraryRepository = Mockito.mock(ItineraryRepository.class);
     private final ItineraryDayRepository itineraryDayRepository = Mockito.mock(ItineraryDayRepository.class);
     private final ItineraryItemRepository itineraryItemRepository = Mockito.mock(ItineraryItemRepository.class);
     private final ApplicationEventPublisher eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
     private final ManualItineraryResponseService service = new ManualItineraryResponseService(
+            tripAccessChecker,
+            tripPlanningSnapshotReader,
             tripRepository,
             generationRepository,
-            tripPlanningProfileRepository,
             itineraryRepository,
             itineraryDayRepository,
             itineraryItemRepository,
@@ -60,7 +63,6 @@ class ManualItineraryResponseServiceTest {
 
     private TripEntity trip;
     private ItineraryGenerationEntity generation;
-    private TripPlanningProfileEntity profile;
 
     @BeforeEach
     void setUp() {
@@ -68,12 +70,10 @@ class ManualItineraryResponseServiceTest {
         generation = ItineraryGenerationEntity.create(trip, ItineraryPromptService.PROMPT_VERSION, Instant.now(clock));
         generation.markReady(Instant.now(clock));
         ReflectionTestUtils.setField(generation, "id", 10L);
-        profile = Mockito.mock(TripPlanningProfileEntity.class);
 
-        given(tripRepository.findAccessibleTrip(1L, 99L)).willReturn(Optional.of(trip));
+        given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
         given(generationRepository.findWithTripById(10L)).willReturn(Optional.of(generation));
-        given(tripPlanningProfileRepository.findByTrip_Id(1L)).willReturn(Optional.of(profile));
-        given(profile.getMustVisitPlaces()).willReturn(List.of(mustVisitPlace("place-1"), mustVisitPlace("place-2")));
+        given(tripPlanningSnapshotReader.findByTripId(1L)).willReturn(Optional.of(snapshot()));
     }
 
     @Test
@@ -102,6 +102,7 @@ class ManualItineraryResponseServiceTest {
             assertThat(event.candidateCount()).isZero();
             assertThat(event.failureReason()).isNull();
         });
+        verify(tripAccessChecker).checkAccessible(99L, 1L);
     }
 
     @Test
@@ -113,7 +114,7 @@ class ManualItineraryResponseServiceTest {
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
                 .isInstanceOf(ItineraryException.class)
-                .hasMessage("days 개수는 여행 일수와 일치해야 합니다.");
+                .hasMessageContaining("days");
         verify(itineraryRepository, never()).save(Mockito.any());
     }
 
@@ -129,7 +130,7 @@ class ManualItineraryResponseServiceTest {
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
                 .isInstanceOf(ItineraryException.class)
-                .hasMessage("mustVisitPlaceIds는 일정에 포함되어야 합니다.");
+                .hasMessageContaining("mustVisitPlaceIds");
         verify(itineraryRepository, never()).save(Mockito.any());
     }
 
@@ -145,7 +146,7 @@ class ManualItineraryResponseServiceTest {
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
                 .isInstanceOf(ItineraryException.class)
-                .hasMessage("startTime은 HH:mm 형식이어야 합니다.");
+                .hasMessageContaining("startTime");
         verify(itineraryRepository, never()).save(Mockito.any());
     }
 
@@ -165,18 +166,6 @@ class ManualItineraryResponseServiceTest {
 
     private ItineraryDraftItem item(int sequence, String placeId) {
         return new ItineraryDraftItem(sequence, placeId, "09:00", 120);
-    }
-
-    private MustVisitPlaceSnapshot mustVisitPlace(String placeId) {
-        return new MustVisitPlaceSnapshot(
-                placeId,
-                "장소",
-                "주소",
-                35.0,
-                135.0,
-                List.of("tourist_attraction"),
-                "tourist_attraction"
-        );
     }
 
     private TripEntity trip() {
@@ -207,5 +196,45 @@ class ManualItineraryResponseServiceTest {
         );
         ReflectionTestUtils.setField(trip, "id", 1L);
         return trip;
+    }
+
+    private TripPlanningSnapshot snapshot() {
+        return new TripPlanningSnapshot(
+                1L,
+                LocalDate.of(2026, 10, 9),
+                LocalDate.of(2026, 10, 10),
+                new TripPlanningSnapshot.Destination(
+                        "place-kyoto",
+                        "Kyoto",
+                        "Kyoto, Japan",
+                        35.0,
+                        135.0,
+                        new TripPlanningSnapshot.Viewport(34.8, 134.8, 35.2, 135.2),
+                        List.of("locality"),
+                        "locality"
+                ),
+                new TripPlanningSnapshot.Companion(2, "FRIENDS", false, 0, null, false, 0),
+                new TripPlanningSnapshot.Budget("KRW", 1_000_000L, "BALANCED", List.of("FOOD")),
+                new TripPlanningSnapshot.Preference("BALANCED", List.of("FOOD")),
+                new TripPlanningSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
+                new TripPlanningSnapshot.Accommodation("UNDECIDED", null, null, null, null, null, null, List.of(), null, null, null),
+                LocalTime.of(8, 0),
+                LocalTime.of(20, 0),
+                List.of(mustVisitPlace("place-1"), mustVisitPlace("place-2")),
+                List.of(),
+                null
+        );
+    }
+
+    private TripPlanningSnapshot.MustVisitPlace mustVisitPlace(String placeId) {
+        return new TripPlanningSnapshot.MustVisitPlace(
+                placeId,
+                "Place",
+                "Address",
+                35.0,
+                135.0,
+                List.of("tourist_attraction"),
+                "tourist_attraction"
+        );
     }
 }

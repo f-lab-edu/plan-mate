@@ -2,13 +2,7 @@ package com.planmate.itinerary.service;
 
 import com.planmate.itinerary.dto.AiItineraryRequest;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
-import com.planmate.trip.domain.AvoidCondition;
-import com.planmate.trip.domain.BudgetItem;
-import com.planmate.trip.domain.MustVisitPlaceSnapshot;
-import com.planmate.trip.domain.TransportMode;
-import com.planmate.trip.domain.TripInterest;
-import com.planmate.trip.entity.TripEntity;
-import com.planmate.trip.entity.TripPlanningProfileEntity;
+import com.planmate.trip.api.TripPlanningSnapshot;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -17,87 +11,86 @@ public class AiItineraryRequestFactory {
 
     public AiItineraryRequest create(
             ItineraryGenerationEntity generation,
-            TripPlanningProfileEntity profile
+            TripPlanningSnapshot snapshot
     ) {
-        TripEntity trip = generation.getTrip();
         return new AiItineraryRequest(
                 generation.getId().toString(),
-                trip.getId().toString(),
-                destination(trip),
-                trip.getStartDate(),
-                trip.getEndDate(),
-                companion(profile),
-                budget(profile),
-                profile.getTravelPace().name(),
-                profile.getInterests().stream().map(TripInterest::name).toList(),
-                transportation(profile),
-                accommodation(profile),
-                mustVisitPlaces(profile),
-                profile.getAvoidConditions().stream().map(AvoidCondition::name).toList(),
-                profile.getFreeRequest(),
+                snapshot.tripId().toString(),
+                destination(snapshot.destination()),
+                snapshot.startDate(),
+                snapshot.endDate(),
+                companion(snapshot.companion()),
+                budget(snapshot.budget()),
+                snapshot.preference().travelPace(),
+                snapshot.preference().interests(),
+                transportation(snapshot.transportation()),
+                accommodation(snapshot.accommodation()),
+                mustVisitPlaces(snapshot),
+                snapshot.avoidConditions(),
+                snapshot.freeRequest(),
                 planningRules()
         );
     }
 
-    private AiItineraryRequest.Destination destination(TripEntity trip) {
+    private AiItineraryRequest.Destination destination(TripPlanningSnapshot.Destination destination) {
         return new AiItineraryRequest.Destination(
-                trip.getDestinationPlaceId(),
-                trip.getDestination(),
-                trip.getDestinationFormattedAddress(),
-                trip.getDestinationLatitude(),
-                trip.getDestinationLongitude(),
-                trip.getDestinationTypes(),
-                trip.getDestinationPrimaryType()
+                destination.placeId(),
+                destination.displayName(),
+                destination.formattedAddress(),
+                destination.latitude(),
+                destination.longitude(),
+                destination.types(),
+                destination.primaryType()
         );
     }
 
-    private AiItineraryRequest.Companion companion(TripPlanningProfileEntity profile) {
+    private AiItineraryRequest.Companion companion(TripPlanningSnapshot.Companion companion) {
         return new AiItineraryRequest.Companion(
-                profile.getCompanionCount(),
-                profile.getCompanionType().name(),
-                profile.isHasChildren(),
-                profile.getChildCount(),
-                profile.getChildAgeGroup() == null ? null : profile.getChildAgeGroup().name(),
-                profile.isHasSeniors(),
-                profile.getSeniorCount()
+                companion.companionCount(),
+                companion.companionType(),
+                companion.hasChildren(),
+                companion.childCount(),
+                companion.childAgeGroup(),
+                companion.hasSeniors(),
+                companion.seniorCount()
         );
     }
 
-    private AiItineraryRequest.Budget budget(TripPlanningProfileEntity profile) {
+    private AiItineraryRequest.Budget budget(TripPlanningSnapshot.Budget budget) {
         return new AiItineraryRequest.Budget(
-                profile.getCurrencyCode().name(),
-                profile.getBudgetAmount(),
-                profile.getBudgetLevel().name(),
-                profile.getIncludedBudgetItems().stream().map(BudgetItem::name).toList()
+                budget.currencyCode(),
+                budget.amount(),
+                budget.level(),
+                budget.includedItems()
         );
     }
 
-    private AiItineraryRequest.Transportation transportation(TripPlanningProfileEntity profile) {
+    private AiItineraryRequest.Transportation transportation(TripPlanningSnapshot.Transportation transportation) {
         return new AiItineraryRequest.Transportation(
-                profile.getPrimaryTransportMode().name(),
-                profile.getSecondaryTransportModes().stream().map(TransportMode::name).toList()
+                transportation.primaryMode(),
+                transportation.secondaryModes()
         );
     }
 
-    private AiItineraryRequest.Accommodation accommodation(TripPlanningProfileEntity profile) {
+    private AiItineraryRequest.Accommodation accommodation(TripPlanningSnapshot.Accommodation accommodation) {
         return new AiItineraryRequest.Accommodation(
-                profile.getAccommodationMode().name(),
-                profile.getAccommodationArea() == null ? null : profile.getAccommodationArea().name(),
-                profile.getAccommodationName(),
-                profile.getCheckInTime(),
-                profile.getCheckOutTime()
+                accommodation.accommodationMode(),
+                accommodation.preferredArea(),
+                accommodation.name(),
+                accommodation.checkInTime(),
+                accommodation.checkOutTime()
         );
     }
 
-    private List<AiItineraryRequest.MustVisitPlace> mustVisitPlaces(TripPlanningProfileEntity profile) {
-        return profile.getMustVisitPlaces()
+    private List<AiItineraryRequest.MustVisitPlace> mustVisitPlaces(TripPlanningSnapshot snapshot) {
+        return snapshot.mustVisitPlaces()
                 .stream()
-                .filter(MustVisitPlaceSnapshot::isResolved)
+                .filter(TripPlanningSnapshot.MustVisitPlace::isResolved)
                 .map(this::mustVisitPlace)
                 .toList();
     }
 
-    private AiItineraryRequest.MustVisitPlace mustVisitPlace(MustVisitPlaceSnapshot place) {
+    private AiItineraryRequest.MustVisitPlace mustVisitPlace(TripPlanningSnapshot.MustVisitPlace place) {
         return new AiItineraryRequest.MustVisitPlace(
                 place.placeId(),
                 place.name(),

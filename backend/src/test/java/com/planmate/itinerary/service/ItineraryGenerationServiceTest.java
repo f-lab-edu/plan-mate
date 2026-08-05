@@ -10,12 +10,11 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import com.planmate.itinerary.dto.ItineraryGenerationCreateResponse;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
-import com.planmate.place.dto.GeoPoint;
-import com.planmate.place.dto.ResolvedDestination;
+import com.planmate.trip.api.TripPlanningSnapshot;
 import com.planmate.trip.entity.TripEntity;
-import com.planmate.trip.entity.TripPlanningProfileEntity;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,18 +56,8 @@ class ItineraryGenerationServiceTest {
 
     @Test
     void collectCandidatesValidatesContextAndMarksReadyForPlanning() {
-        ResolvedDestination destination = new ResolvedDestination(
-                "place-kyoto",
-                "Kyoto",
-                "Kyoto, Japan",
-                new GeoPoint(35.0, 135.0),
-                null,
-                List.of("locality"),
-                "locality"
-        );
-        TripPlanningProfileEntity profile = org.mockito.Mockito.mock(TripPlanningProfileEntity.class);
         given(persistenceService.loadCollectionContext(7L, 45L, 123L))
-                .willReturn(new ItineraryGenerationPersistenceService.GenerationCollectionContext(123L, destination, profile));
+                .willReturn(new ItineraryGenerationPersistenceService.GenerationCollectionContext(123L, snapshot(45L)));
 
         service.collectCandidates(7L, 45L, 123L);
 
@@ -107,5 +96,33 @@ class ItineraryGenerationServiceTest {
         );
         ReflectionTestUtils.setField(trip, "id", tripId);
         return trip;
+    }
+
+    private TripPlanningSnapshot snapshot(Long tripId) {
+        return new TripPlanningSnapshot(
+                tripId,
+                LocalDate.of(2026, 4, 1),
+                LocalDate.of(2026, 4, 3),
+                new TripPlanningSnapshot.Destination(
+                        "place-kyoto",
+                        "Kyoto",
+                        "Kyoto, Japan",
+                        35.0,
+                        135.0,
+                        null,
+                        List.of("locality"),
+                        "locality"
+                ),
+                new TripPlanningSnapshot.Companion(3, "FRIENDS", false, 0, null, false, 0),
+                new TripPlanningSnapshot.Budget("KRW", 1_000_000L, "BALANCED", List.of("FOOD")),
+                new TripPlanningSnapshot.Preference("BALANCED", List.of("FOOD")),
+                new TripPlanningSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
+                new TripPlanningSnapshot.Accommodation("UNDECIDED", null, null, null, null, null, null, List.of(), null, null, null),
+                LocalTime.of(8, 0),
+                LocalTime.of(20, 0),
+                List.of(),
+                List.of(),
+                null
+        );
     }
 }
