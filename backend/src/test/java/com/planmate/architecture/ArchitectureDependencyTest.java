@@ -30,4 +30,16 @@ class ArchitectureDependencyTest {
                             "com.planmate.trip.entity..",
                             "com.planmate.trip.repository.."
                     );
+
+    @ArchTest
+    static final ArchRule realtime_package_does_not_depend_on_trip_persistence =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.planmate.realtime..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "com.planmate.trip.entity..",
+                            "com.planmate.trip.repository.."
+                    );
 }

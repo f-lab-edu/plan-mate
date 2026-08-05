@@ -1,4 +1,4 @@
-package com.planmate.common.realtime;
+package com.planmate.realtime;
 
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;

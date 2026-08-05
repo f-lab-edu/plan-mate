@@ -1,13 +1,14 @@
-package com.planmate.common.realtime;
+package com.planmate.realtime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import com.planmate.auth.security.AuthenticatedUser;
 import com.planmate.auth.security.PlanMateJwtAuthenticationConverter;
-import com.planmate.trip.repository.TripMemberRepository;
+import com.planmate.trip.api.TripMembershipChecker;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,7 +39,7 @@ class RealtimeStompChannelInterceptorTest {
     private JwtDecoder jwtDecoder;
 
     @Mock
-    private TripMemberRepository tripMemberRepository;
+    private TripMembershipChecker tripMembershipChecker;
 
     private RealtimeStompChannelInterceptor interceptor;
 
@@ -47,7 +48,7 @@ class RealtimeStompChannelInterceptorTest {
         interceptor = new RealtimeStompChannelInterceptor(
                 jwtDecoder,
                 new PlanMateJwtAuthenticationConverter(),
-                tripMemberRepository
+                tripMembershipChecker
         );
     }
 
@@ -85,7 +86,7 @@ class RealtimeStompChannelInterceptorTest {
 
     @Test
     void subscribeAllowsTripMember() {
-        given(tripMemberRepository.existsByTrip_IdAndUser_Id(45L, 7L)).willReturn(true);
+        given(tripMembershipChecker.isMember(7L, 45L)).willReturn(true);
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
         accessor.setDestination("/topic/trips/45/events");
         accessor.setUser(authentication(7L));
@@ -93,17 +94,40 @@ class RealtimeStompChannelInterceptorTest {
         Message<?> result = interceptor.preSend(message(accessor), mock(MessageChannel.class));
 
         assertThat(result).isNotNull();
+        verify(tripMembershipChecker).isMember(7L, 45L);
     }
 
     @Test
     void subscribeRejectsNonMember() {
-        given(tripMemberRepository.existsByTrip_IdAndUser_Id(45L, 7L)).willReturn(false);
+        given(tripMembershipChecker.isMember(7L, 45L)).willReturn(false);
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
         accessor.setDestination("/topic/trips/45/events");
         accessor.setUser(authentication(7L));
 
         assertThatThrownBy(() -> interceptor.preSend(message(accessor), mock(MessageChannel.class)))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void subscribeRejectsUnsupportedTopicPath() {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        accessor.setDestination("/topic/unknown");
+        accessor.setUser(authentication(7L));
+
+        assertThatThrownBy(() -> interceptor.preSend(message(accessor), mock(MessageChannel.class)))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Unsupported topic subscription");
+    }
+
+    @Test
+    void subscribeAllowsNonTopicDestination() {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        accessor.setDestination("/queue/private");
+        accessor.setUser(authentication(7L));
+
+        Message<?> result = interceptor.preSend(message(accessor), mock(MessageChannel.class));
+
+        assertThat(result).isNotNull();
     }
 
     @Test

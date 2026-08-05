@@ -1,8 +1,8 @@
-package com.planmate.common.realtime;
+package com.planmate.realtime;
 
 import com.planmate.auth.security.AuthenticatedUser;
 import com.planmate.auth.security.PlanMateJwtAuthenticationConverter;
-import com.planmate.trip.repository.TripMemberRepository;
+import com.planmate.trip.api.TripMembershipChecker;
 import java.security.Principal;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,16 +30,16 @@ public class RealtimeStompChannelInterceptor implements ChannelInterceptor {
 
     private final JwtDecoder jwtDecoder;
     private final PlanMateJwtAuthenticationConverter jwtAuthenticationConverter;
-    private final TripMemberRepository tripMemberRepository;
+    private final TripMembershipChecker tripMembershipChecker;
 
     public RealtimeStompChannelInterceptor(
             JwtDecoder jwtDecoder,
             PlanMateJwtAuthenticationConverter jwtAuthenticationConverter,
-            TripMemberRepository tripMemberRepository
+            TripMembershipChecker tripMembershipChecker
     ) {
         this.jwtDecoder = jwtDecoder;
         this.jwtAuthenticationConverter = jwtAuthenticationConverter;
-        this.tripMemberRepository = tripMemberRepository;
+        this.tripMembershipChecker = tripMembershipChecker;
     }
 
     @Override
@@ -98,7 +98,7 @@ public class RealtimeStompChannelInterceptor implements ChannelInterceptor {
 
         AuthenticatedUser user = authenticatedUser(accessor.getUser());
         Long tripId = Long.valueOf(matcher.group(1));
-        if (!tripMemberRepository.existsByTrip_IdAndUser_Id(tripId, user.userId())) {
+        if (!tripMembershipChecker.isMember(user.userId(), tripId)) {
             throw new AccessDeniedException("Trip membership is required to subscribe");
         }
     }
