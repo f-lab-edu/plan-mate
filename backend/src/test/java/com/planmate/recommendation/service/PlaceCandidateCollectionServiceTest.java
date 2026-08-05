@@ -7,13 +7,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.planmate.place.dto.GeoPoint;
-import com.planmate.place.dto.GeoViewport;
-import com.planmate.place.dto.PlaceSearchCandidate;
-import com.planmate.place.dto.PlaceTextSearchRequest;
-import com.planmate.place.dto.PlaceTextSearchResponse;
-import com.planmate.place.dto.ResolvedDestination;
-import com.planmate.place.service.GooglePlacesService;
+import com.planmate.place.api.GeoPoint;
+import com.planmate.place.api.GeoViewport;
+import com.planmate.place.api.PlaceSearchCandidate;
+import com.planmate.place.api.PlaceTextSearchQuery;
+import com.planmate.place.api.PlaceTextSearchResult;
+import com.planmate.place.api.PlaceTextSearcher;
+import com.planmate.place.api.ResolvedPlace;
 import com.planmate.recommendation.domain.CollectedPlaceCandidate;
 import com.planmate.recommendation.domain.PlaceTypePolicy;
 import com.planmate.recommendation.domain.PlaceTypePolicyRule;
@@ -35,16 +35,16 @@ class PlaceCandidateCollectionServiceTest {
 
     @Test
     void undecidedAccommodationUsesDestinationSearchArea() {
-        GooglePlacesService googlePlacesService = mock(GooglePlacesService.class);
-        List<PlaceTextSearchRequest> requests = new ArrayList<>();
-        given(googlePlacesService.searchText(any()))
+        PlaceTextSearcher placeTextSearcher = mock(PlaceTextSearcher.class);
+        List<PlaceTextSearchQuery> requests = new ArrayList<>();
+        given(placeTextSearcher.searchText(any()))
                 .willAnswer(invocation -> {
-                    PlaceTextSearchRequest request = invocation.getArgument(0);
+                    PlaceTextSearchQuery request = invocation.getArgument(0);
                     requests.add(request);
-                    return new PlaceTextSearchResponse(List.of(), null);
+                    return new PlaceTextSearchResult(List.of(), null);
                 });
-        PlaceCandidateCollectionService service = service(googlePlacesService);
-        ResolvedDestination destination = destination();
+        PlaceCandidateCollectionService service = service(placeTextSearcher);
+        ResolvedPlace destination = destination();
 
         service.collect(destination, profile(AccommodationMode.UNDECIDED, null));
 
@@ -55,17 +55,17 @@ class PlaceCandidateCollectionServiceTest {
 
     @Test
     void selectedAccommodationUsesAccommodationCircleButDestinationQuery() {
-        GooglePlacesService googlePlacesService = mock(GooglePlacesService.class);
-        List<PlaceTextSearchRequest> requests = new ArrayList<>();
-        given(googlePlacesService.searchText(any()))
+        PlaceTextSearcher placeTextSearcher = mock(PlaceTextSearcher.class);
+        List<PlaceTextSearchQuery> requests = new ArrayList<>();
+        given(placeTextSearcher.searchText(any()))
                 .willAnswer(invocation -> {
-                    PlaceTextSearchRequest request = invocation.getArgument(0);
+                    PlaceTextSearchQuery request = invocation.getArgument(0);
                     requests.add(request);
-                    return new PlaceTextSearchResponse(List.of(
+                    return new PlaceTextSearchResult(List.of(
                             candidate("candidate-1", new GeoPoint(33.5902, 130.4206))
                     ), null);
                 });
-        PlaceCandidateCollectionService service = service(googlePlacesService);
+        PlaceCandidateCollectionService service = service(placeTextSearcher);
 
         List<CollectedPlaceCandidate> candidates = service.collect(
                 destination(),
@@ -90,12 +90,12 @@ class PlaceCandidateCollectionServiceTest {
 
     @Test
     void mustVisitPlacesAreForcedToCandidateFront() {
-        GooglePlacesService googlePlacesService = mock(GooglePlacesService.class);
-        given(googlePlacesService.searchText(any()))
-                .willReturn(new PlaceTextSearchResponse(List.of(
+        PlaceTextSearcher placeTextSearcher = mock(PlaceTextSearcher.class);
+        given(placeTextSearcher.searchText(any()))
+                .willReturn(new PlaceTextSearchResult(List.of(
                         candidate("searched-place", new GeoPoint(35.0116, 135.7681))
                 ), null));
-        PlaceCandidateCollectionService service = service(googlePlacesService);
+        PlaceCandidateCollectionService service = service(placeTextSearcher);
 
         List<CollectedPlaceCandidate> candidates = service.collect(
                 destination(),
@@ -117,9 +117,9 @@ class PlaceCandidateCollectionServiceTest {
 
     @Test
     void blockedTypePolicyExcludesCandidatesAndLoadsPoliciesOnce() {
-        GooglePlacesService googlePlacesService = mock(GooglePlacesService.class);
-        given(googlePlacesService.searchText(any()))
-                .willReturn(new PlaceTextSearchResponse(List.of(
+        PlaceTextSearcher placeTextSearcher = mock(PlaceTextSearcher.class);
+        given(placeTextSearcher.searchText(any()))
+                .willReturn(new PlaceTextSearchResult(List.of(
                         candidate(
                                 "blocked-place",
                                 new GeoPoint(35.0116, 135.7681),
@@ -144,7 +144,7 @@ class PlaceCandidateCollectionServiceTest {
                                 "blocked for test"
                         )
                 ));
-        PlaceCandidateCollectionService service = service(googlePlacesService, placeTypePolicyService);
+        PlaceCandidateCollectionService service = service(placeTextSearcher, placeTypePolicyService);
 
         List<CollectedPlaceCandidate> candidates = service.collect(
                 destination(),
@@ -157,18 +157,18 @@ class PlaceCandidateCollectionServiceTest {
         verify(placeTypePolicyService, times(1)).loadEnabledPoliciesByTypeName();
     }
 
-    private PlaceCandidateCollectionService service(GooglePlacesService googlePlacesService) {
+    private PlaceCandidateCollectionService service(PlaceTextSearcher placeTextSearcher) {
         PlaceTypePolicyService placeTypePolicyService = mock(PlaceTypePolicyService.class);
         given(placeTypePolicyService.loadEnabledPoliciesByTypeName()).willReturn(Map.of());
-        return service(googlePlacesService, placeTypePolicyService);
+        return service(placeTextSearcher, placeTypePolicyService);
     }
 
     private PlaceCandidateCollectionService service(
-            GooglePlacesService googlePlacesService,
+            PlaceTextSearcher placeTextSearcher,
             PlaceTypePolicyService placeTypePolicyService
     ) {
         return new PlaceCandidateCollectionService(
-                googlePlacesService,
+                placeTextSearcher,
                 new CandidateCategoryWeightCalculator(),
                 new CandidateSearchQueryFactory(),
                 new HaversineDistanceCalculator(),
@@ -184,8 +184,8 @@ class PlaceCandidateCollectionServiceTest {
         );
     }
 
-    private ResolvedDestination destination() {
-        return new ResolvedDestination(
+    private ResolvedPlace destination() {
+        return new ResolvedPlace(
                 "destination-place",
                 "Kyoto",
                 "Kyoto, Japan",

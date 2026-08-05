@@ -1,8 +1,8 @@
-package com.planmate.place.dto;
+package com.planmate.place.api;
 
 import java.util.List;
 
-public record ResolvedDestination(
+public record ResolvedPlace(
         String placeId,
         String displayName,
         String formattedAddress,
@@ -11,4 +11,8 @@ public record ResolvedDestination(
         List<String> types,
         String primaryType
 ) {
+
+    public ResolvedPlace {
+        types = types == null ? List.of() : List.copyOf(types);
+    }
 }

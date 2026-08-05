@@ -1,17 +1,21 @@
 package com.planmate.place.service;
 
-import com.planmate.place.dto.PlaceAutocompleteItemResponse;
-import com.planmate.place.dto.PlaceAutocompleteResponse;
-import com.planmate.place.dto.GeoPoint;
-import com.planmate.place.dto.GeoViewport;
-import com.planmate.place.dto.PlaceDisplay;
-import com.planmate.place.dto.PlaceSearchCandidate;
-import com.planmate.place.dto.PlaceSearchArea;
-import com.planmate.place.dto.PlaceTextSearchRequest;
-import com.planmate.place.dto.PlaceTextSearchResponse;
-import com.planmate.place.dto.ResolvedDestination;
-import com.planmate.place.exception.InvalidPlaceIdException;
-import com.planmate.place.exception.PlaceProviderUnavailableException;
+import com.planmate.place.api.GeoPoint;
+import com.planmate.place.api.GeoViewport;
+import com.planmate.place.api.PlaceAutocompleteItem;
+import com.planmate.place.api.PlaceAutocompleteQuery;
+import com.planmate.place.api.PlaceAutocompleteResult;
+import com.planmate.place.api.PlaceDetailsResolver;
+import com.planmate.place.api.PlaceDisplay;
+import com.planmate.place.api.PlaceDisplayReader;
+import com.planmate.place.api.PlaceSearchArea;
+import com.planmate.place.api.PlaceSearchCandidate;
+import com.planmate.place.api.PlaceTextSearchQuery;
+import com.planmate.place.api.PlaceTextSearchResult;
+import com.planmate.place.api.PlaceTextSearcher;
+import com.planmate.place.api.ResolvedPlace;
+import com.planmate.place.api.exception.InvalidPlaceIdException;
+import com.planmate.place.api.exception.PlaceProviderUnavailableException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +31,11 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Service
-public class GooglePlacesService {
+public class GooglePlacesService implements
+        PlaceAutocompleteQuery,
+        PlaceDetailsResolver,
+        PlaceDisplayReader,
+        PlaceTextSearcher {
 
     private static final String BASE_URL = "https://places.googleapis.com/v1";
     private static final String API_KEY_HEADER = "X-Goog-Api-Key";
@@ -103,24 +111,26 @@ public class GooglePlacesService {
         this.fallbackRadiusMeters = fallbackRadiusMeters;
     }
 
-    public PlaceAutocompleteResponse autocomplete(String query, String languageCode) {
+    @Override
+    public PlaceAutocompleteResult autocomplete(String query, String languageCode) {
         assertApiKeyConfigured();
 
-        PlaceAutocompleteResponse cityResponse = autocomplete(query, languageCode, SearchScope.CITY);
+        PlaceAutocompleteResult cityResponse = autocomplete(query, languageCode, SearchScope.CITY);
         if (!cityResponse.items().isEmpty()) {
             return cityResponse;
         }
         return autocomplete(query, languageCode, SearchScope.REGION);
     }
 
-    public PlaceAutocompleteResponse autocompleteAccommodation(
+    @Override
+    public PlaceAutocompleteResult autocompleteAccommodation(
             String query,
             String destinationPlaceId,
             String languageCode
     ) {
         assertApiKeyConfigured();
 
-        ResolvedDestination destination = resolveDestination(destinationPlaceId, languageCode);
+        ResolvedPlace destination = resolve(destinationPlaceId, languageCode);
         return autocomplete(query, new AutocompleteOptions(
                 languageCode,
                 SearchScope.ACCOMMODATION,
@@ -128,14 +138,15 @@ public class GooglePlacesService {
         ));
     }
 
-    public PlaceAutocompleteResponse autocompleteInDestination(
+    @Override
+    public PlaceAutocompleteResult autocompleteInDestination(
             String query,
             String destinationPlaceId,
             String languageCode
     ) {
         assertApiKeyConfigured();
 
-        ResolvedDestination destination = resolveDestination(destinationPlaceId, languageCode);
+        ResolvedPlace destination = resolve(destinationPlaceId, languageCode);
         return autocomplete(query, new AutocompleteOptions(
                 languageCode,
                 SearchScope.PLACE,
@@ -143,7 +154,8 @@ public class GooglePlacesService {
         ));
     }
 
-    public ResolvedDestination resolveDestination(String placeId, String languageCode) {
+    @Override
+    public ResolvedPlace resolve(String placeId, String languageCode) {
         assertApiKeyConfigured();
 
         try {
@@ -162,7 +174,7 @@ public class GooglePlacesService {
             if (response == null || !placeId.equals(response.id())) {
                 throw new InvalidPlaceIdException();
             }
-            return toResolvedDestination(response);
+            return toResolvedPlace(response);
         } catch (RestClientResponseException exception) {
             if (isInvalidPlaceIdResponse(exception.getStatusCode())) {
                 throw new InvalidPlaceIdException();
@@ -174,10 +186,11 @@ public class GooglePlacesService {
     }
 
     public void validatePlaceId(String placeId) {
-        resolveDestination(placeId, null);
+        resolve(placeId, null);
     }
 
-    public PlaceDisplay resolvePlaceDisplay(String placeId, String languageCode) {
+    @Override
+    public PlaceDisplay readDisplay(String placeId, String languageCode) {
         assertApiKeyConfigured();
 
         try {
@@ -207,7 +220,8 @@ public class GooglePlacesService {
         }
     }
 
-    public PlaceTextSearchResponse searchText(PlaceTextSearchRequest request) {
+    @Override
+    public PlaceTextSearchResult searchText(PlaceTextSearchQuery request) {
         assertApiKeyConfigured();
 
         try {
@@ -224,11 +238,11 @@ public class GooglePlacesService {
         }
     }
 
-    private PlaceAutocompleteResponse autocomplete(String query, String languageCode, SearchScope searchScope) {
+    private PlaceAutocompleteResult autocomplete(String query, String languageCode, SearchScope searchScope) {
         return autocomplete(query, new AutocompleteOptions(languageCode, searchScope, null));
     }
 
-    private PlaceAutocompleteResponse autocomplete(String query, AutocompleteOptions options) {
+    private PlaceAutocompleteResult autocomplete(String query, AutocompleteOptions options) {
         try {
             GoogleAutocompleteResponse response = restClient.post()
                     .uri("/places:autocomplete")
@@ -271,7 +285,7 @@ public class GooglePlacesService {
         return body;
     }
 
-    private Map<String, Object> textSearchRequestBody(PlaceTextSearchRequest request) {
+    private Map<String, Object> textSearchRequestBody(PlaceTextSearchQuery request) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("textQuery", request.textQuery().trim());
         body.put("pageSize", request.pageSize());
@@ -319,7 +333,7 @@ public class GooglePlacesService {
         return Map.of();
     }
 
-    private Map<String, Object> locationBias(ResolvedDestination destination) {
+    private Map<String, Object> locationBias(ResolvedPlace destination) {
         if (destination == null) {
             return Map.of();
         }
@@ -345,12 +359,12 @@ public class GooglePlacesService {
         );
     }
 
-    private PlaceAutocompleteResponse normalizeAutocomplete(GoogleAutocompleteResponse response, SearchScope searchScope) {
+    private PlaceAutocompleteResult normalizeAutocomplete(GoogleAutocompleteResponse response, SearchScope searchScope) {
         if (response == null || response.suggestions() == null) {
-            return new PlaceAutocompleteResponse(List.of());
+            return new PlaceAutocompleteResult(List.of());
         }
 
-        List<PlaceAutocompleteItemResponse> items = response.suggestions()
+        List<PlaceAutocompleteItem> items = response.suggestions()
                 .stream()
                 .map(GoogleSuggestion::placePrediction)
                 .filter(Objects::nonNull)
@@ -358,10 +372,10 @@ public class GooglePlacesService {
                 .map(prediction -> toItemResponse(prediction, searchScope))
                 .toList();
 
-        return new PlaceAutocompleteResponse(items);
+        return new PlaceAutocompleteResult(items);
     }
 
-    private PlaceAutocompleteItemResponse toItemResponse(GooglePlacePrediction prediction, SearchScope searchScope) {
+    private PlaceAutocompleteItem toItemResponse(GooglePlacePrediction prediction, SearchScope searchScope) {
         String displayText = textValue(prediction.text());
         String mainText = textValue(prediction.structuredFormat() == null ? null : prediction.structuredFormat().mainText());
         String secondaryText = textValue(prediction.structuredFormat() == null ? null : prediction.structuredFormat().secondaryText());
@@ -373,7 +387,7 @@ public class GooglePlacesService {
             displayText = StringUtils.hasText(secondaryText) ? mainText + ", " + secondaryText : mainText;
         }
 
-        return new PlaceAutocompleteItemResponse(
+        return new PlaceAutocompleteItem(
                 prediction.placeId(),
                 mainText,
                 secondaryText,
@@ -383,7 +397,7 @@ public class GooglePlacesService {
         );
     }
 
-    private ResolvedDestination toResolvedDestination(GooglePlaceDetailsResponse response) {
+    private ResolvedPlace toResolvedPlace(GooglePlaceDetailsResponse response) {
         String displayName = textValue(response.displayName());
         if (!StringUtils.hasText(displayName)) {
             displayName = response.formattedAddress();
@@ -392,7 +406,7 @@ public class GooglePlacesService {
             displayName = response.id();
         }
 
-        return new ResolvedDestination(
+        return new ResolvedPlace(
                 response.id(),
                 displayName,
                 response.formattedAddress(),
@@ -413,16 +427,16 @@ public class GooglePlacesService {
         );
     }
 
-    private PlaceTextSearchResponse normalizeTextSearch(GoogleTextSearchResponse response) {
+    private PlaceTextSearchResult normalizeTextSearch(GoogleTextSearchResponse response) {
         if (response == null || response.places() == null) {
-            return new PlaceTextSearchResponse(List.of(), null);
+            return new PlaceTextSearchResult(List.of(), null);
         }
         List<PlaceSearchCandidate> places = response.places()
                 .stream()
                 .filter(place -> StringUtils.hasText(place.id()))
                 .map(this::toSearchCandidate)
                 .toList();
-        return new PlaceTextSearchResponse(places, response.nextPageToken());
+        return new PlaceTextSearchResult(places, response.nextPageToken());
     }
 
     private PlaceSearchCandidate toSearchCandidate(GooglePlace place) {
@@ -571,7 +585,7 @@ public class GooglePlacesService {
     private record AutocompleteOptions(
             String languageCode,
             SearchScope searchScope,
-            ResolvedDestination locationBiasDestination
+            ResolvedPlace locationBiasDestination
     ) {
     }
 

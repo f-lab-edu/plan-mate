@@ -1,4 +1,4 @@
-package com.planmate.place.dto;
+package com.planmate.place.api;
 
 public record GeoViewport(
         GeoPoint low,

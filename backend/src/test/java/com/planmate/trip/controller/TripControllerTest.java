@@ -23,10 +23,13 @@ import com.planmate.itinerary.repository.ItineraryDayRepository;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.itinerary.repository.ItineraryItemRepository;
 import com.planmate.itinerary.repository.ItineraryRepository;
-import com.planmate.place.dto.GeoPoint;
-import com.planmate.place.dto.GeoViewport;
-import com.planmate.place.dto.ResolvedDestination;
-import com.planmate.place.service.GooglePlacesService;
+import com.planmate.place.api.GeoPoint;
+import com.planmate.place.api.GeoViewport;
+import com.planmate.place.api.PlaceAutocompleteQuery;
+import com.planmate.place.api.PlaceDetailsResolver;
+import com.planmate.place.api.PlaceDisplayReader;
+import com.planmate.place.api.PlaceTextSearcher;
+import com.planmate.place.api.ResolvedPlace;
 import com.planmate.trip.domain.TripInterest;
 import com.planmate.trip.entity.TripEntity;
 import com.planmate.trip.entity.TripMemberRole;
@@ -95,12 +98,16 @@ class TripControllerTest {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
-    @MockitoBean
-    private GooglePlacesService googlePlacesService;
+    @MockitoBean(extraInterfaces = {
+            PlaceAutocompleteQuery.class,
+            PlaceDisplayReader.class,
+            PlaceTextSearcher.class
+    })
+    private PlaceDetailsResolver placeDetailsResolver;
 
     @BeforeEach
     void setUp() {
-        given(googlePlacesService.resolveDestination(anyString(), any()))
+        given(placeDetailsResolver.resolve(anyString(), any()))
                 .willAnswer(invocation -> resolvedDestination(invocation.getArgument(0)));
     }
 
@@ -213,7 +220,7 @@ class TripControllerTest {
 
     @Test
     void createTripRejectsAccommodationWithoutLocation() throws Exception {
-        given(googlePlacesService.resolveDestination(eq("no-location-place"), any()))
+        given(placeDetailsResolver.resolve(eq("no-location-place"), any()))
                 .willReturn(resolvedDestinationWithoutLocation("no-location-place"));
         UserEntity user = createUser();
         String accessToken = accessToken(user);
@@ -585,8 +592,8 @@ class TripControllerTest {
                 """.formatted(startValue, endValue);
     }
 
-    private ResolvedDestination resolvedDestination(String placeId) {
-        return new ResolvedDestination(
+    private ResolvedPlace resolvedDestination(String placeId) {
+        return new ResolvedPlace(
                 placeId,
                 "Resolved " + placeId,
                 "Resolved address",
@@ -597,8 +604,8 @@ class TripControllerTest {
         );
     }
 
-    private ResolvedDestination resolvedDestinationWithoutLocation(String placeId) {
-        return new ResolvedDestination(
+    private ResolvedPlace resolvedDestinationWithoutLocation(String placeId) {
+        return new ResolvedPlace(
                 placeId,
                 "Resolved " + placeId,
                 "Resolved address",

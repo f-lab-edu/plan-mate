@@ -1,6 +1,6 @@
-package com.planmate.place.dto;
+package com.planmate.place.api;
 
-public record PlaceTextSearchRequest(
+public record PlaceTextSearchQuery(
         String textQuery,
         String languageCode,
         int pageSize,

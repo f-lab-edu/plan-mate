@@ -2,9 +2,9 @@ package com.planmate.recommendation.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.planmate.place.dto.GeoPoint;
-import com.planmate.place.dto.GeoViewport;
-import com.planmate.place.dto.ResolvedDestination;
+import com.planmate.place.api.GeoPoint;
+import com.planmate.place.api.GeoViewport;
+import com.planmate.place.api.ResolvedPlace;
 import com.planmate.recommendation.domain.CandidateSearchAnchor;
 import com.planmate.recommendation.domain.SearchAnchorType;
 import com.planmate.trip.domain.AccommodationMode;
@@ -24,7 +24,7 @@ class CandidateSearchAnchorResolverTest {
 
     @Test
     void undecidedAccommodationUsesDestinationAnchor() {
-        ResolvedDestination destination = destination();
+        ResolvedPlace destination = destination();
         TripPlanningProfileEntity profile = TripPlanningProfileEntity.create(
                 null,
                 request(AccommodationMode.UNDECIDED),
@@ -43,7 +43,7 @@ class CandidateSearchAnchorResolverTest {
 
     @Test
     void selectedAccommodationUsesAccommodationLocationWithoutViewport() {
-        ResolvedDestination destination = destination();
+        ResolvedPlace destination = destination();
         TripPlanningProfileEntity profile = TripPlanningProfileEntity.create(
                 null,
                 request(AccommodationMode.PLACE_SEARCH),
@@ -68,8 +68,8 @@ class CandidateSearchAnchorResolverTest {
         assertThat(anchor.viewport()).isNull();
     }
 
-    private ResolvedDestination destination() {
-        return new ResolvedDestination(
+    private ResolvedPlace destination() {
+        return new ResolvedPlace(
                 "destination-place",
                 "Kyoto",
                 "Kyoto, Japan",

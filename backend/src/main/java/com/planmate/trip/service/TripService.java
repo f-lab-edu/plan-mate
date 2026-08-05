@@ -1,8 +1,8 @@
 package com.planmate.trip.service;
 
-import com.planmate.place.dto.GeoPoint;
-import com.planmate.place.dto.ResolvedDestination;
-import com.planmate.place.service.GooglePlacesService;
+import com.planmate.place.api.GeoPoint;
+import com.planmate.place.api.PlaceDetailsResolver;
+import com.planmate.place.api.ResolvedPlace;
 import com.planmate.trip.api.TripDetailTrip;
 import com.planmate.trip.api.TripDetailTripReader;
 import com.planmate.trip.domain.AccommodationMode;
@@ -33,7 +33,7 @@ public class TripService implements TripDetailTripReader {
     private final TripMemberRepository tripMemberRepository;
     private final TripPlanningProfileRepository tripPlanningProfileRepository;
     private final TripCreationPersistenceService tripCreationPersistenceService;
-    private final GooglePlacesService googlePlacesService;
+    private final PlaceDetailsResolver placeDetailsResolver;
     private final SchedulePreferenceResolver schedulePreferenceResolver;
     private final Clock clock;
 
@@ -42,7 +42,7 @@ public class TripService implements TripDetailTripReader {
             TripMemberRepository tripMemberRepository,
             TripPlanningProfileRepository tripPlanningProfileRepository,
             TripCreationPersistenceService tripCreationPersistenceService,
-            GooglePlacesService googlePlacesService,
+            PlaceDetailsResolver placeDetailsResolver,
             SchedulePreferenceResolver schedulePreferenceResolver,
             Clock clock
     ) {
@@ -50,14 +50,14 @@ public class TripService implements TripDetailTripReader {
         this.tripMemberRepository = tripMemberRepository;
         this.tripPlanningProfileRepository = tripPlanningProfileRepository;
         this.tripCreationPersistenceService = tripCreationPersistenceService;
-        this.googlePlacesService = googlePlacesService;
+        this.placeDetailsResolver = placeDetailsResolver;
         this.schedulePreferenceResolver = schedulePreferenceResolver;
         this.clock = clock;
     }
 
     public TripSummaryResponse create(Long userId, TripCreateRequest request) {
         String destinationPlaceId = request.destinationPlaceId().trim();
-        ResolvedDestination destination = googlePlacesService.resolveDestination(destinationPlaceId, "ko");
+        ResolvedPlace destination = placeDetailsResolver.resolve(destinationPlaceId, "ko");
         ResolvedAccommodation accommodation = resolveAccommodation(request.accommodation());
         List<MustVisitPlaceSnapshot> mustVisitPlaces = resolveMustVisitPlaces(request.additionalRequest().mustVisitPlaceIds());
         ResolvedSchedulePreference schedulePreference = schedulePreferenceResolver.resolve(request.schedulePreference());
@@ -77,7 +77,7 @@ public class TripService implements TripDetailTripReader {
         if (request.mode() != AccommodationMode.PLACE_SEARCH) {
             return null;
         }
-        ResolvedDestination place = googlePlacesService.resolveDestination(request.placeId().trim(), "ko");
+        ResolvedPlace place = placeDetailsResolver.resolve(request.placeId().trim(), "ko");
         GeoPoint location = place.location();
         if (location == null) {
             throw new InvalidTripRequestException("선택한 숙소의 위치 정보를 확인할 수 없습니다.");
@@ -98,7 +98,7 @@ public class TripService implements TripDetailTripReader {
                 .map(String::trim)
                 .filter(placeId -> !placeId.isBlank())
                 .map(placeId -> {
-                    ResolvedDestination place = googlePlacesService.resolveDestination(placeId, "ko");
+                    ResolvedPlace place = placeDetailsResolver.resolve(placeId, "ko");
                     GeoPoint location = place.location();
                     if (location == null) {
                         throw new InvalidTripRequestException("꼭 가보고 싶은 장소의 위치 정보를 확인할 수 없습니다.");

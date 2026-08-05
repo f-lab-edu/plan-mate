@@ -1,11 +1,11 @@
 package com.planmate.recommendation.service;
 
-import com.planmate.place.dto.GeoPoint;
-import com.planmate.place.dto.PlaceSearchCandidate;
-import com.planmate.place.dto.PlaceTextSearchRequest;
-import com.planmate.place.dto.PlaceTextSearchResponse;
-import com.planmate.place.dto.ResolvedDestination;
-import com.planmate.place.service.GooglePlacesService;
+import com.planmate.place.api.GeoPoint;
+import com.planmate.place.api.PlaceSearchCandidate;
+import com.planmate.place.api.PlaceTextSearchQuery;
+import com.planmate.place.api.PlaceTextSearchResult;
+import com.planmate.place.api.PlaceTextSearcher;
+import com.planmate.place.api.ResolvedPlace;
 import com.planmate.recommendation.domain.CandidateSearchCategory;
 import com.planmate.recommendation.domain.CandidateSearchAnchor;
 import com.planmate.recommendation.domain.CandidateSearchQuery;
@@ -31,7 +31,7 @@ public class PlaceCandidateCollectionService {
     public static final int DEFAULT_MAX_RAW_CANDIDATE_COUNT = 180;
     public static final int DEFAULT_PAGE_SIZE = 20;
 
-    private final GooglePlacesService googlePlacesService;
+    private final PlaceTextSearcher placeTextSearcher;
     private final CandidateCategoryWeightCalculator weightCalculator;
     private final CandidateSearchQueryFactory queryFactory;
     private final HaversineDistanceCalculator distanceCalculator;
@@ -46,7 +46,7 @@ public class PlaceCandidateCollectionService {
     private final double maxDistanceMeters;
 
     public PlaceCandidateCollectionService(
-            GooglePlacesService googlePlacesService,
+            PlaceTextSearcher placeTextSearcher,
             CandidateCategoryWeightCalculator weightCalculator,
             CandidateSearchQueryFactory queryFactory,
             HaversineDistanceCalculator distanceCalculator,
@@ -60,7 +60,7 @@ public class PlaceCandidateCollectionService {
             @Value("${app.itinerary.candidates.page-size:20}") int pageSize,
             @Value("${app.itinerary.candidates.max-distance-meters:50000}") double maxDistanceMeters
     ) {
-        this.googlePlacesService = googlePlacesService;
+        this.placeTextSearcher = placeTextSearcher;
         this.weightCalculator = weightCalculator;
         this.queryFactory = queryFactory;
         this.distanceCalculator = distanceCalculator;
@@ -75,7 +75,7 @@ public class PlaceCandidateCollectionService {
         this.maxDistanceMeters = maxDistanceMeters;
     }
 
-    public List<CollectedPlaceCandidate> collect(ResolvedDestination destination, TripPlanningProfileEntity profile) {
+    public List<CollectedPlaceCandidate> collect(ResolvedPlace destination, TripPlanningProfileEntity profile) {
         Map<CandidateSearchCategory, Integer> weights = weightCalculator.calculate(profile.getInterests());
         List<CandidateSearchQuery> queries = queryFactory.create(destination.displayName(), weights, profile.getInterests());
         CandidateSearchAnchor searchAnchor = searchAnchorResolver.resolve(destination, profile);
@@ -88,7 +88,7 @@ public class PlaceCandidateCollectionService {
             String pageToken = null;
             int pagesForQuery = 0;
             do {
-                PlaceTextSearchResponse response = googlePlacesService.searchText(new PlaceTextSearchRequest(
+                PlaceTextSearchResult response = placeTextSearcher.searchText(new PlaceTextSearchQuery(
                         query.textQuery(),
                         "ko",
                         pageSize,

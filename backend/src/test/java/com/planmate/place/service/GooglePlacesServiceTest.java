@@ -11,15 +11,15 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
-import com.planmate.place.dto.GeoPoint;
-import com.planmate.place.dto.GeoViewport;
-import com.planmate.place.dto.PlaceAutocompleteResponse;
-import com.planmate.place.dto.PlaceSearchArea;
-import com.planmate.place.dto.PlaceTextSearchRequest;
-import com.planmate.place.dto.PlaceTextSearchResponse;
-import com.planmate.place.dto.ResolvedDestination;
-import com.planmate.place.exception.InvalidPlaceIdException;
-import com.planmate.place.exception.PlaceProviderUnavailableException;
+import com.planmate.place.api.GeoPoint;
+import com.planmate.place.api.GeoViewport;
+import com.planmate.place.api.PlaceAutocompleteResult;
+import com.planmate.place.api.PlaceSearchArea;
+import com.planmate.place.api.PlaceTextSearchQuery;
+import com.planmate.place.api.PlaceTextSearchResult;
+import com.planmate.place.api.ResolvedPlace;
+import com.planmate.place.api.exception.InvalidPlaceIdException;
+import com.planmate.place.api.exception.PlaceProviderUnavailableException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -34,7 +34,7 @@ import org.springframework.web.client.RestClient;
 class GooglePlacesServiceTest {
 
     @Test
-    void resolveDestinationReturnsInternalDto() throws Exception {
+    void resolveReturnsInternalDto() throws Exception {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
@@ -44,7 +44,7 @@ class GooglePlacesServiceTest {
                 .andExpect(header("X-Goog-FieldMask", GooglePlacesService.DESTINATION_DETAILS_FIELD_MASK))
                 .andRespond(withSuccess(fixture("google/place-details-kyoto.json"), MediaType.APPLICATION_JSON));
 
-        ResolvedDestination destination = service.resolveDestination("place-kyoto", "ko");
+        ResolvedPlace destination = service.resolve("place-kyoto", "ko");
 
         assertThat(destination.placeId()).isEqualTo("place-kyoto");
         assertThat(destination.displayName()).isEqualTo("Kyoto");
@@ -54,7 +54,7 @@ class GooglePlacesServiceTest {
     }
 
     @Test
-    void resolveDestinationRejectsInvalidPlaceId() {
+    void resolveRejectsInvalidPlaceId() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
@@ -62,7 +62,7 @@ class GooglePlacesServiceTest {
         server.expect(requestTo(containsString("/places/bad-place")))
                 .andRespond(withResourceNotFound());
 
-        assertThatThrownBy(() -> service.resolveDestination("bad-place", "ko"))
+        assertThatThrownBy(() -> service.resolve("bad-place", "ko"))
                 .isInstanceOf(InvalidPlaceIdException.class);
         server.verify();
     }
@@ -72,7 +72,7 @@ class GooglePlacesServiceTest {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         GooglePlacesService service = new GooglePlacesService(builder, "test-key", 30000);
-        ResolvedDestination destination = new ResolvedDestination(
+        ResolvedPlace destination = new ResolvedPlace(
                 "place-kyoto",
                 "Kyoto",
                 "Kyoto, Japan",
@@ -89,7 +89,7 @@ class GooglePlacesServiceTest {
                 .andExpect(jsonPath("$.locationRestriction.rectangle.low.latitude").value(34.8))
                 .andRespond(withSuccess(fixture("google/text-search-kyoto.json"), MediaType.APPLICATION_JSON));
 
-        PlaceTextSearchResponse response = service.searchText(new PlaceTextSearchRequest(
+        PlaceTextSearchResult response = service.searchText(new PlaceTextSearchQuery(
                 "Kyoto popular attractions",
                 "ko",
                 20,
@@ -118,7 +118,7 @@ class GooglePlacesServiceTest {
                 .andExpect(jsonPath("$.locationBias.circle.radius").value(30000.0))
                 .andRespond(withSuccess(fixture("google/text-search-kyoto.json"), MediaType.APPLICATION_JSON));
 
-        PlaceTextSearchResponse response = service.searchText(new PlaceTextSearchRequest(
+        PlaceTextSearchResult response = service.searchText(new PlaceTextSearchQuery(
                 "Kyoto popular attractions",
                 "ko",
                 20,
@@ -147,7 +147,7 @@ class GooglePlacesServiceTest {
                 .andExpect(jsonPath("$.locationBias.rectangle.low.latitude").value(34.8))
                 .andRespond(withSuccess(autocompleteFixture(), MediaType.APPLICATION_JSON));
 
-        PlaceAutocompleteResponse response = service.autocompleteAccommodation(
+        PlaceAutocompleteResult response = service.autocompleteAccommodation(
                 "Dormy Inn",
                 "place-kyoto",
                 "ko"
@@ -176,7 +176,7 @@ class GooglePlacesServiceTest {
                 .andExpect(jsonPath("$.locationBias.rectangle.low.latitude").value(34.8))
                 .andRespond(withSuccess(autocompleteFixture(), MediaType.APPLICATION_JSON));
 
-        PlaceAutocompleteResponse response = service.autocompleteInDestination(
+        PlaceAutocompleteResult response = service.autocompleteInDestination(
                 "Fushimi Inari",
                 "place-kyoto",
                 "ko"

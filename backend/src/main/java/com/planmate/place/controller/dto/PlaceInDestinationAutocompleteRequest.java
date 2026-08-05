@@ -1,9 +1,9 @@
-package com.planmate.place.dto;
+package com.planmate.place.controller.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record AccommodationAutocompleteRequest(
+public record PlaceInDestinationAutocompleteRequest(
         @NotBlank
         @Size(min = 2, max = 120)
         String query,

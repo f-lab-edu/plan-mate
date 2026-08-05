@@ -1,6 +1,6 @@
 package com.planmate.recommendation.domain;
 
-import com.planmate.place.dto.GeoPoint;
+import com.planmate.place.api.GeoPoint;
 import java.util.List;
 
 public record CollectedPlaceCandidate(

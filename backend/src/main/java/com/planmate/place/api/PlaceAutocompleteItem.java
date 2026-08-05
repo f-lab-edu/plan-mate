@@ -1,8 +1,8 @@
-package com.planmate.place.dto;
+package com.planmate.place.api;
 
 import java.util.List;
 
-public record PlaceAutocompleteItemResponse(
+public record PlaceAutocompleteItem(
         String placeId,
         String mainText,
         String secondaryText,
@@ -10,4 +10,8 @@ public record PlaceAutocompleteItemResponse(
         List<String> types,
         String searchScope
 ) {
+
+    public PlaceAutocompleteItem {
+        types = types == null ? List.of() : List.copyOf(types);
+    }
 }

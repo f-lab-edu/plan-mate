@@ -1,4 +1,4 @@
-package com.planmate.place.dto;
+package com.planmate.place.controller.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
