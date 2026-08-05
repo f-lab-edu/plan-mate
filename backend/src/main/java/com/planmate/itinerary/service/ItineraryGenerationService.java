@@ -1,8 +1,13 @@
 package com.planmate.itinerary.service;
 
+import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.dto.ItineraryGenerationCreateResponse;
 import com.planmate.itinerary.dto.ItineraryGenerationDetailResponse;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
+import com.planmate.recommendation.api.CandidateRecommendationRequest;
+import com.planmate.recommendation.api.CandidateRecommender;
+import com.planmate.recommendation.api.RecommendedPlaceCandidate;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
@@ -10,9 +15,20 @@ import org.springframework.stereotype.Service;
 public class ItineraryGenerationService {
 
     private final ItineraryGenerationPersistenceService persistenceService;
+    private final CandidateRecommendationRequestMapper candidateRecommendationRequestMapper;
+    private final CandidateRecommender candidateRecommender;
+    private final GenerationCandidateSnapshotMapper generationCandidateSnapshotMapper;
 
-    public ItineraryGenerationService(ItineraryGenerationPersistenceService persistenceService) {
+    public ItineraryGenerationService(
+            ItineraryGenerationPersistenceService persistenceService,
+            CandidateRecommendationRequestMapper candidateRecommendationRequestMapper,
+            CandidateRecommender candidateRecommender,
+            GenerationCandidateSnapshotMapper generationCandidateSnapshotMapper
+    ) {
         this.persistenceService = persistenceService;
+        this.candidateRecommendationRequestMapper = candidateRecommendationRequestMapper;
+        this.candidateRecommender = candidateRecommender;
+        this.generationCandidateSnapshotMapper = generationCandidateSnapshotMapper;
     }
 
     public ItineraryGenerationCreateResponse create(Long userId, Long tripId) {
@@ -29,8 +45,14 @@ public class ItineraryGenerationService {
     }
 
     public void collectCandidates(Long userId, Long tripId, Long generationId) {
-        persistenceService.loadCollectionContext(userId, tripId, generationId);
-        persistenceService.markReadyForPlanning(generationId);
+        ItineraryGenerationPersistenceService.GenerationCollectionContext context =
+                persistenceService.loadCollectionContext(userId, tripId, generationId);
+        CandidateRecommendationRequest request = candidateRecommendationRequestMapper.map(context.snapshot());
+        List<RecommendedPlaceCandidate> recommendedCandidates = candidateRecommender.recommend(request);
+        List<GenerationCandidateSnapshot> snapshots = recommendedCandidates.stream()
+                .map(generationCandidateSnapshotMapper::map)
+                .toList();
+        persistenceService.saveCandidatesAndMarkReady(generationId, snapshots);
     }
 
     public ItineraryGenerationDetailResponse getDetail(Long userId, Long tripId, Long generationId) {

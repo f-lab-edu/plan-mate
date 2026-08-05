@@ -7,10 +7,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.dto.ItineraryGenerationCreateResponse;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.recommendation.api.CandidateRecommendationRequest;
+import com.planmate.recommendation.api.CandidateRecommender;
+import com.planmate.recommendation.api.RecommendedPlaceCandidate;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -30,11 +34,25 @@ class ItineraryGenerationServiceTest {
     @Mock
     private ItineraryGenerationPersistenceService persistenceService;
 
+    @Mock
+    private CandidateRecommendationRequestMapper candidateRecommendationRequestMapper;
+
+    @Mock
+    private CandidateRecommender candidateRecommender;
+
+    @Mock
+    private GenerationCandidateSnapshotMapper generationCandidateSnapshotMapper;
+
     private ItineraryGenerationService service;
 
     @BeforeEach
     void setUp() {
-        service = new ItineraryGenerationService(persistenceService);
+        service = new ItineraryGenerationService(
+                persistenceService,
+                candidateRecommendationRequestMapper,
+                candidateRecommender,
+                generationCandidateSnapshotMapper
+        );
     }
 
     @Test
@@ -54,14 +72,24 @@ class ItineraryGenerationServiceTest {
     }
 
     @Test
-    void collectCandidatesValidatesContextAndMarksReadyForPlanning() {
+    void collectCandidatesRecommendsAndStoresCandidateSnapshots() {
+        GenerationInputSnapshot snapshot = snapshot(45L);
+        CandidateRecommendationRequest request = request();
+        RecommendedPlaceCandidate recommended = recommendedCandidate(1, "place-1");
+        GenerationCandidateSnapshot candidateSnapshot = candidateSnapshot(1, "place-1");
         given(persistenceService.loadCollectionContext(7L, 45L, 123L))
-                .willReturn(new ItineraryGenerationPersistenceService.GenerationCollectionContext(123L, snapshot(45L)));
+                .willReturn(new ItineraryGenerationPersistenceService.GenerationCollectionContext(123L, snapshot));
+        given(candidateRecommendationRequestMapper.map(snapshot)).willReturn(request);
+        given(candidateRecommender.recommend(request)).willReturn(List.of(recommended));
+        given(generationCandidateSnapshotMapper.map(recommended)).willReturn(candidateSnapshot);
 
         service.collectCandidates(7L, 45L, 123L);
 
         verify(persistenceService).loadCollectionContext(7L, 45L, 123L);
-        verify(persistenceService).markReadyForPlanning(123L);
+        verify(candidateRecommendationRequestMapper).map(snapshot);
+        verify(candidateRecommender).recommend(request);
+        verify(generationCandidateSnapshotMapper).map(recommended);
+        verify(persistenceService).saveCandidatesAndMarkReady(123L, List.of(candidateSnapshot));
     }
 
     private ItineraryGenerationEntity generation(Long generationId, Long tripId) {
@@ -99,6 +127,59 @@ class ItineraryGenerationServiceTest {
                 List.of(),
                 List.of(),
                 null
+        );
+    }
+
+    private CandidateRecommendationRequest request() {
+        return new CandidateRecommendationRequest(
+                new CandidateRecommendationRequest.Destination(
+                        "Kyoto",
+                        new CandidateRecommendationRequest.Location(35.0, 135.0),
+                        null
+                ),
+                List.of(),
+                null,
+                List.of()
+        );
+    }
+
+    private RecommendedPlaceCandidate recommendedCandidate(int rank, String placeId) {
+        return new RecommendedPlaceCandidate(
+                rank,
+                placeId,
+                "Place",
+                "Address",
+                new CandidateRecommendationRequest.Location(35.0, 135.0),
+                "museum",
+                List.of("museum"),
+                "OPERATIONAL",
+                4.5,
+                100,
+                List.of("Mon 09:00-18:00"),
+                List.of("CORE_VISIT"),
+                false,
+                120.0,
+                42.5
+        );
+    }
+
+    private GenerationCandidateSnapshot candidateSnapshot(int rank, String placeId) {
+        return new GenerationCandidateSnapshot(
+                rank,
+                placeId,
+                "Place",
+                "Address",
+                new GenerationCandidateSnapshot.Location(35.0, 135.0),
+                "museum",
+                List.of("museum"),
+                "OPERATIONAL",
+                4.5,
+                100,
+                List.of("Mon 09:00-18:00"),
+                List.of("CORE_VISIT"),
+                false,
+                120.0,
+                42.5
         );
     }
 }

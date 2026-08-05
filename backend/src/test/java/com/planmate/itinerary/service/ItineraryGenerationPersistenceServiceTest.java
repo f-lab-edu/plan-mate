@@ -3,12 +3,15 @@ package com.planmate.itinerary.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.planmate.common.outbox.OutboxEventEntity;
 import com.planmate.common.outbox.OutboxEventRepository;
+import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
@@ -57,6 +60,9 @@ class ItineraryGenerationPersistenceServiceTest {
     private GenerationInputSnapshotStore generationInputSnapshotStore;
 
     @Mock
+    private GenerationCandidateSnapshotStore generationCandidateSnapshotStore;
+
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     private ItineraryGenerationPersistenceService service;
@@ -70,6 +76,7 @@ class ItineraryGenerationPersistenceServiceTest {
                 tripPlanningSnapshotReader,
                 generationInputSnapshotMapper,
                 generationInputSnapshotStore,
+                generationCandidateSnapshotStore,
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 eventPublisher
         );
@@ -168,6 +175,7 @@ class ItineraryGenerationPersistenceServiceTest {
         ItineraryGenerationEntity generation = generation(123L, 45L);
         generation.markCollecting(NOW);
         given(generationRepository.findById(123L)).willReturn(Optional.of(generation));
+        given(generationCandidateSnapshotStore.countByGenerationId(123L)).willReturn(2L);
 
         service.markFailed(123L, "GOOGLE_PLACES_UNAVAILABLE");
 
@@ -179,9 +187,108 @@ class ItineraryGenerationPersistenceServiceTest {
             assertThat(event.generationId()).isEqualTo(123L);
             assertThat(event.previousStatus()).isEqualTo(ItineraryGenerationStatus.COLLECTING_CANDIDATES);
             assertThat(event.status()).isEqualTo(ItineraryGenerationStatus.FAILED);
-            assertThat(event.candidateCount()).isZero();
+            assertThat(event.candidateCount()).isEqualTo(2);
             assertThat(event.failureReason()).isEqualTo("GOOGLE_PLACES_UNAVAILABLE");
         });
+    }
+
+    @Test
+    void saveCandidatesAndMarkReadyStoresCandidatesAndPublishesActualCount() {
+        ItineraryGenerationEntity generation = generation(123L, 45L);
+        generation.markCollecting(NOW);
+        List<GenerationCandidateSnapshot> candidates = List.of(
+                candidate(1, "place-1"),
+                candidate(2, "place-2")
+        );
+        given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
+        given(generationCandidateSnapshotStore.replaceAll(generation, candidates)).willReturn(2);
+
+        int result = service.saveCandidatesAndMarkReady(123L, candidates);
+
+        assertThat(result).isEqualTo(2);
+        assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
+        verify(generationCandidateSnapshotStore).replaceAll(generation, candidates);
+        ArgumentCaptor<ItineraryGenerationStatusChangedEvent> eventCaptor =
+                ArgumentCaptor.forClass(ItineraryGenerationStatusChangedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue()).satisfies(event -> {
+            assertThat(event.previousStatus()).isEqualTo(ItineraryGenerationStatus.COLLECTING_CANDIDATES);
+            assertThat(event.status()).isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
+            assertThat(event.candidateCount()).isEqualTo(2);
+        });
+    }
+
+    @Test
+    void saveCandidatesAndMarkReadyReturnsExistingCountWhenAlreadyReady() {
+        ItineraryGenerationEntity generation = generation(123L, 45L);
+        generation.markReady(NOW);
+        given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
+        given(generationCandidateSnapshotStore.countByGenerationId(123L)).willReturn(2L);
+
+        int result = service.saveCandidatesAndMarkReady(123L, List.of(candidate(1, "place-1")));
+
+        assertThat(result).isEqualTo(2);
+        verify(generationCandidateSnapshotStore, never()).replaceAll(any(), anyList());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void saveCandidatesAndMarkReadyRejectsEmptyCandidates() {
+        ItineraryGenerationEntity generation = generation(123L, 45L);
+        generation.markCollecting(NOW);
+        given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
+
+        assertThatThrownBy(() -> service.saveCandidatesAndMarkReady(123L, List.of()))
+                .isInstanceOf(ItineraryException.class)
+                .hasMessage("No usable recommendation candidates were found.");
+
+        verify(generationCandidateSnapshotStore, never()).replaceAll(any(), anyList());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void saveCandidatesAndMarkReadyRejectsDuplicatePlaceId() {
+        ItineraryGenerationEntity generation = generation(123L, 45L);
+        generation.markCollecting(NOW);
+        given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
+
+        assertThatThrownBy(() -> service.saveCandidatesAndMarkReady(
+                123L,
+                List.of(candidate(1, "place-1"), candidate(2, "place-1"))
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("placeId");
+
+        verify(generationCandidateSnapshotStore, never()).replaceAll(any(), anyList());
+    }
+
+    @Test
+    void saveCandidatesAndMarkReadyRejectsDuplicateRank() {
+        ItineraryGenerationEntity generation = generation(123L, 45L);
+        generation.markCollecting(NOW);
+        given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
+
+        assertThatThrownBy(() -> service.saveCandidatesAndMarkReady(
+                123L,
+                List.of(candidate(1, "place-1"), candidate(1, "place-2"))
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("rank");
+
+        verify(generationCandidateSnapshotStore, never()).replaceAll(any(), anyList());
+    }
+
+    @Test
+    void saveCandidatesAndMarkReadyRejectsNonContinuousRank() {
+        ItineraryGenerationEntity generation = generation(123L, 45L);
+        generation.markCollecting(NOW);
+        given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
+
+        assertThatThrownBy(() -> service.saveCandidatesAndMarkReady(
+                123L,
+                List.of(candidate(1, "place-1"), candidate(3, "place-2"))
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("continuous");
+
+        verify(generationCandidateSnapshotStore, never()).replaceAll(any(), anyList());
     }
 
     @Test
@@ -189,6 +296,7 @@ class ItineraryGenerationPersistenceServiceTest {
         ItineraryGenerationEntity generation = generation(123L, 45L);
         generation.markReady(NOW);
         given(generationRepository.findFirstByTripIdOrderByCreatedAtDesc(45L)).willReturn(Optional.of(generation));
+        given(generationCandidateSnapshotStore.countByGenerationId(123L)).willReturn(4L);
 
         Optional<com.planmate.itinerary.dto.ItineraryGenerationDetailResponse> result = service.getLatest(7L, 45L);
 
@@ -198,7 +306,7 @@ class ItineraryGenerationPersistenceServiceTest {
                     assertThat(response.generationId()).isEqualTo("123");
                     assertThat(response.tripId()).isEqualTo("45");
                     assertThat(response.status()).isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
-                    assertThat(response.candidateCount()).isZero();
+                    assertThat(response.candidateCount()).isEqualTo(4);
                 });
         verify(tripAccessChecker).checkAccessible(7L, 45L);
     }
@@ -330,6 +438,26 @@ class ItineraryGenerationPersistenceServiceTest {
                 List.of(),
                 List.of(),
                 null
+        );
+    }
+
+    private GenerationCandidateSnapshot candidate(int rank, String placeId) {
+        return new GenerationCandidateSnapshot(
+                rank,
+                placeId,
+                "Place " + rank,
+                "Address",
+                new GenerationCandidateSnapshot.Location(35.0 + rank, 135.0 + rank),
+                "museum",
+                List.of("museum"),
+                "OPERATIONAL",
+                4.5,
+                100,
+                List.of("Mon 09:00-18:00"),
+                List.of("CORE_VISIT"),
+                false,
+                100.0 + rank,
+                42.5 - rank
         );
     }
 }

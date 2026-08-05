@@ -39,6 +39,7 @@ class ManualItineraryResponseServiceTest {
 
     private final TripAccessChecker tripAccessChecker = Mockito.mock(TripAccessChecker.class);
     private final GenerationInputSnapshotStore generationInputSnapshotStore = Mockito.mock(GenerationInputSnapshotStore.class);
+    private final GenerationCandidateSnapshotStore generationCandidateSnapshotStore = Mockito.mock(GenerationCandidateSnapshotStore.class);
     private final ItineraryGenerationRepository generationRepository = Mockito.mock(ItineraryGenerationRepository.class);
     private final ItineraryRepository itineraryRepository = Mockito.mock(ItineraryRepository.class);
     private final ItineraryDayRepository itineraryDayRepository = Mockito.mock(ItineraryDayRepository.class);
@@ -48,6 +49,7 @@ class ManualItineraryResponseServiceTest {
     private final ManualItineraryResponseService service = new ManualItineraryResponseService(
             tripAccessChecker,
             generationInputSnapshotStore,
+            generationCandidateSnapshotStore,
             generationRepository,
             itineraryRepository,
             itineraryDayRepository,
@@ -73,6 +75,7 @@ class ManualItineraryResponseServiceTest {
         given(itineraryRepository.save(Mockito.any())).willAnswer(invocation -> invocation.getArgument(0));
         given(itineraryDayRepository.save(Mockito.any())).willAnswer(invocation -> invocation.getArgument(0));
         given(itineraryItemRepository.save(Mockito.any())).willAnswer(invocation -> invocation.getArgument(0));
+        given(generationCandidateSnapshotStore.countByGenerationId(10L)).willReturn(2L);
 
         service.submit(99L, 1L, 10L, validDraft());
 
@@ -91,7 +94,7 @@ class ManualItineraryResponseServiceTest {
             assertThat(event.generationId()).isEqualTo(10L);
             assertThat(event.previousStatus()).isEqualTo(ItineraryGenerationStatus.VALIDATING);
             assertThat(event.status()).isEqualTo(ItineraryGenerationStatus.COMPLETED);
-            assertThat(event.candidateCount()).isZero();
+            assertThat(event.candidateCount()).isEqualTo(2);
             assertThat(event.failureReason()).isNull();
         });
         ArgumentCaptor<ItineraryEntity> itineraryCaptor = ArgumentCaptor.forClass(ItineraryEntity.class);

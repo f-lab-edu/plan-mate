@@ -2,6 +2,7 @@ package com.planmate.itinerary.service;
 
 import com.planmate.common.outbox.OutboxEventEntity;
 import com.planmate.common.outbox.OutboxEventRepository;
+import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.dto.ItineraryGenerationDetailResponse;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
@@ -15,9 +16,12 @@ import com.planmate.trip.api.TripPlanningSnapshot;
 import com.planmate.trip.api.TripPlanningSnapshotReader;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +38,7 @@ public class ItineraryGenerationPersistenceService {
     private final TripPlanningSnapshotReader tripPlanningSnapshotReader;
     private final GenerationInputSnapshotMapper generationInputSnapshotMapper;
     private final GenerationInputSnapshotStore generationInputSnapshotStore;
+    private final GenerationCandidateSnapshotStore generationCandidateSnapshotStore;
     private final Clock clock;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -44,6 +49,7 @@ public class ItineraryGenerationPersistenceService {
             TripPlanningSnapshotReader tripPlanningSnapshotReader,
             GenerationInputSnapshotMapper generationInputSnapshotMapper,
             GenerationInputSnapshotStore generationInputSnapshotStore,
+            GenerationCandidateSnapshotStore generationCandidateSnapshotStore,
             Clock clock,
             ApplicationEventPublisher eventPublisher
     ) {
@@ -53,6 +59,7 @@ public class ItineraryGenerationPersistenceService {
         this.tripPlanningSnapshotReader = tripPlanningSnapshotReader;
         this.generationInputSnapshotMapper = generationInputSnapshotMapper;
         this.generationInputSnapshotStore = generationInputSnapshotStore;
+        this.generationCandidateSnapshotStore = generationCandidateSnapshotStore;
         this.clock = clock;
         this.eventPublisher = eventPublisher;
     }
@@ -114,24 +121,43 @@ public class ItineraryGenerationPersistenceService {
     }
 
     @Transactional
-    public void markReadyForPlanning(Long generationId) {
-        ItineraryGenerationEntity generation = findGeneration(generationId);
-        ItineraryGenerationStatus previousStatus = generation.getStatus();
-        generation.markReady(Instant.now(clock));
-        publishStatusChanged(generation.getTripId(), generation, previousStatus, 0);
-    }
-
-    @Transactional
     public void markFailed(Long generationId, String safeReason) {
         ItineraryGenerationEntity generation = findGeneration(generationId);
         ItineraryGenerationStatus previousStatus = generation.getStatus();
         generation.markFailed(safeReason, Instant.now(clock));
+        long candidateCount = generationCandidateSnapshotStore.countByGenerationId(generationId);
         publishStatusChanged(
                 generation.getTripId(),
                 generation,
                 previousStatus,
-                0
+                candidateCount
         );
+    }
+
+    @Transactional
+    public int saveCandidatesAndMarkReady(
+            Long generationId,
+            List<GenerationCandidateSnapshot> candidates
+    ) {
+        ItineraryGenerationEntity generation = generationRepository.findWithLockById(generationId)
+                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
+        if (generation.getStatus() == ItineraryGenerationStatus.READY_FOR_PLANNING) {
+            return Math.toIntExact(generationCandidateSnapshotStore.countByGenerationId(generationId));
+        }
+        if (generation.getStatus() != ItineraryGenerationStatus.COLLECTING_CANDIDATES) {
+            throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_READY);
+        }
+
+        List<GenerationCandidateSnapshot> safeCandidates = candidates == null
+                ? List.of()
+                : List.copyOf(candidates);
+        validateCandidates(safeCandidates);
+
+        ItineraryGenerationStatus previousStatus = generation.getStatus();
+        int candidateCount = generationCandidateSnapshotStore.replaceAll(generation, safeCandidates);
+        generation.markReady(Instant.now(clock));
+        publishStatusChanged(generation.getTripId(), generation, previousStatus, candidateCount);
+        return candidateCount;
     }
 
     @Transactional(readOnly = true)
@@ -142,12 +168,13 @@ public class ItineraryGenerationPersistenceService {
         if (!generationBelongsToTrip(generation, tripId)) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
+        long candidateCount = generationCandidateSnapshotStore.countByGenerationId(generationId);
         return new ItineraryGenerationDetailResponse(
                 generation.getId().toString(),
                 tripId.toString(),
                 generation.getStatus(),
                 generation.getPromptVersion(),
-                0,
+                candidateCount,
                 generation.getFailureReason(),
                 generation.getCreatedAt(),
                 generation.getUpdatedAt()
@@ -158,7 +185,11 @@ public class ItineraryGenerationPersistenceService {
     public Optional<ItineraryGenerationDetailResponse> getLatest(Long userId, Long tripId) {
         tripAccessChecker.checkAccessible(userId, tripId);
         return generationRepository.findFirstByTripIdOrderByCreatedAtDesc(tripId)
-                .map(generation -> toDetailResponse(tripId, generation));
+                .map(generation -> toDetailResponse(
+                        tripId,
+                        generation,
+                        generationCandidateSnapshotStore.countByGenerationId(generation.getId())
+                ));
     }
 
     @Transactional(readOnly = true)
@@ -204,13 +235,54 @@ public class ItineraryGenerationPersistenceService {
         }
     }
 
-    private ItineraryGenerationDetailResponse toDetailResponse(Long tripId, ItineraryGenerationEntity generation) {
+    private void validateCandidates(List<GenerationCandidateSnapshot> candidates) {
+        if (candidates.isEmpty()) {
+            throw new ItineraryException(ItineraryErrorCode.NO_RECOMMENDATION_CANDIDATES);
+        }
+        Set<String> placeIds = new HashSet<>();
+        Set<Integer> ranks = new HashSet<>();
+        for (GenerationCandidateSnapshot candidate : candidates) {
+            if (candidate == null) {
+                throw invalidCandidates("candidate must not be null");
+            }
+            if (!candidate.hasPlaceId()) {
+                throw invalidCandidates("candidate placeId must not be blank");
+            }
+            if (!candidate.hasLocation()) {
+                throw invalidCandidates("candidate location is required");
+            }
+            if (candidate.rank() < 1) {
+                throw invalidCandidates("candidate rank must start at 1");
+            }
+            if (!placeIds.add(candidate.placeId().trim())) {
+                throw invalidCandidates("candidate placeId must be unique");
+            }
+            if (!ranks.add(candidate.rank())) {
+                throw invalidCandidates("candidate rank must be unique");
+            }
+        }
+        for (int rank = 1; rank <= candidates.size(); rank++) {
+            if (!ranks.contains(rank)) {
+                throw invalidCandidates("candidate rank must be continuous");
+            }
+        }
+    }
+
+    private IllegalArgumentException invalidCandidates(String message) {
+        return new IllegalArgumentException(message);
+    }
+
+    private ItineraryGenerationDetailResponse toDetailResponse(
+            Long tripId,
+            ItineraryGenerationEntity generation,
+            long candidateCount
+    ) {
         return new ItineraryGenerationDetailResponse(
                 generation.getId().toString(),
                 tripId.toString(),
                 generation.getStatus(),
                 generation.getPromptVersion(),
-                0,
+                candidateCount,
                 generation.getFailureReason(),
                 generation.getCreatedAt(),
                 generation.getUpdatedAt()

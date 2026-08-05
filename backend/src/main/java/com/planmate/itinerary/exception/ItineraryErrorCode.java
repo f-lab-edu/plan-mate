@@ -8,6 +8,7 @@ public enum ItineraryErrorCode implements ErrorCode {
     GENERATION_NOT_FOUND(HttpStatus.NOT_FOUND, "GENERATION_NOT_FOUND", "Itinerary generation not found."),
     GENERATION_NOT_READY(HttpStatus.CONFLICT, "GENERATION_NOT_READY", "Itinerary generation is not ready for planning."),
     GENERATION_INPUT_NOT_FOUND(HttpStatus.CONFLICT, "GENERATION_INPUT_NOT_FOUND", "Itinerary generation input snapshot not found."),
+    NO_RECOMMENDATION_CANDIDATES(HttpStatus.CONFLICT, "NO_RECOMMENDATION_CANDIDATES", "No usable recommendation candidates were found."),
     INVALID_AI_RESPONSE(HttpStatus.BAD_REQUEST, "INVALID_AI_RESPONSE", "Invalid itinerary response."),
     PLANNING_PROFILE_NOT_FOUND(HttpStatus.CONFLICT, "PLANNING_PROFILE_NOT_FOUND", "Trip planning profile not found."),
     DESTINATION_NOT_RESOLVED(HttpStatus.CONFLICT, "DESTINATION_NOT_RESOLVED", "Trip destination has not been resolved.");

@@ -38,6 +38,7 @@ public class ManualItineraryResponseService {
 
     private final TripAccessChecker tripAccessChecker;
     private final GenerationInputSnapshotStore generationInputSnapshotStore;
+    private final GenerationCandidateSnapshotStore generationCandidateSnapshotStore;
     private final ItineraryGenerationRepository generationRepository;
     private final ItineraryRepository itineraryRepository;
     private final ItineraryDayRepository itineraryDayRepository;
@@ -48,6 +49,7 @@ public class ManualItineraryResponseService {
     public ManualItineraryResponseService(
             TripAccessChecker tripAccessChecker,
             GenerationInputSnapshotStore generationInputSnapshotStore,
+            GenerationCandidateSnapshotStore generationCandidateSnapshotStore,
             ItineraryGenerationRepository generationRepository,
             ItineraryRepository itineraryRepository,
             ItineraryDayRepository itineraryDayRepository,
@@ -57,6 +59,7 @@ public class ManualItineraryResponseService {
     ) {
         this.tripAccessChecker = tripAccessChecker;
         this.generationInputSnapshotStore = generationInputSnapshotStore;
+        this.generationCandidateSnapshotStore = generationCandidateSnapshotStore;
         this.generationRepository = generationRepository;
         this.itineraryRepository = itineraryRepository;
         this.itineraryDayRepository = itineraryDayRepository;
@@ -105,12 +108,13 @@ public class ManualItineraryResponseService {
         }
         ItineraryGenerationStatus previousStatus = generation.getStatus();
         generation.markCompleted(now);
+        long candidateCount = generationCandidateSnapshotStore.countByGenerationId(generationId);
         eventPublisher.publishEvent(new ItineraryGenerationStatusChangedEvent(
                 tripId,
                 generation.getId(),
                 previousStatus,
                 generation.getStatus(),
-                0,
+                candidateCount,
                 generation.getFailureReason(),
                 generation.getUpdatedAt()
         ));

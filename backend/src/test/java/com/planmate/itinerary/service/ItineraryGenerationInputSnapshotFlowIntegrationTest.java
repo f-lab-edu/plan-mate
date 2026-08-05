@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.planmate.common.outbox.OutboxEventEntity;
 import com.planmate.common.outbox.OutboxEventRepository;
+import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.dto.AiItineraryRequest;
 import com.planmate.itinerary.dto.GroundedItineraryDraft;
@@ -135,7 +136,11 @@ class ItineraryGenerationInputSnapshotFlowIntegrationTest {
                 fixture.tripId(),
                 ItineraryPromptService.PROMPT_VERSION
         );
-        persistenceService.markReadyForPlanning(generation.getId());
+        persistenceService.markCollectingIfCreated(fixture.userId(), fixture.tripId(), generation.getId());
+        persistenceService.saveCandidatesAndMarkReady(
+                generation.getId(),
+                List.of(candidateSnapshot("must-original"))
+        );
         entityManager.flush();
         entityManager.clear();
 
@@ -273,6 +278,26 @@ class ItineraryGenerationInputSnapshotFlowIntegrationTest {
                 135.01,
                 List.of("tourist_attraction"),
                 "tourist_attraction"
+        );
+    }
+
+    private GenerationCandidateSnapshot candidateSnapshot(String placeId) {
+        return new GenerationCandidateSnapshot(
+                1,
+                placeId,
+                "Must " + placeId,
+                "Must address",
+                new GenerationCandidateSnapshot.Location(35.01, 135.01),
+                "tourist_attraction",
+                List.of("tourist_attraction"),
+                "OPERATIONAL",
+                4.5,
+                100,
+                List.of(),
+                List.of("MUST_VISIT"),
+                true,
+                0.0,
+                Double.MAX_VALUE
         );
     }
 
