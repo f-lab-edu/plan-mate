@@ -7,10 +7,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.dto.ItineraryGenerationCreateResponse;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
-import com.planmate.trip.api.TripPlanningSnapshot;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -74,12 +74,12 @@ class ItineraryGenerationServiceTest {
         return generation;
     }
 
-    private TripPlanningSnapshot snapshot(Long tripId) {
-        return new TripPlanningSnapshot(
+    private GenerationInputSnapshot snapshot(Long tripId) {
+        return new GenerationInputSnapshot(
                 tripId,
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 3),
-                new TripPlanningSnapshot.Destination(
+                new GenerationInputSnapshot.Destination(
                         "place-kyoto",
                         "Kyoto",
                         "Kyoto, Japan",
@@ -89,11 +89,11 @@ class ItineraryGenerationServiceTest {
                         List.of("locality"),
                         "locality"
                 ),
-                new TripPlanningSnapshot.Companion(3, "FRIENDS", false, 0, null, false, 0),
-                new TripPlanningSnapshot.Budget("KRW", 1_000_000L, "BALANCED", List.of("FOOD")),
-                new TripPlanningSnapshot.Preference("BALANCED", List.of("FOOD")),
-                new TripPlanningSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
-                new TripPlanningSnapshot.Accommodation("UNDECIDED", null, null, null, null, null, null, List.of(), null, null, null),
+                new GenerationInputSnapshot.Companion(3, "FRIENDS", false, 0, null, false, 0),
+                new GenerationInputSnapshot.Budget("KRW", 1_000_000L, "BALANCED", List.of("FOOD")),
+                new GenerationInputSnapshot.Preference("BALANCED", List.of("FOOD")),
+                new GenerationInputSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
+                new GenerationInputSnapshot.Accommodation("UNDECIDED", null, null, null, null, null, null, List.of(), null, null, null),
                 LocalTime.of(8, 0),
                 LocalTime.of(20, 0),
                 List.of(),

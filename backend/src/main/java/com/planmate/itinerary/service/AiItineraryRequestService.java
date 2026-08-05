@@ -26,10 +26,10 @@ public class AiItineraryRequestService {
 
     public AiItineraryRequest getRequest(Long userId, Long tripId, Long generationId) {
         AiRequestContext context = persistenceService.loadAiRequestContext(userId, tripId, generationId);
-        if (context.generation().getStatus() != ItineraryGenerationStatus.READY_FOR_PLANNING) {
+        if (context.status() != ItineraryGenerationStatus.READY_FOR_PLANNING) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_READY);
         }
-        return requestFactory.create(context.generation(), context.snapshot());
+        return requestFactory.create(context.generationId(), context.snapshot());
     }
 
     public String getPrompt(Long userId, Long tripId, Long generationId) {

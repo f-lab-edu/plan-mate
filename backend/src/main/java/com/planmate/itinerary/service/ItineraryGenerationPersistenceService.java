@@ -2,6 +2,7 @@ package com.planmate.itinerary.service;
 
 import com.planmate.common.outbox.OutboxEventEntity;
 import com.planmate.common.outbox.OutboxEventRepository;
+import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.dto.ItineraryGenerationDetailResponse;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
@@ -31,6 +32,8 @@ public class ItineraryGenerationPersistenceService {
     private final OutboxEventRepository outboxEventRepository;
     private final TripAccessChecker tripAccessChecker;
     private final TripPlanningSnapshotReader tripPlanningSnapshotReader;
+    private final GenerationInputSnapshotMapper generationInputSnapshotMapper;
+    private final GenerationInputSnapshotStore generationInputSnapshotStore;
     private final Clock clock;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -39,6 +42,8 @@ public class ItineraryGenerationPersistenceService {
             OutboxEventRepository outboxEventRepository,
             TripAccessChecker tripAccessChecker,
             TripPlanningSnapshotReader tripPlanningSnapshotReader,
+            GenerationInputSnapshotMapper generationInputSnapshotMapper,
+            GenerationInputSnapshotStore generationInputSnapshotStore,
             Clock clock,
             ApplicationEventPublisher eventPublisher
     ) {
@@ -46,6 +51,8 @@ public class ItineraryGenerationPersistenceService {
         this.outboxEventRepository = outboxEventRepository;
         this.tripAccessChecker = tripAccessChecker;
         this.tripPlanningSnapshotReader = tripPlanningSnapshotReader;
+        this.generationInputSnapshotMapper = generationInputSnapshotMapper;
+        this.generationInputSnapshotStore = generationInputSnapshotStore;
         this.clock = clock;
         this.eventPublisher = eventPublisher;
     }
@@ -53,8 +60,12 @@ public class ItineraryGenerationPersistenceService {
     @Transactional
     public ItineraryGenerationEntity createGenerationRequest(Long userId, Long tripId, String promptVersion) {
         tripAccessChecker.checkAccessible(userId, tripId);
+        TripPlanningSnapshot current = findPlanningSnapshot(tripId);
+        ensureDestinationResolved(current);
+        GenerationInputSnapshot inputSnapshot = generationInputSnapshotMapper.map(current);
         Instant now = Instant.now(clock);
         ItineraryGenerationEntity generation = generationRepository.save(ItineraryGenerationEntity.create(tripId, promptVersion, now));
+        generationInputSnapshotStore.save(generation.getId(), inputSnapshot, now);
         outboxEventRepository.save(OutboxEventEntity.create(
                 ITINERARY_GENERATION_AGGREGATE_TYPE,
                 generation.getId().toString(),
@@ -97,7 +108,7 @@ public class ItineraryGenerationPersistenceService {
         if (!generationBelongsToTrip(generation, tripId)) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
-        TripPlanningSnapshot snapshot = findPlanningSnapshot(tripId);
+        GenerationInputSnapshot snapshot = generationInputSnapshotStore.getRequired(generationId);
         ensureDestinationResolved(snapshot);
         return new GenerationCollectionContext(generation.getId(), snapshot);
     }
@@ -158,8 +169,13 @@ public class ItineraryGenerationPersistenceService {
         if (!generationBelongsToTrip(generation, tripId)) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
-        TripPlanningSnapshot snapshot = findPlanningSnapshot(tripId);
-        return new AiRequestContext(generation, snapshot);
+        GenerationInputSnapshot snapshot = generationInputSnapshotStore.getRequired(generationId);
+        return new AiRequestContext(
+                generation.getId(),
+                generation.getTripId(),
+                generation.getStatus(),
+                snapshot
+        );
     }
 
     private ItineraryGenerationEntity findGeneration(Long generationId) {
@@ -178,6 +194,12 @@ public class ItineraryGenerationPersistenceService {
 
     private void ensureDestinationResolved(TripPlanningSnapshot snapshot) {
         if (snapshot.destination().latitude() == null || snapshot.destination().longitude() == null) {
+            throw new ItineraryException(ItineraryErrorCode.DESTINATION_NOT_RESOLVED);
+        }
+    }
+
+    private void ensureDestinationResolved(GenerationInputSnapshot snapshot) {
+        if (!snapshot.destination().isResolved()) {
             throw new ItineraryException(ItineraryErrorCode.DESTINATION_NOT_RESOLVED);
         }
     }
@@ -222,13 +244,15 @@ public class ItineraryGenerationPersistenceService {
 
     public record GenerationCollectionContext(
             Long generationId,
-            TripPlanningSnapshot snapshot
+            GenerationInputSnapshot snapshot
     ) {
     }
 
     public record AiRequestContext(
-            ItineraryGenerationEntity generation,
-            TripPlanningSnapshot snapshot
+            Long generationId,
+            Long tripId,
+            ItineraryGenerationStatus status,
+            GenerationInputSnapshot snapshot
     ) {
     }
 }

@@ -1,5 +1,6 @@
 package com.planmate.itinerary.service;
 
+import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.dto.GroundedItineraryDraft;
 import com.planmate.itinerary.dto.ItineraryDraftDay;
 import com.planmate.itinerary.dto.ItineraryDraftItem;
@@ -17,8 +18,6 @@ import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.itinerary.repository.ItineraryItemRepository;
 import com.planmate.itinerary.repository.ItineraryRepository;
 import com.planmate.trip.api.TripAccessChecker;
-import com.planmate.trip.api.TripPlanningSnapshot;
-import com.planmate.trip.api.TripPlanningSnapshotReader;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalTime;
@@ -38,7 +37,7 @@ public class ManualItineraryResponseService {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     private final TripAccessChecker tripAccessChecker;
-    private final TripPlanningSnapshotReader tripPlanningSnapshotReader;
+    private final GenerationInputSnapshotStore generationInputSnapshotStore;
     private final ItineraryGenerationRepository generationRepository;
     private final ItineraryRepository itineraryRepository;
     private final ItineraryDayRepository itineraryDayRepository;
@@ -48,7 +47,7 @@ public class ManualItineraryResponseService {
 
     public ManualItineraryResponseService(
             TripAccessChecker tripAccessChecker,
-            TripPlanningSnapshotReader tripPlanningSnapshotReader,
+            GenerationInputSnapshotStore generationInputSnapshotStore,
             ItineraryGenerationRepository generationRepository,
             ItineraryRepository itineraryRepository,
             ItineraryDayRepository itineraryDayRepository,
@@ -57,7 +56,7 @@ public class ManualItineraryResponseService {
             ApplicationEventPublisher eventPublisher
     ) {
         this.tripAccessChecker = tripAccessChecker;
-        this.tripPlanningSnapshotReader = tripPlanningSnapshotReader;
+        this.generationInputSnapshotStore = generationInputSnapshotStore;
         this.generationRepository = generationRepository;
         this.itineraryRepository = itineraryRepository;
         this.itineraryDayRepository = itineraryDayRepository;
@@ -81,7 +80,7 @@ public class ManualItineraryResponseService {
             throw invalid("generationId가 현재 생성 작업과 일치하지 않습니다.");
         }
 
-        TripPlanningSnapshot snapshot = findPlanningSnapshot(tripId);
+        GenerationInputSnapshot snapshot = generationInputSnapshotStore.getRequired(generationId);
         validateDraft(snapshot, draft);
 
         Instant now = Instant.now(clock);
@@ -118,7 +117,7 @@ public class ManualItineraryResponseService {
     }
 
     private void validateDraft(
-            TripPlanningSnapshot snapshot,
+            GenerationInputSnapshot snapshot,
             GroundedItineraryDraft draft
     ) {
         if (draft.days() == null || draft.days().isEmpty()) {
@@ -176,10 +175,10 @@ public class ManualItineraryResponseService {
     }
 
     private void validateMustVisitPlaces(
-            List<TripPlanningSnapshot.MustVisitPlace> mustVisitPlaces,
+            List<GenerationInputSnapshot.MustVisitPlace> mustVisitPlaces,
             Set<String> includedPlaceIds
     ) {
-        for (TripPlanningSnapshot.MustVisitPlace mustVisitPlace : mustVisitPlaces) {
+        for (GenerationInputSnapshot.MustVisitPlace mustVisitPlace : mustVisitPlaces) {
             if (StringUtils.hasText(mustVisitPlace.placeId()) && !includedPlaceIds.contains(mustVisitPlace.placeId())) {
                 throw invalid("mustVisitPlaceIds는 일정에 포함되어야 합니다.");
             }
@@ -196,11 +195,6 @@ public class ManualItineraryResponseService {
 
     private String normalizePlaceId(String value) {
         return value == null ? "" : value.trim();
-    }
-
-    private TripPlanningSnapshot findPlanningSnapshot(Long tripId) {
-        return tripPlanningSnapshotReader.findByTripId(tripId)
-                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.PLANNING_PROFILE_NOT_FOUND));
     }
 
     private ItineraryException invalid(String message) {

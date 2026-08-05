@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.planmate.common.outbox.OutboxEventEntity;
 import com.planmate.common.outbox.OutboxEventRepository;
+import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
 import com.planmate.itinerary.exception.ItineraryException;
@@ -50,6 +51,12 @@ class ItineraryGenerationPersistenceServiceTest {
     private TripPlanningSnapshotReader tripPlanningSnapshotReader;
 
     @Mock
+    private GenerationInputSnapshotMapper generationInputSnapshotMapper;
+
+    @Mock
+    private GenerationInputSnapshotStore generationInputSnapshotStore;
+
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     private ItineraryGenerationPersistenceService service;
@@ -61,6 +68,8 @@ class ItineraryGenerationPersistenceServiceTest {
                 outboxEventRepository,
                 tripAccessChecker,
                 tripPlanningSnapshotReader,
+                generationInputSnapshotMapper,
+                generationInputSnapshotStore,
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 eventPublisher
         );
@@ -68,6 +77,10 @@ class ItineraryGenerationPersistenceServiceTest {
 
     @Test
     void createGenerationRequestStoresGenerationAndOutboxEventInOneServiceCall() {
+        TripPlanningSnapshot snapshot = snapshot(45L);
+        GenerationInputSnapshot inputSnapshot = inputSnapshot(45L);
+        given(tripPlanningSnapshotReader.findByTripId(45L)).willReturn(Optional.of(snapshot));
+        given(generationInputSnapshotMapper.map(snapshot)).willReturn(inputSnapshot);
         given(generationRepository.save(any(ItineraryGenerationEntity.class)))
                 .willAnswer(invocation -> {
                     ItineraryGenerationEntity generation = invocation.getArgument(0);
@@ -96,6 +109,31 @@ class ItineraryGenerationPersistenceServiceTest {
                 .containsEntry("userId", 7L);
         assertThat(outboxEvent.getCreatedAt()).isEqualTo(NOW);
         verify(tripAccessChecker).checkAccessible(7L, 45L);
+        verify(generationInputSnapshotStore).save(123L, inputSnapshot, NOW);
+    }
+
+    @Test
+    void createGenerationRequestRejectsMissingPlanningProfileBeforeSaving() {
+        given(tripPlanningSnapshotReader.findByTripId(45L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.createGenerationRequest(7L, 45L, ItineraryPromptService.PROMPT_VERSION))
+                .isInstanceOf(ItineraryException.class)
+                .hasMessage("Trip planning profile not found.");
+
+        verify(tripAccessChecker).checkAccessible(7L, 45L);
+        verifyNoInteractions(generationRepository, generationInputSnapshotStore, outboxEventRepository);
+    }
+
+    @Test
+    void createGenerationRequestRejectsUnresolvedDestinationBeforeSaving() {
+        given(tripPlanningSnapshotReader.findByTripId(45L)).willReturn(Optional.of(snapshotWithoutDestinationLocation(45L)));
+
+        assertThatThrownBy(() -> service.createGenerationRequest(7L, 45L, ItineraryPromptService.PROMPT_VERSION))
+                .isInstanceOf(ItineraryException.class)
+                .hasMessage("Trip destination has not been resolved.");
+
+        verify(tripAccessChecker).checkAccessible(7L, 45L);
+        verifyNoInteractions(generationRepository, generationInputSnapshotMapper, generationInputSnapshotStore, outboxEventRepository);
     }
 
     @Test
@@ -176,28 +214,45 @@ class ItineraryGenerationPersistenceServiceTest {
     }
 
     @Test
-    void loadAiRequestContextReturnsPlanningSnapshot() {
+    void loadCollectionContextReturnsStoredInputSnapshot() {
         ItineraryGenerationEntity generation = generation(123L, 45L);
-        TripPlanningSnapshot snapshot = snapshot(45L);
+        GenerationInputSnapshot snapshot = inputSnapshot(45L);
         given(generationRepository.findById(123L)).willReturn(Optional.of(generation));
-        given(tripPlanningSnapshotReader.findByTripId(45L)).willReturn(Optional.of(snapshot));
+        given(generationInputSnapshotStore.getRequired(123L)).willReturn(snapshot);
 
-        ItineraryGenerationPersistenceService.AiRequestContext result = service.loadAiRequestContext(7L, 45L, 123L);
+        ItineraryGenerationPersistenceService.GenerationCollectionContext result = service.loadCollectionContext(7L, 45L, 123L);
 
-        assertThat(result.generation()).isSameAs(generation);
+        assertThat(result.generationId()).isEqualTo(123L);
         assertThat(result.snapshot()).isSameAs(snapshot);
         verify(tripAccessChecker).checkAccessible(7L, 45L);
     }
 
     @Test
-    void loadAiRequestContextThrowsWhenPlanningProfileIsMissing() {
+    void loadAiRequestContextReturnsStoredInputSnapshot() {
+        ItineraryGenerationEntity generation = generation(123L, 45L);
+        GenerationInputSnapshot snapshot = inputSnapshot(45L);
+        given(generationRepository.findById(123L)).willReturn(Optional.of(generation));
+        given(generationInputSnapshotStore.getRequired(123L)).willReturn(snapshot);
+
+        ItineraryGenerationPersistenceService.AiRequestContext result = service.loadAiRequestContext(7L, 45L, 123L);
+
+        assertThat(result.generationId()).isEqualTo(123L);
+        assertThat(result.tripId()).isEqualTo(45L);
+        assertThat(result.status()).isEqualTo(ItineraryGenerationStatus.CREATED);
+        assertThat(result.snapshot()).isSameAs(snapshot);
+        verify(tripAccessChecker).checkAccessible(7L, 45L);
+    }
+
+    @Test
+    void loadAiRequestContextThrowsWhenInputSnapshotIsMissing() {
         ItineraryGenerationEntity generation = generation(123L, 45L);
         given(generationRepository.findById(123L)).willReturn(Optional.of(generation));
-        given(tripPlanningSnapshotReader.findByTripId(45L)).willReturn(Optional.empty());
+        given(generationInputSnapshotStore.getRequired(123L))
+                .willThrow(new ItineraryException(com.planmate.itinerary.exception.ItineraryErrorCode.GENERATION_INPUT_NOT_FOUND));
 
         assertThatThrownBy(() -> service.loadAiRequestContext(7L, 45L, 123L))
                 .isInstanceOf(ItineraryException.class)
-                .hasMessage("Trip planning profile not found.");
+                .hasMessage("Itinerary generation input snapshot not found.");
     }
 
     @Test
@@ -231,6 +286,45 @@ class ItineraryGenerationPersistenceServiceTest {
                 new TripPlanningSnapshot.Preference("BALANCED", List.of("FOOD")),
                 new TripPlanningSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
                 new TripPlanningSnapshot.Accommodation("UNDECIDED", null, null, null, null, null, null, List.of(), null, null, null),
+                java.time.LocalTime.of(8, 0),
+                java.time.LocalTime.of(20, 0),
+                List.of(),
+                List.of(),
+                null
+        );
+    }
+
+    private TripPlanningSnapshot snapshotWithoutDestinationLocation(Long tripId) {
+        TripPlanningSnapshot snapshot = snapshot(tripId);
+        return new TripPlanningSnapshot(
+                snapshot.tripId(),
+                snapshot.startDate(),
+                snapshot.endDate(),
+                new TripPlanningSnapshot.Destination("place-kyoto", "Kyoto", "Kyoto, Japan", null, null, null, List.of("locality"), "locality"),
+                snapshot.companion(),
+                snapshot.budget(),
+                snapshot.preference(),
+                snapshot.transportation(),
+                snapshot.accommodation(),
+                snapshot.dailyStartTime(),
+                snapshot.dailyEndTime(),
+                snapshot.mustVisitPlaces(),
+                snapshot.avoidConditions(),
+                snapshot.freeRequest()
+        );
+    }
+
+    private GenerationInputSnapshot inputSnapshot(Long tripId) {
+        return new GenerationInputSnapshot(
+                tripId,
+                LocalDate.of(2026, 4, 1),
+                LocalDate.of(2026, 4, 3),
+                new GenerationInputSnapshot.Destination("place-kyoto", "Kyoto", "Kyoto, Japan", 35.0, 135.0, null, List.of("locality"), "locality"),
+                new GenerationInputSnapshot.Companion(3, "FRIENDS", false, 0, null, false, 0),
+                new GenerationInputSnapshot.Budget("KRW", 1_000_000L, "BALANCED", List.of("FOOD")),
+                new GenerationInputSnapshot.Preference("BALANCED", List.of("FOOD")),
+                new GenerationInputSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
+                new GenerationInputSnapshot.Accommodation("UNDECIDED", null, null, null, null, null, null, List.of(), null, null, null),
                 java.time.LocalTime.of(8, 0),
                 java.time.LocalTime.of(20, 0),
                 List.of(),

@@ -1,27 +1,21 @@
 package com.planmate.itinerary.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.BDDMockito.given;
 
+import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.dto.AiItineraryRequest;
-import com.planmate.itinerary.entity.ItineraryGenerationEntity;
-import com.planmate.trip.api.TripPlanningSnapshot;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 class AiItineraryRequestFactoryTest {
 
     private final AiItineraryRequestFactory factory = new AiItineraryRequestFactory();
 
     @Test
-    void createsExistingAiRequestShapeFromPlanningSnapshot() {
-        ItineraryGenerationEntity generation = Mockito.mock(ItineraryGenerationEntity.class);
-        given(generation.getId()).willReturn(123L);
-
-        AiItineraryRequest request = factory.create(generation, snapshot());
+    void createsExistingAiRequestShapeFromStoredInputSnapshot() {
+        AiItineraryRequest request = factory.create(123L, snapshot());
 
         assertThat(request.generationId()).isEqualTo("123");
         assertThat(request.tripId()).isEqualTo("45");
@@ -63,26 +57,26 @@ class AiItineraryRequestFactoryTest {
         assertThat(request.rules()).isNotEmpty();
     }
 
-    private TripPlanningSnapshot snapshot() {
-        return new TripPlanningSnapshot(
+    private GenerationInputSnapshot snapshot() {
+        return new GenerationInputSnapshot(
                 45L,
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 3),
-                new TripPlanningSnapshot.Destination(
+                new GenerationInputSnapshot.Destination(
                         "place-kyoto",
                         "Kyoto",
                         "Kyoto, Japan",
                         35.0,
                         135.0,
-                        new TripPlanningSnapshot.Viewport(34.8, 134.8, 35.2, 135.2),
+                        new GenerationInputSnapshot.Viewport(34.8, 134.8, 35.2, 135.2),
                         List.of("locality"),
                         "locality"
                 ),
-                new TripPlanningSnapshot.Companion(3, "FRIENDS", false, 0, null, true, 1),
-                new TripPlanningSnapshot.Budget("KRW", 1_000_000L, "BALANCED", List.of("FOOD", "LODGING")),
-                new TripPlanningSnapshot.Preference("BALANCED", List.of("FOOD", "SIGHTSEEING")),
-                new TripPlanningSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
-                new TripPlanningSnapshot.Accommodation(
+                new GenerationInputSnapshot.Companion(3, "FRIENDS", false, 0, null, true, 1),
+                new GenerationInputSnapshot.Budget("KRW", 1_000_000L, "BALANCED", List.of("FOOD", "LODGING")),
+                new GenerationInputSnapshot.Preference("BALANCED", List.of("FOOD", "SIGHTSEEING")),
+                new GenerationInputSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
+                new GenerationInputSnapshot.Accommodation(
                         "PLACE_SEARCH",
                         "DOWNTOWN",
                         "hotel-place",
@@ -98,7 +92,7 @@ class AiItineraryRequestFactoryTest {
                 LocalTime.of(8, 0),
                 LocalTime.of(20, 0),
                 List.of(
-                        new TripPlanningSnapshot.MustVisitPlace(
+                        new GenerationInputSnapshot.MustVisitPlace(
                                 "must-1",
                                 "Kiyomizu",
                                 "Kiyomizu address",
@@ -107,7 +101,7 @@ class AiItineraryRequestFactoryTest {
                                 List.of("tourist_attraction"),
                                 "tourist_attraction"
                         ),
-                        new TripPlanningSnapshot.MustVisitPlace(
+                        new GenerationInputSnapshot.MustVisitPlace(
                                 "must-2",
                                 "Unresolved",
                                 null,

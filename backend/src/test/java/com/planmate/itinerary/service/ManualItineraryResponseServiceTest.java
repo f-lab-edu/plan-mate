@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import com.planmate.itinerary.dto.GroundedItineraryDraft;
 import com.planmate.itinerary.dto.ItineraryDraftDay;
 import com.planmate.itinerary.dto.ItineraryDraftItem;
+import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.entity.ItineraryEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
@@ -20,8 +21,6 @@ import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.itinerary.repository.ItineraryItemRepository;
 import com.planmate.itinerary.repository.ItineraryRepository;
 import com.planmate.trip.api.TripAccessChecker;
-import com.planmate.trip.api.TripPlanningSnapshot;
-import com.planmate.trip.api.TripPlanningSnapshotReader;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -39,7 +38,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class ManualItineraryResponseServiceTest {
 
     private final TripAccessChecker tripAccessChecker = Mockito.mock(TripAccessChecker.class);
-    private final TripPlanningSnapshotReader tripPlanningSnapshotReader = Mockito.mock(TripPlanningSnapshotReader.class);
+    private final GenerationInputSnapshotStore generationInputSnapshotStore = Mockito.mock(GenerationInputSnapshotStore.class);
     private final ItineraryGenerationRepository generationRepository = Mockito.mock(ItineraryGenerationRepository.class);
     private final ItineraryRepository itineraryRepository = Mockito.mock(ItineraryRepository.class);
     private final ItineraryDayRepository itineraryDayRepository = Mockito.mock(ItineraryDayRepository.class);
@@ -48,7 +47,7 @@ class ManualItineraryResponseServiceTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
     private final ManualItineraryResponseService service = new ManualItineraryResponseService(
             tripAccessChecker,
-            tripPlanningSnapshotReader,
+            generationInputSnapshotStore,
             generationRepository,
             itineraryRepository,
             itineraryDayRepository,
@@ -66,7 +65,7 @@ class ManualItineraryResponseServiceTest {
         ReflectionTestUtils.setField(generation, "id", 10L);
 
         given(generationRepository.findById(10L)).willReturn(Optional.of(generation));
-        given(tripPlanningSnapshotReader.findByTripId(1L)).willReturn(Optional.of(snapshot()));
+        given(generationInputSnapshotStore.getRequired(10L)).willReturn(snapshot());
     }
 
     @Test
@@ -155,6 +154,17 @@ class ManualItineraryResponseServiceTest {
         verify(itineraryRepository, never()).save(Mockito.any());
     }
 
+    @Test
+    void rejectsLegacyGenerationWithoutStoredInputSnapshot() {
+        given(generationInputSnapshotStore.getRequired(10L))
+                .willThrow(new ItineraryException(com.planmate.itinerary.exception.ItineraryErrorCode.GENERATION_INPUT_NOT_FOUND));
+
+        assertThatThrownBy(() -> service.submit(99L, 1L, 10L, validDraft()))
+                .isInstanceOf(ItineraryException.class)
+                .hasMessage("Itinerary generation input snapshot not found.");
+        verify(itineraryRepository, never()).save(Mockito.any());
+    }
+
     private GroundedItineraryDraft validDraft() {
         return new GroundedItineraryDraft(
                 "10",
@@ -173,26 +183,26 @@ class ManualItineraryResponseServiceTest {
         return new ItineraryDraftItem(sequence, placeId, "09:00", 120);
     }
 
-    private TripPlanningSnapshot snapshot() {
-        return new TripPlanningSnapshot(
+    private GenerationInputSnapshot snapshot() {
+        return new GenerationInputSnapshot(
                 1L,
                 LocalDate.of(2026, 10, 9),
                 LocalDate.of(2026, 10, 10),
-                new TripPlanningSnapshot.Destination(
+                new GenerationInputSnapshot.Destination(
                         "place-kyoto",
                         "Kyoto",
                         "Kyoto, Japan",
                         35.0,
                         135.0,
-                        new TripPlanningSnapshot.Viewport(34.8, 134.8, 35.2, 135.2),
+                        new GenerationInputSnapshot.Viewport(34.8, 134.8, 35.2, 135.2),
                         List.of("locality"),
                         "locality"
                 ),
-                new TripPlanningSnapshot.Companion(2, "FRIENDS", false, 0, null, false, 0),
-                new TripPlanningSnapshot.Budget("KRW", 1_000_000L, "BALANCED", List.of("FOOD")),
-                new TripPlanningSnapshot.Preference("BALANCED", List.of("FOOD")),
-                new TripPlanningSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
-                new TripPlanningSnapshot.Accommodation("UNDECIDED", null, null, null, null, null, null, List.of(), null, null, null),
+                new GenerationInputSnapshot.Companion(2, "FRIENDS", false, 0, null, false, 0),
+                new GenerationInputSnapshot.Budget("KRW", 1_000_000L, "BALANCED", List.of("FOOD")),
+                new GenerationInputSnapshot.Preference("BALANCED", List.of("FOOD")),
+                new GenerationInputSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
+                new GenerationInputSnapshot.Accommodation("UNDECIDED", null, null, null, null, null, null, List.of(), null, null, null),
                 LocalTime.of(8, 0),
                 LocalTime.of(20, 0),
                 List.of(mustVisitPlace("place-1"), mustVisitPlace("place-2")),
@@ -201,8 +211,8 @@ class ManualItineraryResponseServiceTest {
         );
     }
 
-    private TripPlanningSnapshot.MustVisitPlace mustVisitPlace(String placeId) {
-        return new TripPlanningSnapshot.MustVisitPlace(
+    private GenerationInputSnapshot.MustVisitPlace mustVisitPlace(String placeId) {
+        return new GenerationInputSnapshot.MustVisitPlace(
                 placeId,
                 "Place",
                 "Address",

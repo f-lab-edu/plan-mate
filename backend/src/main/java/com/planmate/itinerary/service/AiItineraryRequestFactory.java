@@ -1,8 +1,7 @@
 package com.planmate.itinerary.service;
 
+import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.dto.AiItineraryRequest;
-import com.planmate.itinerary.entity.ItineraryGenerationEntity;
-import com.planmate.trip.api.TripPlanningSnapshot;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -10,11 +9,11 @@ import org.springframework.stereotype.Component;
 public class AiItineraryRequestFactory {
 
     public AiItineraryRequest create(
-            ItineraryGenerationEntity generation,
-            TripPlanningSnapshot snapshot
+            Long generationId,
+            GenerationInputSnapshot snapshot
     ) {
         return new AiItineraryRequest(
-                generation.getId().toString(),
+                generationId.toString(),
                 snapshot.tripId().toString(),
                 destination(snapshot.destination()),
                 snapshot.startDate(),
@@ -32,7 +31,7 @@ public class AiItineraryRequestFactory {
         );
     }
 
-    private AiItineraryRequest.Destination destination(TripPlanningSnapshot.Destination destination) {
+    private AiItineraryRequest.Destination destination(GenerationInputSnapshot.Destination destination) {
         return new AiItineraryRequest.Destination(
                 destination.placeId(),
                 destination.displayName(),
@@ -44,7 +43,7 @@ public class AiItineraryRequestFactory {
         );
     }
 
-    private AiItineraryRequest.Companion companion(TripPlanningSnapshot.Companion companion) {
+    private AiItineraryRequest.Companion companion(GenerationInputSnapshot.Companion companion) {
         return new AiItineraryRequest.Companion(
                 companion.companionCount(),
                 companion.companionType(),
@@ -56,7 +55,7 @@ public class AiItineraryRequestFactory {
         );
     }
 
-    private AiItineraryRequest.Budget budget(TripPlanningSnapshot.Budget budget) {
+    private AiItineraryRequest.Budget budget(GenerationInputSnapshot.Budget budget) {
         return new AiItineraryRequest.Budget(
                 budget.currencyCode(),
                 budget.amount(),
@@ -65,14 +64,14 @@ public class AiItineraryRequestFactory {
         );
     }
 
-    private AiItineraryRequest.Transportation transportation(TripPlanningSnapshot.Transportation transportation) {
+    private AiItineraryRequest.Transportation transportation(GenerationInputSnapshot.Transportation transportation) {
         return new AiItineraryRequest.Transportation(
                 transportation.primaryMode(),
                 transportation.secondaryModes()
         );
     }
 
-    private AiItineraryRequest.Accommodation accommodation(TripPlanningSnapshot.Accommodation accommodation) {
+    private AiItineraryRequest.Accommodation accommodation(GenerationInputSnapshot.Accommodation accommodation) {
         return new AiItineraryRequest.Accommodation(
                 accommodation.accommodationMode(),
                 accommodation.preferredArea(),
@@ -82,15 +81,15 @@ public class AiItineraryRequestFactory {
         );
     }
 
-    private List<AiItineraryRequest.MustVisitPlace> mustVisitPlaces(TripPlanningSnapshot snapshot) {
+    private List<AiItineraryRequest.MustVisitPlace> mustVisitPlaces(GenerationInputSnapshot snapshot) {
         return snapshot.mustVisitPlaces()
                 .stream()
-                .filter(TripPlanningSnapshot.MustVisitPlace::isResolved)
+                .filter(GenerationInputSnapshot.MustVisitPlace::isResolved)
                 .map(this::mustVisitPlace)
                 .toList();
     }
 
-    private AiItineraryRequest.MustVisitPlace mustVisitPlace(TripPlanningSnapshot.MustVisitPlace place) {
+    private AiItineraryRequest.MustVisitPlace mustVisitPlace(GenerationInputSnapshot.MustVisitPlace place) {
         return new AiItineraryRequest.MustVisitPlace(
                 place.placeId(),
                 place.name(),
