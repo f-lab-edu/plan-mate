@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { AuthUser } from '../../api/auth'
 import { ApiError } from '../../api/client'
 import { getAiRequest, getItineraryPlaceViews, getLatestItineraryGeneration, getManualPrompt, getTripDetail, submitManualResponse } from '../../api/trips'
-import type { GroundedItineraryDraft, ItineraryPlaceView, ItineraryGenerationDetailResponse, TripDetail, TripMember, TripPlanningProfile } from '../../api/trips'
+import type { AiItineraryDraft, ItineraryPlaceView, ItineraryGenerationDetailResponse, TripDetail, TripMember, TripPlanningProfile } from '../../api/trips'
 import { connectTripRealtimeEvents, ITINERARY_GENERATION_STATUS_CHANGED } from '../../api/realtime'
 import './TripDetailPage.css'
 
@@ -213,9 +213,9 @@ export function TripDetailPage({
     if (!latestGeneration || latestGeneration.status !== 'READY_FOR_PLANNING') {
       return
     }
-    let parsed: GroundedItineraryDraft
+    let parsed: AiItineraryDraft
     try {
-      parsed = JSON.parse(manualResponseJson) as GroundedItineraryDraft
+      parsed = JSON.parse(manualResponseJson) as AiItineraryDraft
     } catch {
       setManualStatus('error')
       setManualMessage('ChatGPT ?묐떟 JSON ?뺤떇???щ컮瑜댁? ?딆뒿?덈떎.')

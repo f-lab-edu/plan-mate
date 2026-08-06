@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 
-public record GroundedItineraryDraft(
+public record AiItineraryDraft(
         @NotBlank String generationId,
         @NotEmpty List<@Valid ItineraryDraftDay> days
 ) {

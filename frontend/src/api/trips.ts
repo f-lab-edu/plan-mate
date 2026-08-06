@@ -212,7 +212,7 @@ export type ItineraryGenerationDetailResponse = ItineraryGenerationCreateRespons
 }
 
 export type AiItineraryRequest = Record<string, unknown>
-export type GroundedItineraryDraft = {
+export type AiItineraryDraft = {
   generationId: string
   days: Array<{
     day: number
@@ -316,7 +316,7 @@ export function submitManualResponse(
   accessToken: string,
   tripId: string,
   generationId: string,
-  payload: GroundedItineraryDraft,
+  payload: AiItineraryDraft,
 ) {
   return request<ItineraryGenerationDetailResponse>(`/api/trips/${tripId}/itinerary-generations/${generationId}/manual-response`, {
     method: 'POST',

@@ -1,7 +1,8 @@
 package com.planmate.itinerary.service;
 
+import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.domain.GenerationInputSnapshot;
-import com.planmate.itinerary.dto.GroundedItineraryDraft;
+import com.planmate.itinerary.dto.AiItineraryDraft;
 import com.planmate.itinerary.dto.ItineraryDraftDay;
 import com.planmate.itinerary.dto.ItineraryDraftItem;
 import com.planmate.itinerary.entity.ItineraryDayEntity;
@@ -22,14 +23,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 @Service
 public class ManualItineraryResponseService {
@@ -39,6 +36,7 @@ public class ManualItineraryResponseService {
     private final TripAccessChecker tripAccessChecker;
     private final GenerationInputSnapshotStore generationInputSnapshotStore;
     private final GenerationCandidateSnapshotStore generationCandidateSnapshotStore;
+    private final AiItineraryDraftValidator aiItineraryDraftValidator;
     private final ItineraryGenerationRepository generationRepository;
     private final ItineraryRepository itineraryRepository;
     private final ItineraryDayRepository itineraryDayRepository;
@@ -50,6 +48,7 @@ public class ManualItineraryResponseService {
             TripAccessChecker tripAccessChecker,
             GenerationInputSnapshotStore generationInputSnapshotStore,
             GenerationCandidateSnapshotStore generationCandidateSnapshotStore,
+            AiItineraryDraftValidator aiItineraryDraftValidator,
             ItineraryGenerationRepository generationRepository,
             ItineraryRepository itineraryRepository,
             ItineraryDayRepository itineraryDayRepository,
@@ -60,6 +59,7 @@ public class ManualItineraryResponseService {
         this.tripAccessChecker = tripAccessChecker;
         this.generationInputSnapshotStore = generationInputSnapshotStore;
         this.generationCandidateSnapshotStore = generationCandidateSnapshotStore;
+        this.aiItineraryDraftValidator = aiItineraryDraftValidator;
         this.generationRepository = generationRepository;
         this.itineraryRepository = itineraryRepository;
         this.itineraryDayRepository = itineraryDayRepository;
@@ -69,7 +69,7 @@ public class ManualItineraryResponseService {
     }
 
     @Transactional
-    public void submit(Long userId, Long tripId, Long generationId, GroundedItineraryDraft draft) {
+    public void submit(Long userId, Long tripId, Long generationId, AiItineraryDraft draft) {
         tripAccessChecker.checkAccessible(userId, tripId);
         ItineraryGenerationEntity generation = generationRepository.findById(generationId)
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
@@ -84,7 +84,8 @@ public class ManualItineraryResponseService {
         }
 
         GenerationInputSnapshot snapshot = generationInputSnapshotStore.getRequired(generationId);
-        validateDraft(snapshot, draft);
+        List<GenerationCandidateSnapshot> candidates = generationCandidateSnapshotStore.findAllByGenerationId(generationId);
+        aiItineraryDraftValidator.validate(generation.getPromptVersion(), snapshot, candidates, draft);
 
         Instant now = Instant.now(clock);
         generation.markValidating(now);
@@ -120,81 +121,8 @@ public class ManualItineraryResponseService {
         ));
     }
 
-    private void validateDraft(
-            GenerationInputSnapshot snapshot,
-            GroundedItineraryDraft draft
-    ) {
-        if (draft.days() == null || draft.days().isEmpty()) {
-            throw invalid("days는 필수입니다.");
-        }
-        int tripDayCount = snapshot.tripDayCount();
-        if (draft.days().size() != tripDayCount) {
-            throw invalid("days 개수는 여행 일수와 일치해야 합니다.");
-        }
-
-        Set<Integer> days = new HashSet<>();
-        Set<String> includedPlaceIds = new HashSet<>();
-        for (ItineraryDraftDay day : draft.days()) {
-            validateDay(tripDayCount, day, days, includedPlaceIds);
-        }
-        validateMustVisitPlaces(snapshot.mustVisitPlaces(), includedPlaceIds);
-    }
-
-    private void validateDay(
-            int tripDayCount,
-            ItineraryDraftDay day,
-            Set<Integer> days,
-            Set<String> includedPlaceIds
-    ) {
-        if (day.day() < 1 || day.day() > tripDayCount || !days.add(day.day())) {
-            throw invalid("day가 중복되었거나 유효하지 않습니다.");
-        }
-        if (day.items() == null || day.items().isEmpty()) {
-            throw invalid("day items는 필수입니다.");
-        }
-
-        Set<Integer> sequences = new HashSet<>();
-        for (ItineraryDraftItem item : day.items()) {
-            validateItem(item, sequences, includedPlaceIds);
-        }
-    }
-
-    private void validateItem(
-            ItineraryDraftItem item,
-            Set<Integer> sequences,
-            Set<String> includedPlaceIds
-    ) {
-        if (item.sequence() < 1 || !sequences.add(item.sequence())) {
-            throw invalid("sequence가 중복되었거나 유효하지 않습니다.");
-        }
-        String placeId = normalizePlaceId(item.placeId());
-        if (!StringUtils.hasText(placeId)) {
-            throw invalid("placeId는 필수입니다.");
-        }
-        includedPlaceIds.add(placeId);
-        parseTime(item.startTime());
-        if (item.durationMinutes() <= 0) {
-            throw invalid("durationMinutes는 양수여야 합니다.");
-        }
-    }
-
-    private void validateMustVisitPlaces(
-            List<GenerationInputSnapshot.MustVisitPlace> mustVisitPlaces,
-            Set<String> includedPlaceIds
-    ) {
-        for (GenerationInputSnapshot.MustVisitPlace mustVisitPlace : mustVisitPlaces) {
-            if (StringUtils.hasText(mustVisitPlace.placeId()) && !includedPlaceIds.contains(mustVisitPlace.placeId())) {
-                throw invalid("mustVisitPlaceIds는 일정에 포함되어야 합니다.");
-            }
-        }
-    }
-
     private LocalTime parseTime(String value) {
-        try {
-            return LocalTime.parse(value, TIME_FORMATTER);
-        } catch (DateTimeParseException | NullPointerException exception) {
-            throw invalid("startTime은 HH:mm 형식이어야 합니다.");
-        }
+        return LocalTime.parse(value, TIME_FORMATTER);
     }
 
     private String normalizePlaceId(String value) {
@@ -202,6 +130,6 @@ public class ManualItineraryResponseService {
     }
 
     private ItineraryException invalid(String message) {
-        return new ItineraryException(ItineraryErrorCode.INVALID_AI_RESPONSE, message);
+        return new ItineraryException(ItineraryErrorCode.AI_RESPONSE_VALIDATION_FAILED, message);
     }
 }

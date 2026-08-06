@@ -8,7 +8,7 @@ import com.planmate.common.outbox.OutboxEventRepository;
 import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.dto.AiItineraryRequest;
-import com.planmate.itinerary.dto.GroundedItineraryDraft;
+import com.planmate.itinerary.dto.AiItineraryDraft;
 import com.planmate.itinerary.dto.ItineraryDraftDay;
 import com.planmate.itinerary.dto.ItineraryDraftItem;
 import com.planmate.itinerary.dto.ItineraryGenerationDetailResponse;
@@ -140,7 +140,10 @@ class ItineraryGenerationInputSnapshotFlowIntegrationTest {
         persistenceService.markCollectingIfCreated(fixture.userId(), fixture.tripId(), generation.getId());
         persistenceService.saveCandidatesAndMarkReady(
                 generation.getId(),
-                List.of(candidateSnapshot("must-original"))
+                List.of(
+                        candidateSnapshot(1, "must-original", true),
+                        candidateSnapshot(2, "place-2", false)
+                )
         );
         entityManager.flush();
         entityManager.clear();
@@ -167,14 +170,14 @@ class ItineraryGenerationInputSnapshotFlowIntegrationTest {
         ));
         assertThat(request.candidates())
                 .extracting(AiItineraryRequest.Candidate::placeId)
-                .containsExactly("must-original");
+                .containsExactly("must-original", "place-2");
         assertThat(request.rules()).isEmpty();
 
         manualItineraryResponseService.submit(
                 fixture.userId(),
                 fixture.tripId(),
                 generation.getId(),
-                new GroundedItineraryDraft(
+                new AiItineraryDraft(
                         generation.getId().toString(),
                         List.of(
                                 new ItineraryDraftDay(1, List.of(new ItineraryDraftItem(1, "must-original", "09:00", 60))),
@@ -215,7 +218,7 @@ class ItineraryGenerationInputSnapshotFlowIntegrationTest {
                 fixture.userId(),
                 fixture.tripId(),
                 generation.getId(),
-                new GroundedItineraryDraft(generation.getId().toString(), List.of(new ItineraryDraftDay(1, List.of(new ItineraryDraftItem(1, "must-original", "09:00", 60)))))
+                new AiItineraryDraft(generation.getId().toString(), List.of(new ItineraryDraftDay(1, List.of(new ItineraryDraftItem(1, "must-original", "09:00", 60)))))
         ))
                 .isInstanceOf(ItineraryException.class)
                 .hasMessage("Itinerary generation input snapshot not found.");
@@ -290,9 +293,9 @@ class ItineraryGenerationInputSnapshotFlowIntegrationTest {
         );
     }
 
-    private GenerationCandidateSnapshot candidateSnapshot(String placeId) {
+    private GenerationCandidateSnapshot candidateSnapshot(int rank, String placeId, boolean forcedMustVisit) {
         return new GenerationCandidateSnapshot(
-                1,
+                rank,
                 placeId,
                 "Must " + placeId,
                 "Must address",
@@ -304,7 +307,7 @@ class ItineraryGenerationInputSnapshotFlowIntegrationTest {
                 100,
                 List.of(),
                 List.of("MUST_VISIT"),
-                true,
+                forcedMustVisit,
                 0.0,
                 Double.MAX_VALUE
         );

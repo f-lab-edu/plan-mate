@@ -12,6 +12,7 @@ public enum ItineraryErrorCode implements ErrorCode {
     NO_RECOMMENDATION_CANDIDATES(HttpStatus.CONFLICT, "NO_RECOMMENDATION_CANDIDATES", "No usable recommendation candidates were found."),
     UNSUPPORTED_PROMPT_VERSION(HttpStatus.CONFLICT, "UNSUPPORTED_PROMPT_VERSION", "Itinerary prompt version is not supported."),
     INVALID_AI_RESPONSE(HttpStatus.BAD_REQUEST, "INVALID_AI_RESPONSE", "Invalid itinerary response."),
+    AI_RESPONSE_VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "AI_RESPONSE_VALIDATION_FAILED", "AI itinerary draft validation failed."),
     PLANNING_PROFILE_NOT_FOUND(HttpStatus.CONFLICT, "PLANNING_PROFILE_NOT_FOUND", "Trip planning profile not found."),
     DESTINATION_NOT_RESOLVED(HttpStatus.CONFLICT, "DESTINATION_NOT_RESOLVED", "Trip destination has not been resolved.");
 
