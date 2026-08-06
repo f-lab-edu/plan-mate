@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.dto.AiItineraryDraft;
@@ -12,8 +13,10 @@ import com.planmate.itinerary.dto.ItineraryDraftDay;
 import com.planmate.itinerary.dto.ItineraryDraftItem;
 import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.entity.ItineraryEntity;
+import com.planmate.itinerary.entity.ItineraryDayEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.entity.ItineraryItemCreatedSource;
 import com.planmate.itinerary.entity.ItineraryItemEntity;
 import com.planmate.itinerary.exception.ItineraryErrorCode;
 import com.planmate.itinerary.exception.ItineraryException;
@@ -43,6 +46,7 @@ class ManualItineraryResponseServiceTest {
     private final GenerationInputSnapshotStore generationInputSnapshotStore = Mockito.mock(GenerationInputSnapshotStore.class);
     private final GenerationCandidateSnapshotStore generationCandidateSnapshotStore = Mockito.mock(GenerationCandidateSnapshotStore.class);
     private final AiItineraryDraftValidator aiItineraryDraftValidator = new AiItineraryDraftValidator();
+    private final AiItineraryDraftNormalizer aiItineraryDraftNormalizer = new AiItineraryDraftNormalizer();
     private final ItineraryGenerationRepository generationRepository = Mockito.mock(ItineraryGenerationRepository.class);
     private final ItineraryRepository itineraryRepository = Mockito.mock(ItineraryRepository.class);
     private final ItineraryDayRepository itineraryDayRepository = Mockito.mock(ItineraryDayRepository.class);
@@ -54,6 +58,7 @@ class ManualItineraryResponseServiceTest {
             generationInputSnapshotStore,
             generationCandidateSnapshotStore,
             aiItineraryDraftValidator,
+            aiItineraryDraftNormalizer,
             generationRepository,
             itineraryRepository,
             itineraryDayRepository,
@@ -70,7 +75,8 @@ class ManualItineraryResponseServiceTest {
         generation.markReady(Instant.now(clock));
         ReflectionTestUtils.setField(generation, "id", 10L);
 
-        given(generationRepository.findById(10L)).willReturn(Optional.of(generation));
+        given(generationRepository.findWithLockById(10L)).willReturn(Optional.of(generation));
+        given(itineraryRepository.findByGeneration_Id(10L)).willReturn(Optional.empty());
         given(generationInputSnapshotStore.getRequired(10L)).willReturn(snapshot());
         given(generationCandidateSnapshotStore.findAllByGenerationId(10L)).willReturn(List.of(
                 candidate(1, "place-1", false),
@@ -100,7 +106,7 @@ class ManualItineraryResponseServiceTest {
         assertThat(eventCaptor.getValue()).satisfies(event -> {
             assertThat(event.tripId()).isEqualTo(1L);
             assertThat(event.generationId()).isEqualTo(10L);
-            assertThat(event.previousStatus()).isEqualTo(ItineraryGenerationStatus.VALIDATING);
+            assertThat(event.previousStatus()).isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
             assertThat(event.status()).isEqualTo(ItineraryGenerationStatus.COMPLETED);
             assertThat(event.candidateCount()).isEqualTo(2);
             assertThat(event.failureReason()).isNull();
@@ -110,6 +116,7 @@ class ManualItineraryResponseServiceTest {
         assertThat(itineraryCaptor.getValue().getTripId()).isEqualTo(generation.getTripId());
         assertThat(itineraryCaptor.getValue().getGeneration()).isSameAs(generation);
         verify(tripAccessChecker).checkAccessible(99L, 1L);
+        verify(generationRepository).findWithLockById(10L);
     }
 
     @Test
@@ -117,6 +124,90 @@ class ManualItineraryResponseServiceTest {
         assertThatThrownBy(() -> service.submit(99L, 2L, 10L, validDraft()))
                 .isInstanceOf(ItineraryException.class)
                 .hasMessage("Itinerary generation not found.");
+        verifyNoItinerarySaved();
+    }
+
+    @Test
+    void returnsSuccessfullyForCompletedReplayWithSameCanonicalDraft() {
+        generation.markCompleted(Instant.now(clock));
+        given(itineraryRepository.findByGeneration_Id(10L)).willReturn(Optional.of(persistedItinerary(
+                List.of(
+                        persistedDay(2, persistedItem(1, "place-2", "09:00", 120)),
+                        persistedDay(1, persistedItem(1, "place-1", "09:00", 120))
+                )
+        )));
+        AiItineraryDraft replay = new AiItineraryDraft(
+                "10",
+                List.of(
+                        day(1, item(1, " place-1 ")),
+                        day(2, item(1, "place-2"))
+                )
+        );
+
+        service.submit(99L, 1L, 10L, replay);
+
+        assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.COMPLETED);
+        verify(itineraryRepository, never()).save(Mockito.any());
+        verify(itineraryDayRepository, never()).save(Mockito.any());
+        verify(itineraryItemRepository, never()).save(Mockito.any());
+        verify(eventPublisher, never()).publishEvent(Mockito.any());
+        verifyNoInteractions(generationInputSnapshotStore, generationCandidateSnapshotStore);
+    }
+
+    @Test
+    void rejectsCompletedReplayWithDifferentCanonicalDraft() {
+        generation.markCompleted(Instant.now(clock));
+        given(itineraryRepository.findByGeneration_Id(10L)).willReturn(Optional.of(persistedItinerary(
+                List.of(
+                        persistedDay(1, persistedItem(1, "place-1", "09:00", 120)),
+                        persistedDay(2, persistedItem(1, "place-2", "09:00", 120))
+                )
+        )));
+        AiItineraryDraft replay = new AiItineraryDraft(
+                "10",
+                List.of(
+                        day(1, item(1, "place-1")),
+                        day(2, item(1, "place-3"))
+                )
+        );
+
+        assertThatThrownBy(() -> service.submit(99L, 1L, 10L, replay))
+                .isInstanceOf(ItineraryException.class)
+                .hasMessage("The generation has already been completed with a different itinerary draft.")
+                .satisfies(exception -> assertThat(((ItineraryException) exception).code())
+                        .isEqualTo(ItineraryErrorCode.GENERATION_ALREADY_COMPLETED_WITH_DIFFERENT_DRAFT.code()));
+        assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.COMPLETED);
+        verify(itineraryRepository, never()).save(Mockito.any());
+        verify(eventPublisher, never()).publishEvent(Mockito.any());
+    }
+
+    @Test
+    void rejectsCompletedReplayWhenPersistedItineraryIsMissing() {
+        generation.markCompleted(Instant.now(clock));
+        given(itineraryRepository.findByGeneration_Id(10L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.submit(99L, 1L, 10L, validDraft()))
+                .isInstanceOf(ItineraryException.class)
+                .hasMessage("Itinerary generation and persisted itinerary state are inconsistent.")
+                .satisfies(exception -> assertThat(((ItineraryException) exception).code())
+                        .isEqualTo(ItineraryErrorCode.GENERATION_ITINERARY_STATE_INCONSISTENT.code()));
+        verify(eventPublisher, never()).publishEvent(Mockito.any());
+    }
+
+    @Test
+    void rejectsReadyGenerationWhenPersistedItineraryAlreadyExists() {
+        given(itineraryRepository.findByGeneration_Id(10L)).willReturn(Optional.of(persistedItinerary(
+                List.of(
+                        persistedDay(1, persistedItem(1, "place-1", "09:00", 120)),
+                        persistedDay(2, persistedItem(1, "place-2", "09:00", 120))
+                )
+        )));
+
+        assertThatThrownBy(() -> service.submit(99L, 1L, 10L, validDraft()))
+                .isInstanceOf(ItineraryException.class)
+                .hasMessage("Itinerary generation and persisted itinerary state are inconsistent.")
+                .satisfies(exception -> assertThat(((ItineraryException) exception).code())
+                        .isEqualTo(ItineraryErrorCode.GENERATION_ITINERARY_STATE_INCONSISTENT.code()));
         verifyNoItinerarySaved();
     }
 
@@ -218,6 +309,34 @@ class ManualItineraryResponseServiceTest {
 
     private ItineraryDraftItem item(int sequence, String placeId) {
         return new ItineraryDraftItem(sequence, placeId, "09:00", 120);
+    }
+
+    private ItineraryEntity persistedItinerary(List<ItineraryDayEntity> days) {
+        ItineraryEntity itinerary = ItineraryEntity.create(generation, Instant.now(clock));
+        ReflectionTestUtils.setField(itinerary, "days", days);
+        return itinerary;
+    }
+
+    private ItineraryDayEntity persistedDay(int day, ItineraryItemEntity item) {
+        ItineraryDayEntity entity = ItineraryDayEntity.create(
+                ItineraryEntity.create(generation, Instant.now(clock)),
+                day,
+                LocalDate.of(2026, 10, 8).plusDays(day)
+        );
+        ReflectionTestUtils.setField(entity, "items", List.of(item));
+        ReflectionTestUtils.setField(item, "day", entity);
+        return entity;
+    }
+
+    private ItineraryItemEntity persistedItem(int sequence, String placeId, String startTime, int durationMinutes) {
+        return ItineraryItemEntity.create(
+                ItineraryDayEntity.create(ItineraryEntity.create(generation, Instant.now(clock)), 1, LocalDate.of(2026, 10, 9)),
+                sequence,
+                placeId,
+                LocalTime.parse(startTime),
+                durationMinutes,
+                ItineraryItemCreatedSource.AI_DRAFT
+        );
     }
 
     private GenerationInputSnapshot snapshot() {

@@ -10,4 +10,6 @@ public interface ItineraryRepository extends JpaRepository<ItineraryEntity, Long
     List<ItineraryEntity> findByTripIdOrderByCreatedAtDesc(Long tripId);
 
     Optional<ItineraryEntity> findFirstByTripIdOrderByCreatedAtDesc(Long tripId);
+
+    Optional<ItineraryEntity> findByGeneration_Id(Long generationId);
 }

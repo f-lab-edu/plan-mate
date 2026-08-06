@@ -11,12 +11,19 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "itineraries")
+@Table(
+        name = "itineraries",
+        uniqueConstraints = @UniqueConstraint(
+                name = "itineraries_generation_unique",
+                columnNames = "generation_id"
+        )
+)
 public class ItineraryEntity {
 
     @Id

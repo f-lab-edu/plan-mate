@@ -9,6 +9,16 @@ public enum ItineraryErrorCode implements ErrorCode {
     GENERATION_NOT_READY(HttpStatus.CONFLICT, "GENERATION_NOT_READY", "Itinerary generation is not ready for planning."),
     GENERATION_INPUT_NOT_FOUND(HttpStatus.CONFLICT, "GENERATION_INPUT_NOT_FOUND", "Itinerary generation input snapshot not found."),
     GENERATION_CANDIDATES_NOT_FOUND(HttpStatus.CONFLICT, "GENERATION_CANDIDATES_NOT_FOUND", "Itinerary generation candidate snapshots not found."),
+    GENERATION_ALREADY_COMPLETED_WITH_DIFFERENT_DRAFT(
+            HttpStatus.CONFLICT,
+            "GENERATION_ALREADY_COMPLETED_WITH_DIFFERENT_DRAFT",
+            "The generation has already been completed with a different itinerary draft."
+    ),
+    GENERATION_ITINERARY_STATE_INCONSISTENT(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "GENERATION_ITINERARY_STATE_INCONSISTENT",
+            "Itinerary generation and persisted itinerary state are inconsistent."
+    ),
     NO_RECOMMENDATION_CANDIDATES(HttpStatus.CONFLICT, "NO_RECOMMENDATION_CANDIDATES", "No usable recommendation candidates were found."),
     UNSUPPORTED_PROMPT_VERSION(HttpStatus.CONFLICT, "UNSUPPORTED_PROMPT_VERSION", "Itinerary prompt version is not supported."),
     INVALID_AI_RESPONSE(HttpStatus.BAD_REQUEST, "INVALID_AI_RESPONSE", "Invalid itinerary response."),
