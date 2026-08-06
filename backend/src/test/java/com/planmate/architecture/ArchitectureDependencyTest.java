@@ -2,6 +2,8 @@ package com.planmate.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -9,6 +11,17 @@ import com.tngtech.archunit.lang.ArchRule;
 
 @AnalyzeClasses(packages = "com.planmate", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureDependencyTest {
+
+    private static final DescribedPredicate<JavaClass> ITINERARY_INTERNAL_PACKAGE =
+            new DescribedPredicate<>("reside in an itinerary package outside api") {
+                @Override
+                public boolean test(JavaClass javaClass) {
+                    String packageName = javaClass.getPackageName();
+                    return packageName.startsWith("com.planmate.itinerary.")
+                            && !packageName.equals("com.planmate.itinerary.api")
+                            && !packageName.startsWith("com.planmate.itinerary.api.");
+                }
+            };
 
     @ArchTest
     static final ArchRule trip_package_does_not_depend_on_itinerary_package =
@@ -32,6 +45,24 @@ class ArchitectureDependencyTest {
                     );
 
     @ArchTest
+    static final ArchRule itinerary_package_does_not_depend_on_spring_messaging =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.planmate.itinerary..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("org.springframework.messaging..");
+
+    @ArchTest
+    static final ArchRule itinerary_package_does_not_depend_on_realtime_package =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.planmate.itinerary..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.planmate.realtime..");
+
+    @ArchTest
     static final ArchRule realtime_package_does_not_depend_on_trip_persistence =
             noClasses()
                     .that()
@@ -42,6 +73,14 @@ class ArchitectureDependencyTest {
                             "com.planmate.trip.entity..",
                             "com.planmate.trip.repository.."
                     );
+
+    @ArchTest
+    static final ArchRule realtime_package_does_not_depend_on_itinerary_internal_packages =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.planmate.realtime..")
+                    .should()
+                    .dependOnClassesThat(ITINERARY_INTERNAL_PACKAGE);
 
     @ArchTest
     static final ArchRule consumers_do_not_depend_on_place_implementations =

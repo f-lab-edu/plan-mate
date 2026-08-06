@@ -1,11 +1,14 @@
-package com.planmate.itinerary.realtime;
+package com.planmate.realtime.itinerary;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.planmate.common.realtime.RealtimeEventEnvelope;
 import com.planmate.itinerary.api.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.event.ItineraryGenerationStatusChangedEvent;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -26,11 +29,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringJUnitConfig(classes = {
-        ItineraryGenerationRealtimePublisher.class,
+        ItineraryGenerationRealtimeSubscriber.class,
         ItineraryGenerationRealtimeEventMapper.class,
-        ItineraryGenerationRealtimePublisherIntegrationTest.TestConfig.class
+        ItineraryGenerationRealtimeSubscriberIntegrationTest.TestConfig.class
 })
-class ItineraryGenerationRealtimePublisherIntegrationTest {
+class ItineraryGenerationRealtimeSubscriberIntegrationTest {
 
     private static final Instant NOW = Instant.parse("2026-01-01T00:00:00Z");
 
@@ -66,6 +69,24 @@ class ItineraryGenerationRealtimePublisherIntegrationTest {
         });
 
         verify(messagingTemplate, never()).convertAndSend(
+                eq("/topic/trips/45/events"),
+                org.mockito.ArgumentMatchers.<RealtimeEventEnvelope<ItineraryGenerationStatusChangedPayload>>any()
+        );
+    }
+
+    @Test
+    void swallowsWebSocketPublishFailureAfterCommit() {
+        doThrow(new RuntimeException("websocket failed"))
+                .when(messagingTemplate)
+                .convertAndSend(
+                        eq("/topic/trips/45/events"),
+                        org.mockito.ArgumentMatchers.<RealtimeEventEnvelope<ItineraryGenerationStatusChangedPayload>>any()
+                );
+
+        assertThatCode(() -> transactionTemplate.executeWithoutResult(status -> eventPublisher.publishEvent(event())))
+                .doesNotThrowAnyException();
+
+        verify(messagingTemplate).convertAndSend(
                 eq("/topic/trips/45/events"),
                 org.mockito.ArgumentMatchers.<RealtimeEventEnvelope<ItineraryGenerationStatusChangedPayload>>any()
         );

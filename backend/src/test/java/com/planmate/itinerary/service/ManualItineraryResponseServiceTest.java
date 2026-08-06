@@ -20,7 +20,7 @@ import com.planmate.itinerary.entity.ItineraryItemCreatedSource;
 import com.planmate.itinerary.entity.ItineraryItemEntity;
 import com.planmate.itinerary.exception.ItineraryErrorCode;
 import com.planmate.itinerary.exception.ItineraryException;
-import com.planmate.itinerary.realtime.ItineraryGenerationStatusChangedEvent;
+import com.planmate.itinerary.api.event.ItineraryGenerationStatusChangedEvent;
 import com.planmate.itinerary.repository.ItineraryDayRepository;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.itinerary.repository.ItineraryItemRepository;

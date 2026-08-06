@@ -1,4 +1,4 @@
-package com.planmate.itinerary.realtime;
+package com.planmate.realtime.itinerary;
 
 import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import java.time.Instant;

@@ -1,6 +1,7 @@
-package com.planmate.itinerary.realtime;
+package com.planmate.realtime.itinerary;
 
 import com.planmate.common.realtime.RealtimeEventEnvelope;
+import com.planmate.itinerary.api.event.ItineraryGenerationStatusChangedEvent;
 import java.time.Clock;
 import java.time.Instant;
 import org.springframework.stereotype.Component;

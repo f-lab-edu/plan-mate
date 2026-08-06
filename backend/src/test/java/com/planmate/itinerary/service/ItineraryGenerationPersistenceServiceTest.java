@@ -16,7 +16,7 @@ import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.itinerary.exception.ItineraryException;
-import com.planmate.itinerary.realtime.ItineraryGenerationStatusChangedEvent;
+import com.planmate.itinerary.api.event.ItineraryGenerationStatusChangedEvent;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.trip.api.TripAccessChecker;
 import com.planmate.trip.api.TripPlanningSnapshot;

@@ -1,9 +1,10 @@
-package com.planmate.itinerary.realtime;
+package com.planmate.realtime.itinerary;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.planmate.common.realtime.RealtimeEventEnvelope;
 import com.planmate.itinerary.api.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.event.ItineraryGenerationStatusChangedEvent;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
