@@ -2,6 +2,7 @@ package com.planmate.itinerary.service;
 
 import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.domain.GenerationInputSnapshot;
+import com.planmate.itinerary.api.validation.AiItineraryValidationReport;
 import com.planmate.itinerary.dto.AiItineraryDraft;
 import com.planmate.itinerary.entity.ItineraryDayEntity;
 import com.planmate.itinerary.entity.ItineraryEntity;
@@ -30,7 +31,7 @@ public class ManualItineraryResponseService {
     private final TripAccessChecker tripAccessChecker;
     private final GenerationInputSnapshotStore generationInputSnapshotStore;
     private final GenerationCandidateSnapshotStore generationCandidateSnapshotStore;
-    private final AiItineraryDraftValidator aiItineraryDraftValidator;
+    private final AiItineraryDraftValidationService aiItineraryDraftValidationService;
     private final AiItineraryDraftNormalizer aiItineraryDraftNormalizer;
     private final ItineraryGenerationRepository generationRepository;
     private final ItineraryRepository itineraryRepository;
@@ -43,7 +44,7 @@ public class ManualItineraryResponseService {
             TripAccessChecker tripAccessChecker,
             GenerationInputSnapshotStore generationInputSnapshotStore,
             GenerationCandidateSnapshotStore generationCandidateSnapshotStore,
-            AiItineraryDraftValidator aiItineraryDraftValidator,
+            AiItineraryDraftValidationService aiItineraryDraftValidationService,
             AiItineraryDraftNormalizer aiItineraryDraftNormalizer,
             ItineraryGenerationRepository generationRepository,
             ItineraryRepository itineraryRepository,
@@ -55,7 +56,7 @@ public class ManualItineraryResponseService {
         this.tripAccessChecker = tripAccessChecker;
         this.generationInputSnapshotStore = generationInputSnapshotStore;
         this.generationCandidateSnapshotStore = generationCandidateSnapshotStore;
-        this.aiItineraryDraftValidator = aiItineraryDraftValidator;
+        this.aiItineraryDraftValidationService = aiItineraryDraftValidationService;
         this.aiItineraryDraftNormalizer = aiItineraryDraftNormalizer;
         this.generationRepository = generationRepository;
         this.itineraryRepository = itineraryRepository;
@@ -73,7 +74,6 @@ public class ManualItineraryResponseService {
         if (!generation.getTripId().equals(tripId)) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
-        validateDraftGenerationId(generation.getId(), draft);
 
         if (generation.getStatus() == ItineraryGenerationStatus.READY_FOR_PLANNING) {
             handleFirstSubmit(generation, draft);
@@ -94,7 +94,14 @@ public class ManualItineraryResponseService {
 
         GenerationInputSnapshot snapshot = generationInputSnapshotStore.getRequired(generationId);
         List<GenerationCandidateSnapshot> candidates = generationCandidateSnapshotStore.findAllByGenerationId(generationId);
-        aiItineraryDraftValidator.validate(generation.getPromptVersion(), snapshot, candidates, draft);
+        AiItineraryValidationReport report = aiItineraryDraftValidationService.validate(
+                generationId,
+                generation.getPromptVersion(),
+                snapshot,
+                candidates,
+                draft
+        );
+        throwIfValidationFailed(report);
         NormalizedAiItineraryDraft normalizedDraft = aiItineraryDraftNormalizer.normalize(generationId, draft);
 
         Instant now = Instant.now(clock);
@@ -107,6 +114,8 @@ public class ManualItineraryResponseService {
     private void handleCompletedReplay(Long generationId, AiItineraryDraft draft) {
         ItineraryEntity itinerary = itineraryRepository.findByGeneration_Id(generationId)
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_ITINERARY_STATE_INCONSISTENT));
+        AiItineraryValidationReport report = aiItineraryDraftValidationService.validateStructure(generationId, draft);
+        throwIfValidationFailed(report);
         NormalizedAiItineraryDraft incomingDraft = aiItineraryDraftNormalizer.normalize(generationId, draft);
         NormalizedAiItineraryDraft persistedDraft = aiItineraryDraftNormalizer.normalize(itinerary);
         if (!incomingDraft.equals(persistedDraft)) {
@@ -158,13 +167,9 @@ public class ManualItineraryResponseService {
         ));
     }
 
-    private void validateDraftGenerationId(Long generationId, AiItineraryDraft draft) {
-        if (draft == null || !generationId.toString().equals(draft.generationId())) {
-            throw invalid("generationId must match the current itinerary generation.");
+    private void throwIfValidationFailed(AiItineraryValidationReport report) {
+        if (report.hasErrors()) {
+            throw new ItineraryException(ItineraryErrorCode.AI_RESPONSE_VALIDATION_FAILED);
         }
-    }
-
-    private ItineraryException invalid(String message) {
-        return new ItineraryException(ItineraryErrorCode.AI_RESPONSE_VALIDATION_FAILED, message);
     }
 }

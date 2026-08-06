@@ -11,12 +11,9 @@ import com.planmate.itinerary.entity.ItineraryEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.entity.ItineraryItemCreatedSource;
 import com.planmate.itinerary.entity.ItineraryItemEntity;
-import com.planmate.itinerary.exception.ItineraryErrorCode;
-import com.planmate.itinerary.exception.ItineraryException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -125,30 +122,23 @@ class AiItineraryDraftNormalizerTest {
     }
 
     @Test
-    void rejectsInvalidIncomingDrafts() {
-        assertInvalid(new AiItineraryDraft("10", List.of(
-                day(1, List.of(item(1, "place-1", "09:00", 120))),
-                day(1, List.of(item(1, "place-2", "10:00", 60)))
-        )), "day");
-        assertInvalid(new AiItineraryDraft("10", List.of(
-                day(1, List.of(
-                        item(1, "place-1", "09:00", 120),
-                        item(1, "place-2", "10:00", 60)
-                ))
-        )), "sequence");
-        assertInvalid(draft(item(1, "   ", "09:00", 120)), "placeId");
-        assertInvalid(draft(item(1, "place-1", "9am", 120)), "startTime");
-        assertInvalid(draft(item(1, "place-1", "09:00", 0)), "durationMinutes");
-        assertInvalid(new AiItineraryDraft("10", Collections.singletonList(null)), "day");
-        assertInvalid(new AiItineraryDraft("10", List.of(day(1, Collections.singletonList(null)))), "item");
+    void trimsPlaceIdsButDoesNotMutateOriginalDraft() {
+        AiItineraryDraft draft = draft(item(1, " place-1 ", "09:00", 120));
+
+        NormalizedAiItineraryDraft normalized = normalizer.normalize(10L, draft);
+
+        assertThat(normalized.days().get(0).items().get(0).placeId()).isEqualTo("place-1");
+        assertThat(draft.days().get(0).items().get(0).placeId()).isEqualTo(" place-1 ");
     }
 
-    private void assertInvalid(AiItineraryDraft draft, String message) {
-        assertThatThrownBy(() -> normalizer.normalize(10L, draft))
-                .isInstanceOf(ItineraryException.class)
-                .hasMessageContaining(message)
-                .satisfies(exception -> assertThat(((ItineraryException) exception).code())
-                        .isEqualTo(ItineraryErrorCode.AI_RESPONSE_VALIDATION_FAILED.code()));
+    @Test
+    void defendsInvalidInternalCallsWithoutUserFacingItineraryException() {
+        assertThatThrownBy(() -> normalizer.normalize(10L, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("draft must not be null");
+        assertThatThrownBy(() -> normalizer.normalize(10L, draft(item(1, "place-1", "9am", 120))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("startTime");
     }
 
     private AiItineraryDraft draft(ItineraryDraftItem item) {

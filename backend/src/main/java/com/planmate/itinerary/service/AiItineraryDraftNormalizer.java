@@ -6,17 +6,12 @@ import com.planmate.itinerary.dto.ItineraryDraftItem;
 import com.planmate.itinerary.entity.ItineraryDayEntity;
 import com.planmate.itinerary.entity.ItineraryEntity;
 import com.planmate.itinerary.entity.ItineraryItemEntity;
-import com.planmate.itinerary.exception.ItineraryErrorCode;
-import com.planmate.itinerary.exception.ItineraryException;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 @Component
 public class AiItineraryDraftNormalizer {
@@ -24,16 +19,11 @@ public class AiItineraryDraftNormalizer {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     public NormalizedAiItineraryDraft normalize(Long generationId, AiItineraryDraft draft) {
-        if (draft == null) {
-            throw invalid("draft is required.");
-        }
-        if (draft.days() == null || draft.days().isEmpty()) {
-            throw invalid("days are required.");
-        }
+        requireValidInternalCall(draft != null, "draft must not be null");
+        requireValidInternalCall(draft.days() != null, "days must not be null");
 
-        Set<Integer> dayNumbers = new HashSet<>();
         List<NormalizedAiItineraryDraft.Day> days = draft.days().stream()
-                .map(day -> normalizeDay(day, dayNumbers))
+                .map(this::normalizeDay)
                 .sorted(Comparator.comparingInt(NormalizedAiItineraryDraft.Day::day))
                 .toList();
         return new NormalizedAiItineraryDraft(generationId, days);
@@ -47,39 +37,20 @@ public class AiItineraryDraftNormalizer {
         return new NormalizedAiItineraryDraft(itinerary.getGeneration().getId(), days);
     }
 
-    private NormalizedAiItineraryDraft.Day normalizeDay(ItineraryDraftDay day, Set<Integer> dayNumbers) {
-        if (day == null) {
-            throw invalid("day is required.");
-        }
-        if (day.day() < 1 || !dayNumbers.add(day.day())) {
-            throw invalid("day is duplicated or out of range.");
-        }
-        if (day.items() == null || day.items().isEmpty()) {
-            throw invalid("day items are required.");
-        }
+    private NormalizedAiItineraryDraft.Day normalizeDay(ItineraryDraftDay day) {
+        requireValidInternalCall(day != null, "day must not be null");
+        requireValidInternalCall(day.items() != null, "day items must not be null");
 
-        Set<Integer> sequences = new HashSet<>();
         List<NormalizedAiItineraryDraft.Item> items = day.items().stream()
-                .map(item -> normalizeItem(item, sequences))
+                .map(this::normalizeItem)
                 .sorted(Comparator.comparingInt(NormalizedAiItineraryDraft.Item::sequence))
                 .toList();
         return new NormalizedAiItineraryDraft.Day(day.day(), items);
     }
 
-    private NormalizedAiItineraryDraft.Item normalizeItem(ItineraryDraftItem item, Set<Integer> sequences) {
-        if (item == null) {
-            throw invalid("item is required.");
-        }
-        if (item.sequence() < 1 || !sequences.add(item.sequence())) {
-            throw invalid("sequence is duplicated or out of range.");
-        }
+    private NormalizedAiItineraryDraft.Item normalizeItem(ItineraryDraftItem item) {
+        requireValidInternalCall(item != null, "item must not be null");
         String placeId = normalizePlaceId(item.placeId());
-        if (!StringUtils.hasText(placeId)) {
-            throw invalid("placeId is required.");
-        }
-        if (item.durationMinutes() <= 0) {
-            throw invalid("durationMinutes must be positive.");
-        }
         return new NormalizedAiItineraryDraft.Item(
                 item.sequence(),
                 placeId,
@@ -109,7 +80,7 @@ public class AiItineraryDraftNormalizer {
         try {
             return LocalTime.parse(value, TIME_FORMATTER);
         } catch (DateTimeParseException | NullPointerException exception) {
-            throw invalid("startTime must use HH:mm format.");
+            throw new IllegalArgumentException("startTime must use HH:mm format.", exception);
         }
     }
 
@@ -117,7 +88,9 @@ public class AiItineraryDraftNormalizer {
         return value == null ? "" : value.trim();
     }
 
-    private ItineraryException invalid(String message) {
-        return new ItineraryException(ItineraryErrorCode.AI_RESPONSE_VALIDATION_FAILED, message);
+    private void requireValidInternalCall(boolean expression, String message) {
+        if (!expression) {
+            throw new IllegalArgumentException(message);
+        }
     }
 }

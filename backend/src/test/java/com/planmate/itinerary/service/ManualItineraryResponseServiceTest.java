@@ -45,7 +45,7 @@ class ManualItineraryResponseServiceTest {
     private final TripAccessChecker tripAccessChecker = Mockito.mock(TripAccessChecker.class);
     private final GenerationInputSnapshotStore generationInputSnapshotStore = Mockito.mock(GenerationInputSnapshotStore.class);
     private final GenerationCandidateSnapshotStore generationCandidateSnapshotStore = Mockito.mock(GenerationCandidateSnapshotStore.class);
-    private final AiItineraryDraftValidator aiItineraryDraftValidator = new AiItineraryDraftValidator();
+    private final AiItineraryDraftValidationService aiItineraryDraftValidationService = new AiItineraryDraftValidationService();
     private final AiItineraryDraftNormalizer aiItineraryDraftNormalizer = new AiItineraryDraftNormalizer();
     private final ItineraryGenerationRepository generationRepository = Mockito.mock(ItineraryGenerationRepository.class);
     private final ItineraryRepository itineraryRepository = Mockito.mock(ItineraryRepository.class);
@@ -57,7 +57,7 @@ class ManualItineraryResponseServiceTest {
             tripAccessChecker,
             generationInputSnapshotStore,
             generationCandidateSnapshotStore,
-            aiItineraryDraftValidator,
+            aiItineraryDraftValidationService,
             aiItineraryDraftNormalizer,
             generationRepository,
             itineraryRepository,
@@ -218,7 +218,7 @@ class ManualItineraryResponseServiceTest {
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
                 .isInstanceOf(ItineraryException.class)
-                .hasMessageContaining("generationId")
+                .hasMessage("AI itinerary draft validation failed.")
                 .satisfies(exception -> assertThat(((ItineraryException) exception).code())
                         .isEqualTo(ItineraryErrorCode.AI_RESPONSE_VALIDATION_FAILED.code()));
         verifyNoItinerarySaved();
@@ -233,7 +233,7 @@ class ManualItineraryResponseServiceTest {
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
                 .isInstanceOf(ItineraryException.class)
-                .hasMessageContaining("days");
+                .hasMessage("AI itinerary draft validation failed.");
         verifyNoItinerarySaved();
     }
 
@@ -249,7 +249,7 @@ class ManualItineraryResponseServiceTest {
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
                 .isInstanceOf(ItineraryException.class)
-                .hasMessageContaining("whitelist")
+                .hasMessage("AI itinerary draft validation failed.")
                 .satisfies(exception -> assertThat(((ItineraryException) exception).code())
                         .isEqualTo(ItineraryErrorCode.AI_RESPONSE_VALIDATION_FAILED.code()));
         verifyNoItinerarySaved();
@@ -279,7 +279,7 @@ class ManualItineraryResponseServiceTest {
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
                 .isInstanceOf(ItineraryException.class)
-                .hasMessageContaining("startTime");
+                .hasMessage("AI itinerary draft validation failed.");
         verifyNoItinerarySaved();
     }
 
