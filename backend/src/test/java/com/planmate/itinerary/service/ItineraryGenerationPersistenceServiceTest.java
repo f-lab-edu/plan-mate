@@ -98,7 +98,7 @@ class ItineraryGenerationPersistenceServiceTest {
         ItineraryGenerationEntity generation = service.createGenerationRequest(
                 7L,
                 45L,
-                ItineraryPromptService.PROMPT_VERSION
+                ItineraryPromptService.CURRENT_PROMPT_VERSION
         );
 
         assertThat(generation.getId()).isEqualTo(123L);
@@ -123,7 +123,7 @@ class ItineraryGenerationPersistenceServiceTest {
     void createGenerationRequestRejectsMissingPlanningProfileBeforeSaving() {
         given(tripPlanningSnapshotReader.findByTripId(45L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.createGenerationRequest(7L, 45L, ItineraryPromptService.PROMPT_VERSION))
+        assertThatThrownBy(() -> service.createGenerationRequest(7L, 45L, ItineraryPromptService.CURRENT_PROMPT_VERSION))
                 .isInstanceOf(ItineraryException.class)
                 .hasMessage("Trip planning profile not found.");
 
@@ -135,7 +135,7 @@ class ItineraryGenerationPersistenceServiceTest {
     void createGenerationRequestRejectsUnresolvedDestinationBeforeSaving() {
         given(tripPlanningSnapshotReader.findByTripId(45L)).willReturn(Optional.of(snapshotWithoutDestinationLocation(45L)));
 
-        assertThatThrownBy(() -> service.createGenerationRequest(7L, 45L, ItineraryPromptService.PROMPT_VERSION))
+        assertThatThrownBy(() -> service.createGenerationRequest(7L, 45L, ItineraryPromptService.CURRENT_PROMPT_VERSION))
                 .isInstanceOf(ItineraryException.class)
                 .hasMessage("Trip destination has not been resolved.");
 
@@ -336,18 +336,27 @@ class ItineraryGenerationPersistenceServiceTest {
     }
 
     @Test
-    void loadAiRequestContextReturnsStoredInputSnapshot() {
+    void loadAiRequestContextReturnsPromptVersionStoredInputSnapshotAndCandidates() {
         ItineraryGenerationEntity generation = generation(123L, 45L);
         GenerationInputSnapshot snapshot = inputSnapshot(45L);
+        List<GenerationCandidateSnapshot> candidates = List.of(
+                candidate(1, "place-1"),
+                candidate(2, "place-2")
+        );
         given(generationRepository.findById(123L)).willReturn(Optional.of(generation));
         given(generationInputSnapshotStore.getRequired(123L)).willReturn(snapshot);
+        given(generationCandidateSnapshotStore.findAllByGenerationId(123L)).willReturn(candidates);
 
         ItineraryGenerationPersistenceService.AiRequestContext result = service.loadAiRequestContext(7L, 45L, 123L);
 
         assertThat(result.generationId()).isEqualTo(123L);
         assertThat(result.tripId()).isEqualTo(45L);
         assertThat(result.status()).isEqualTo(ItineraryGenerationStatus.CREATED);
-        assertThat(result.snapshot()).isSameAs(snapshot);
+        assertThat(result.promptVersion()).isEqualTo(ItineraryPromptService.CURRENT_PROMPT_VERSION);
+        assertThat(result.inputSnapshot()).isSameAs(snapshot);
+        assertThat(result.candidates()).containsExactlyElementsOf(candidates);
+        assertThatThrownBy(() -> result.candidates().add(candidate(3, "place-3")))
+                .isInstanceOf(UnsupportedOperationException.class);
         verify(tripAccessChecker).checkAccessible(7L, 45L);
     }
 
@@ -376,7 +385,7 @@ class ItineraryGenerationPersistenceServiceTest {
     private ItineraryGenerationEntity generation(Long generationId, Long tripId) {
         ItineraryGenerationEntity generation = ItineraryGenerationEntity.create(
                 tripId,
-                ItineraryPromptService.PROMPT_VERSION,
+                ItineraryPromptService.CURRENT_PROMPT_VERSION,
                 NOW
         );
         ReflectionTestUtils.setField(generation, "id", generationId);

@@ -62,7 +62,7 @@ class ManualItineraryResponseServiceTest {
 
     @BeforeEach
     void setUp() {
-        generation = ItineraryGenerationEntity.create(1L, ItineraryPromptService.PROMPT_VERSION, Instant.now(clock));
+        generation = ItineraryGenerationEntity.create(1L, ItineraryPromptService.CURRENT_PROMPT_VERSION, Instant.now(clock));
         generation.markReady(Instant.now(clock));
         ReflectionTestUtils.setField(generation, "id", 10L);
 

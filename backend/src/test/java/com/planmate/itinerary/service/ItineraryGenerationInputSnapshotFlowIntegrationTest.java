@@ -104,10 +104,11 @@ class ItineraryGenerationInputSnapshotFlowIntegrationTest {
         ItineraryGenerationEntity generation = persistenceService.createGenerationRequest(
                 fixture.userId(),
                 fixture.tripId(),
-                ItineraryPromptService.PROMPT_VERSION
+                ItineraryPromptService.CURRENT_PROMPT_VERSION
         );
 
         GenerationInputSnapshot input = inputRepository.findById(generation.getId()).orElseThrow().getPayload();
+        assertThat(generation.getPromptVersion()).isEqualTo(ItineraryPromptService.CURRENT_PROMPT_VERSION);
         assertThat(input.tripId()).isEqualTo(fixture.tripId());
         assertThat(input.startDate()).isEqualTo(LocalDate.of(2026, 4, 1));
         assertThat(input.endDate()).isEqualTo(LocalDate.of(2026, 4, 2));
@@ -134,7 +135,7 @@ class ItineraryGenerationInputSnapshotFlowIntegrationTest {
         ItineraryGenerationEntity generation = persistenceService.createGenerationRequest(
                 fixture.userId(),
                 fixture.tripId(),
-                ItineraryPromptService.PROMPT_VERSION
+                ItineraryPromptService.CURRENT_PROMPT_VERSION
         );
         persistenceService.markCollectingIfCreated(fixture.userId(), fixture.tripId(), generation.getId());
         persistenceService.saveCandidatesAndMarkReady(
@@ -160,6 +161,14 @@ class ItineraryGenerationInputSnapshotFlowIntegrationTest {
         assertThat(request.mustVisitPlaces())
                 .extracting(AiItineraryRequest.MustVisitPlace::placeId)
                 .containsExactly("must-original");
+        assertThat(request.dailyWindow()).isEqualTo(new AiItineraryRequest.DailyWindow(
+                LocalTime.of(8, 0),
+                LocalTime.of(20, 0)
+        ));
+        assertThat(request.candidates())
+                .extracting(AiItineraryRequest.Candidate::placeId)
+                .containsExactly("must-original");
+        assertThat(request.rules()).isEmpty();
 
         manualItineraryResponseService.submit(
                 fixture.userId(),
@@ -181,7 +190,7 @@ class ItineraryGenerationInputSnapshotFlowIntegrationTest {
         TripFixture fixture = createTripFixture();
         ItineraryGenerationEntity generation = generationRepository.save(ItineraryGenerationEntity.create(
                 fixture.tripId(),
-                ItineraryPromptService.PROMPT_VERSION,
+                ItineraryPromptService.CURRENT_PROMPT_VERSION,
                 NOW
         ));
         generation.markReady(NOW);

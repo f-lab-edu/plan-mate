@@ -25,14 +25,29 @@ public class AiItineraryRequestService {
     }
 
     public AiItineraryRequest getRequest(Long userId, Long tripId, Long generationId) {
+        return createRequest(loadReadyContext(userId, tripId, generationId));
+    }
+
+    public String getPrompt(Long userId, Long tripId, Long generationId) {
+        AiRequestContext context = loadReadyContext(userId, tripId, generationId);
+        AiItineraryRequest request = createRequest(context);
+        return promptService.createPrompt(context.promptVersion(), request);
+    }
+
+    private AiRequestContext loadReadyContext(Long userId, Long tripId, Long generationId) {
         AiRequestContext context = persistenceService.loadAiRequestContext(userId, tripId, generationId);
         if (context.status() != ItineraryGenerationStatus.READY_FOR_PLANNING) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_READY);
         }
-        return requestFactory.create(context.generationId(), context.snapshot());
+        return context;
     }
 
-    public String getPrompt(Long userId, Long tripId, Long generationId) {
-        return promptService.createPrompt(getRequest(userId, tripId, generationId));
+    private AiItineraryRequest createRequest(AiRequestContext context) {
+        return requestFactory.create(
+                context.promptVersion(),
+                context.generationId(),
+                context.inputSnapshot(),
+                context.candidates()
+        );
     }
 }

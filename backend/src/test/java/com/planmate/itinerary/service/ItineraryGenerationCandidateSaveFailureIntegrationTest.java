@@ -83,7 +83,7 @@ class ItineraryGenerationCandidateSaveFailureIntegrationTest {
         ItineraryGenerationEntity generation = persistenceService.createGenerationRequest(
                 fixture.userId(),
                 fixture.tripId(),
-                ItineraryPromptService.PROMPT_VERSION
+                ItineraryPromptService.CURRENT_PROMPT_VERSION
         );
         persistenceService.markCollectingIfCreated(fixture.userId(), fixture.tripId(), generation.getId());
         willThrow(new IllegalStateException("candidate save failed"))

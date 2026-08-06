@@ -11,9 +11,14 @@ import org.springframework.stereotype.Service;
 public class GenerationCandidateSnapshotStore {
 
     private final GenerationCandidateSnapshotRepository repository;
+    private final GenerationCandidateSnapshotMapper mapper;
 
-    public GenerationCandidateSnapshotStore(GenerationCandidateSnapshotRepository repository) {
+    public GenerationCandidateSnapshotStore(
+            GenerationCandidateSnapshotRepository repository,
+            GenerationCandidateSnapshotMapper mapper
+    ) {
         this.repository = repository;
+        this.mapper = mapper;
     }
 
     public int replaceAll(
@@ -33,5 +38,13 @@ public class GenerationCandidateSnapshotStore {
 
     public long countByGenerationId(Long generationId) {
         return repository.countByGeneration_Id(generationId);
+    }
+
+    public List<GenerationCandidateSnapshot> findAllByGenerationId(Long generationId) {
+        List<GenerationCandidateSnapshot> snapshots = repository.findByGeneration_IdOrderByRankAsc(generationId)
+                .stream()
+                .map(mapper::map)
+                .toList();
+        return List.copyOf(snapshots);
     }
 }

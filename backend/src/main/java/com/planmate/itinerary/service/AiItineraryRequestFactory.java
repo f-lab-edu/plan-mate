@@ -1,7 +1,10 @@
 package com.planmate.itinerary.service;
 
+import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.dto.AiItineraryRequest;
+import com.planmate.itinerary.exception.ItineraryErrorCode;
+import com.planmate.itinerary.exception.ItineraryException;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -9,6 +12,19 @@ import org.springframework.stereotype.Component;
 public class AiItineraryRequestFactory {
 
     public AiItineraryRequest create(
+            String promptVersion,
+            Long generationId,
+            GenerationInputSnapshot snapshot,
+            List<GenerationCandidateSnapshot> candidates
+    ) {
+        return switch (promptVersion) {
+            case ItineraryPromptService.VERSION_V1 -> createV1(generationId, snapshot);
+            case ItineraryPromptService.VERSION_V2 -> createV2(generationId, snapshot, candidates);
+            default -> throw new ItineraryException(ItineraryErrorCode.UNSUPPORTED_PROMPT_VERSION);
+        };
+    }
+
+    private AiItineraryRequest createV1(
             Long generationId,
             GenerationInputSnapshot snapshot
     ) {
@@ -24,10 +40,44 @@ public class AiItineraryRequestFactory {
                 snapshot.preference().interests(),
                 transportation(snapshot.transportation()),
                 accommodation(snapshot.accommodation()),
+                null,
                 mustVisitPlaces(snapshot),
                 snapshot.avoidConditions(),
                 snapshot.freeRequest(),
+                List.of(),
                 planningRules()
+        );
+    }
+
+    private AiItineraryRequest createV2(
+            Long generationId,
+            GenerationInputSnapshot snapshot,
+            List<GenerationCandidateSnapshot> candidates
+    ) {
+        List<GenerationCandidateSnapshot> safeCandidates = candidates == null
+                ? List.of()
+                : List.copyOf(candidates);
+        if (safeCandidates.isEmpty()) {
+            throw new ItineraryException(ItineraryErrorCode.GENERATION_CANDIDATES_NOT_FOUND);
+        }
+        return new AiItineraryRequest(
+                generationId.toString(),
+                snapshot.tripId().toString(),
+                destination(snapshot.destination()),
+                snapshot.startDate(),
+                snapshot.endDate(),
+                companion(snapshot.companion()),
+                budget(snapshot.budget()),
+                snapshot.preference().travelPace(),
+                snapshot.preference().interests(),
+                transportation(snapshot.transportation()),
+                accommodation(snapshot.accommodation()),
+                new AiItineraryRequest.DailyWindow(snapshot.dailyStartTime(), snapshot.dailyEndTime()),
+                mustVisitPlaces(snapshot),
+                snapshot.avoidConditions(),
+                snapshot.freeRequest(),
+                candidateRequests(safeCandidates),
+                List.of()
         );
     }
 
@@ -96,6 +146,28 @@ public class AiItineraryRequestFactory {
                 place.formattedAddress(),
                 place.latitude(),
                 place.longitude()
+        );
+    }
+
+    private List<AiItineraryRequest.Candidate> candidateRequests(List<GenerationCandidateSnapshot> candidates) {
+        return candidates.stream()
+                .map(this::candidateRequest)
+                .toList();
+    }
+
+    private AiItineraryRequest.Candidate candidateRequest(GenerationCandidateSnapshot candidate) {
+        GenerationCandidateSnapshot.Location location = candidate.location();
+        return new AiItineraryRequest.Candidate(
+                candidate.rank(),
+                candidate.placeId(),
+                candidate.displayName(),
+                candidate.formattedAddress(),
+                location == null ? null : location.latitude(),
+                location == null ? null : location.longitude(),
+                candidate.primaryType(),
+                candidate.types(),
+                candidate.openingPeriods(),
+                candidate.forcedMustVisit()
         );
     }
 

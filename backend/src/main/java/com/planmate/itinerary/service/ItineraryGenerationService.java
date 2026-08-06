@@ -35,7 +35,7 @@ public class ItineraryGenerationService {
         ItineraryGenerationEntity generation = persistenceService.createGenerationRequest(
                 userId,
                 tripId,
-                ItineraryPromptService.PROMPT_VERSION
+                ItineraryPromptService.CURRENT_PROMPT_VERSION
         );
         return new ItineraryGenerationCreateResponse(
                 generation.getId().toString(),

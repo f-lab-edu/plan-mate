@@ -3,8 +3,11 @@ package com.planmate.itinerary.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
+import com.planmate.itinerary.entity.GenerationCandidateSnapshotEntity;
+import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.recommendation.api.CandidateRecommendationRequest;
 import com.planmate.recommendation.api.RecommendedPlaceCandidate;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -50,5 +53,51 @@ class GenerationCandidateSnapshotMapperTest {
         assertThat(snapshot.forcedMustVisit()).isTrue();
         assertThat(snapshot.distanceMeters()).isEqualTo(120.0);
         assertThat(snapshot.score()).isEqualTo(42.5);
+    }
+
+    @Test
+    void mapsEntityToItineraryOwnedSnapshot() {
+        GenerationCandidateSnapshot original = new GenerationCandidateSnapshot(
+                3,
+                "place-3",
+                "Place 3",
+                "Address 3",
+                new GenerationCandidateSnapshot.Location(35.3, 135.3),
+                "park",
+                List.of("park", "point_of_interest"),
+                "OPERATIONAL",
+                4.7,
+                240,
+                List.of("Tue 10:00-19:00"),
+                List.of("NATURE", "MUST_VISIT"),
+                true,
+                340.5,
+                98.75
+        );
+        ItineraryGenerationEntity generation = ItineraryGenerationEntity.create(
+                45L,
+                ItineraryPromptService.CURRENT_PROMPT_VERSION,
+                Instant.parse("2026-01-01T00:00:00Z")
+        );
+        GenerationCandidateSnapshotEntity entity = GenerationCandidateSnapshotEntity.from(generation, original);
+
+        GenerationCandidateSnapshot mapped = mapper.map(entity);
+
+        assertThat(mapped.rank()).isEqualTo(3);
+        assertThat(mapped.placeId()).isEqualTo("place-3");
+        assertThat(mapped.displayName()).isEqualTo("Place 3");
+        assertThat(mapped.formattedAddress()).isEqualTo("Address 3");
+        assertThat(mapped.location().latitude()).isEqualTo(35.3);
+        assertThat(mapped.location().longitude()).isEqualTo(135.3);
+        assertThat(mapped.primaryType()).isEqualTo("park");
+        assertThat(mapped.types()).containsExactly("park", "point_of_interest");
+        assertThat(mapped.businessStatus()).isEqualTo("OPERATIONAL");
+        assertThat(mapped.rating()).isEqualTo(4.7);
+        assertThat(mapped.userRatingCount()).isEqualTo(240);
+        assertThat(mapped.openingPeriods()).containsExactly("Tue 10:00-19:00");
+        assertThat(mapped.sourceCategories()).containsExactly("NATURE", "MUST_VISIT");
+        assertThat(mapped.forcedMustVisit()).isTrue();
+        assertThat(mapped.distanceMeters()).isEqualTo(340.5);
+        assertThat(mapped.score()).isEqualTo(98.75);
     }
 }

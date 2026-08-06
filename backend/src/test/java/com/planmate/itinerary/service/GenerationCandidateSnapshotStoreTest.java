@@ -1,6 +1,7 @@
 package com.planmate.itinerary.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
@@ -21,7 +22,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 class GenerationCandidateSnapshotStoreTest {
 
     private final GenerationCandidateSnapshotRepository repository = Mockito.mock(GenerationCandidateSnapshotRepository.class);
-    private final GenerationCandidateSnapshotStore store = new GenerationCandidateSnapshotStore(repository);
+    private final GenerationCandidateSnapshotMapper mapper = new GenerationCandidateSnapshotMapper();
+    private final GenerationCandidateSnapshotStore store = new GenerationCandidateSnapshotStore(repository, mapper);
 
     @Test
     void replacesExistingSnapshotsAndReturnsSavedCount() {
@@ -60,6 +62,36 @@ class GenerationCandidateSnapshotStoreTest {
         given(repository.countByGeneration_Id(123L)).willReturn(2L);
 
         assertThat(store.countByGenerationId(123L)).isEqualTo(2L);
+    }
+
+    @Test
+    void findsSnapshotsByGenerationIdInRankOrder() {
+        ItineraryGenerationEntity generation = generation();
+        given(repository.findByGeneration_IdOrderByRankAsc(123L)).willReturn(List.of(
+                GenerationCandidateSnapshotEntity.from(generation, snapshot(1, "place-1")),
+                GenerationCandidateSnapshotEntity.from(generation, snapshot(2, "place-2"))
+        ));
+
+        List<GenerationCandidateSnapshot> result = store.findAllByGenerationId(123L);
+
+        assertThat(result)
+                .extracting(GenerationCandidateSnapshot::placeId)
+                .containsExactly("place-1", "place-2");
+        assertThat(result)
+                .extracting(GenerationCandidateSnapshot::rank)
+                .containsExactly(1, 2);
+        verify(repository).findByGeneration_IdOrderByRankAsc(123L);
+    }
+
+    @Test
+    void returnsEmptyImmutableListWhenSnapshotsDoNotExist() {
+        given(repository.findByGeneration_IdOrderByRankAsc(123L)).willReturn(List.of());
+
+        List<GenerationCandidateSnapshot> result = store.findAllByGenerationId(123L);
+
+        assertThat(result).isEmpty();
+        assertThatThrownBy(() -> result.add(snapshot(1, "place-1")))
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     private ItineraryGenerationEntity generation() {

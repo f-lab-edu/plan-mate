@@ -201,11 +201,14 @@ public class ItineraryGenerationPersistenceService {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
         GenerationInputSnapshot snapshot = generationInputSnapshotStore.getRequired(generationId);
+        List<GenerationCandidateSnapshot> candidates = generationCandidateSnapshotStore.findAllByGenerationId(generationId);
         return new AiRequestContext(
                 generation.getId(),
                 generation.getTripId(),
                 generation.getStatus(),
-                snapshot
+                generation.getPromptVersion(),
+                snapshot,
+                candidates
         );
     }
 
@@ -324,7 +327,15 @@ public class ItineraryGenerationPersistenceService {
             Long generationId,
             Long tripId,
             ItineraryGenerationStatus status,
-            GenerationInputSnapshot snapshot
+            String promptVersion,
+            GenerationInputSnapshot inputSnapshot,
+            List<GenerationCandidateSnapshot> candidates
     ) {
+
+        public AiRequestContext {
+            candidates = candidates == null
+                    ? List.of()
+                    : List.copyOf(candidates);
+        }
     }
 }

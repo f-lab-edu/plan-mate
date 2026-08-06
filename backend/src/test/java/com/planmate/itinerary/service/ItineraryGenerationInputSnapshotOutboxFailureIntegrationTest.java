@@ -85,7 +85,7 @@ class ItineraryGenerationInputSnapshotOutboxFailureIntegrationTest {
         assertThatThrownBy(() -> persistenceService.createGenerationRequest(
                 fixture.userId(),
                 fixture.tripId(),
-                ItineraryPromptService.PROMPT_VERSION
+                ItineraryPromptService.CURRENT_PROMPT_VERSION
         )).isInstanceOf(IllegalStateException.class);
 
         assertThat(generationRepository.findFirstByTripIdOrderByCreatedAtDesc(fixture.tripId())).isEmpty();

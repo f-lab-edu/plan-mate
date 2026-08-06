@@ -100,7 +100,7 @@ class ItineraryGenerationCandidateWorkerIntegrationTest {
         ItineraryGenerationEntity generation = persistenceService.createGenerationRequest(
                 fixture.userId(),
                 fixture.tripId(),
-                ItineraryPromptService.PROMPT_VERSION
+                ItineraryPromptService.CURRENT_PROMPT_VERSION
         );
         AtomicBoolean recommenderSawTransaction = new AtomicBoolean(true);
         given(candidateRecommender.recommend(any(CandidateRecommendationRequest.class)))

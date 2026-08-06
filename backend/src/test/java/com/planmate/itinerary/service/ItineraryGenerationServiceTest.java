@@ -58,7 +58,7 @@ class ItineraryGenerationServiceTest {
     @Test
     void createOnlyCreatesGenerationRequestAndDoesNotCollectCandidates() {
         ItineraryGenerationEntity generation = generation(123L, 45L);
-        given(persistenceService.createGenerationRequest(7L, 45L, ItineraryPromptService.PROMPT_VERSION))
+        given(persistenceService.createGenerationRequest(7L, 45L, ItineraryPromptService.CURRENT_PROMPT_VERSION))
                 .willReturn(generation);
 
         ItineraryGenerationCreateResponse response = service.create(7L, 45L);
@@ -66,7 +66,7 @@ class ItineraryGenerationServiceTest {
         assertThat(response.generationId()).isEqualTo("123");
         assertThat(response.status()).isEqualTo(ItineraryGenerationStatus.CREATED);
         assertThat(response.candidateCount()).isZero();
-        verify(persistenceService).createGenerationRequest(7L, 45L, ItineraryPromptService.PROMPT_VERSION);
+        verify(persistenceService).createGenerationRequest(7L, 45L, ItineraryPromptService.CURRENT_PROMPT_VERSION);
         verify(persistenceService, never()).markCollecting(anyLong());
         verifyNoMoreInteractions(persistenceService);
     }
@@ -95,7 +95,7 @@ class ItineraryGenerationServiceTest {
     private ItineraryGenerationEntity generation(Long generationId, Long tripId) {
         ItineraryGenerationEntity generation = ItineraryGenerationEntity.create(
                 tripId,
-                ItineraryPromptService.PROMPT_VERSION,
+                ItineraryPromptService.CURRENT_PROMPT_VERSION,
                 NOW
         );
         ReflectionTestUtils.setField(generation, "id", generationId);
