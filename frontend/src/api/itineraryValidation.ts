@@ -14,6 +14,9 @@ export type ValidationIssueCode =
   | 'INVALID_DURATION'
   | 'CANDIDATE_NOT_ALLOWED'
   | 'REQUIRED_PLACE_MISSING'
+  | 'ITEM_TIME_OVERLAP'
+  | 'OUTSIDE_DAILY_WINDOW'
+  | 'ITEM_CROSSES_DAY_BOUNDARY'
 
 export type ValidationTarget = {
   path?: string
@@ -50,6 +53,9 @@ const VALIDATION_ISSUE_CODES: Set<string> = new Set([
   'INVALID_DURATION',
   'CANDIDATE_NOT_ALLOWED',
   'REQUIRED_PLACE_MISSING',
+  'ITEM_TIME_OVERLAP',
+  'OUTSIDE_DAILY_WINDOW',
+  'ITEM_CROSSES_DAY_BOUNDARY',
 ])
 
 export function parseAiItineraryValidationReport(value: unknown): AiItineraryValidationReport | undefined {

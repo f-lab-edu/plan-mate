@@ -46,6 +46,15 @@ public enum ValidationIssueCode {
     ),
     REQUIRED_PLACE_MISSING(
             "A required place must be included in the itinerary."
+    ),
+    ITEM_TIME_OVERLAP(
+            "Itinerary items must not overlap within the same day."
+    ),
+    OUTSIDE_DAILY_WINDOW(
+            "Itinerary item must stay within the configured daily time window."
+    ),
+    ITEM_CROSSES_DAY_BOUNDARY(
+            "Itinerary item must not continue past the end of the day."
     );
 
     private final String defaultMessage;

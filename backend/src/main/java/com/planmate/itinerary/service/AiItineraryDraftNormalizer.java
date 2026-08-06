@@ -7,7 +7,6 @@ import com.planmate.itinerary.entity.ItineraryDayEntity;
 import com.planmate.itinerary.entity.ItineraryEntity;
 import com.planmate.itinerary.entity.ItineraryItemEntity;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.List;
@@ -15,8 +14,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class AiItineraryDraftNormalizer {
-
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     public NormalizedAiItineraryDraft normalize(Long generationId, AiItineraryDraft draft) {
         requireValidInternalCall(draft != null, "draft must not be null");
@@ -78,7 +75,7 @@ public class AiItineraryDraftNormalizer {
 
     private LocalTime parseTime(String value) {
         try {
-            return LocalTime.parse(value, TIME_FORMATTER);
+            return AiItineraryTimeParser.parse(value);
         } catch (DateTimeParseException | NullPointerException exception) {
             throw new IllegalArgumentException("startTime must use HH:mm format.", exception);
         }

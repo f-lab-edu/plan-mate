@@ -24,7 +24,8 @@ import org.springframework.http.HttpStatus;
 
 class AiItineraryDraftValidationServiceTest {
 
-    private final AiItineraryDraftValidationService validationService = new AiItineraryDraftValidationService();
+    private final AiItineraryDraftValidationService validationService =
+            new AiItineraryDraftValidationService(new AiItineraryTimeValidationRule());
 
     @Test
     void acceptsV1DraftWithoutCandidateSnapshotsAndWithoutWhitelist() {
@@ -245,6 +246,123 @@ class AiItineraryDraftValidationServiceTest {
     }
 
     @Test
+    void collectsCandidateAndTimeErrorsTogetherWhenStructureIsValid() {
+        AiItineraryValidationReport report = validationService.validate(
+                10L,
+                ItineraryPromptService.VERSION_V2,
+                inputSnapshot(List.of()),
+                List.of(candidate(1, "place-1", false), candidate(2, "place-2", false)),
+                new AiItineraryDraft("10", List.of(
+                        day(1, List.of(
+                                item(1, "place-1", "09:00", 120),
+                                item(2, "outside", "10:00", 60)
+                        )),
+                        day(2, item(1, "place-2"))
+                ))
+        );
+
+        assertThat(report.errors())
+                .extracting(ValidationIssue::code)
+                .containsExactly(
+                        ValidationIssueCode.CANDIDATE_NOT_ALLOWED,
+                        ValidationIssueCode.ITEM_TIME_OVERLAP
+                );
+        assertThat(report.errors())
+                .extracting(ValidationIssue::path)
+                .containsExactly(
+                        "days[0].items[1].placeId",
+                        "days[0].items[1].startTime"
+                );
+        assertThat(report.errors().get(1).relatedTargets())
+                .extracting(target -> target.sequence())
+                .containsExactly(1);
+    }
+
+    @Test
+    void collectsRequiredPlaceAndDailyWindowErrorsTogetherForV2() {
+        AiItineraryValidationReport report = validationService.validate(
+                10L,
+                ItineraryPromptService.VERSION_V2,
+                inputSnapshot(List.of()),
+                List.of(candidate(1, "place-1", false), candidate(2, "place-2", true)),
+                new AiItineraryDraft("10", List.of(
+                        day(1, item(1, "place-1", "07:00", 60)),
+                        day(2, item(1, "place-1", "09:00", 60))
+                ))
+        );
+
+        assertThat(report.errors())
+                .extracting(ValidationIssue::code)
+                .containsExactly(
+                        ValidationIssueCode.REQUIRED_PLACE_MISSING,
+                        ValidationIssueCode.OUTSIDE_DAILY_WINDOW
+                );
+        assertThat(report.errors())
+                .extracting(ValidationIssue::path)
+                .containsExactly("days", "days[0].items[0].startTime");
+    }
+
+    @Test
+    void appliesOverlapAndBoundaryToV1ButDoesNotApplyDailyWindow() {
+        AiItineraryValidationReport report = validationService.validate(
+                10L,
+                ItineraryPromptService.VERSION_V1,
+                inputSnapshotWithWindow(null, null),
+                List.of(),
+                new AiItineraryDraft("10", List.of(
+                        day(1, List.of(
+                                item(1, "place-1", "07:00", 60),
+                                item(2, "place-2", "07:30", 60)
+                        )),
+                        day(2, item(1, "place-3", "23:30", 90))
+                ))
+        );
+
+        assertThat(report.errors())
+                .extracting(ValidationIssue::code)
+                .containsExactly(
+                        ValidationIssueCode.ITEM_TIME_OVERLAP,
+                        ValidationIssueCode.ITEM_CROSSES_DAY_BOUNDARY
+                );
+    }
+
+    @Test
+    void rejectsNonStrictStartTimeBeforeTimeRules() {
+        AiItineraryValidationReport report = validationService.validate(
+                10L,
+                ItineraryPromptService.VERSION_V1,
+                inputSnapshot(List.of()),
+                List.of(),
+                new AiItineraryDraft("10", List.of(
+                        day(1, new ItineraryDraftItem(1, "place-1", "24:00", 60)),
+                        day(2, new ItineraryDraftItem(1, "place-2", "9:00", 60))
+                ))
+        );
+
+        assertThat(report.errors())
+                .extracting(ValidationIssue::code)
+                .containsExactly(
+                        ValidationIssueCode.INVALID_START_TIME,
+                        ValidationIssueCode.INVALID_START_TIME
+                );
+    }
+
+    @Test
+    void rejectsInvalidDailyWindowForV2AsInvariant() {
+        assertThatThrownBy(() -> validationService.validate(
+                10L,
+                ItineraryPromptService.VERSION_V2,
+                inputSnapshotWithWindow(LocalTime.of(8, 0), LocalTime.of(8, 0)),
+                List.of(candidate(1, "place-1", false), candidate(2, "place-2", false)),
+                draft("place-1", "place-2")
+        ))
+                .isInstanceOf(ItineraryException.class)
+                .hasMessage("The itinerary generation contains an invalid daily time window.")
+                .satisfies(exception -> assertThat(((ItineraryException) exception).code())
+                        .isEqualTo(ItineraryErrorCode.GENERATION_TIME_WINDOW_INVALID.code()));
+    }
+
+    @Test
     void validatesReplayStructureWithoutCandidateRules() {
         AiItineraryValidationReport report = validationService.validateStructure(
                 10L,
@@ -332,11 +450,31 @@ class AiItineraryDraftValidationServiceTest {
         return new ItineraryDraftDay(day, List.of(item));
     }
 
+    private ItineraryDraftDay day(int day, List<ItineraryDraftItem> items) {
+        return new ItineraryDraftDay(day, items);
+    }
+
     private ItineraryDraftItem item(int sequence, String placeId) {
         return new ItineraryDraftItem(sequence, placeId, "09:00", 60);
     }
 
+    private ItineraryDraftItem item(int sequence, String placeId, String startTime, int durationMinutes) {
+        return new ItineraryDraftItem(sequence, placeId, startTime, durationMinutes);
+    }
+
     private GenerationInputSnapshot inputSnapshot(List<GenerationInputSnapshot.MustVisitPlace> mustVisitPlaces) {
+        return inputSnapshotWithWindow(mustVisitPlaces, LocalTime.of(8, 0), LocalTime.of(20, 0));
+    }
+
+    private GenerationInputSnapshot inputSnapshotWithWindow(LocalTime dailyStartTime, LocalTime dailyEndTime) {
+        return inputSnapshotWithWindow(List.of(), dailyStartTime, dailyEndTime);
+    }
+
+    private GenerationInputSnapshot inputSnapshotWithWindow(
+            List<GenerationInputSnapshot.MustVisitPlace> mustVisitPlaces,
+            LocalTime dailyStartTime,
+            LocalTime dailyEndTime
+    ) {
         return new GenerationInputSnapshot(
                 1L,
                 LocalDate.of(2026, 10, 9),
@@ -356,8 +494,8 @@ class AiItineraryDraftValidationServiceTest {
                 new GenerationInputSnapshot.Preference("BALANCED", List.of("FOOD")),
                 new GenerationInputSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
                 new GenerationInputSnapshot.Accommodation("UNDECIDED", null, null, null, null, null, null, List.of(), null, null, null),
-                LocalTime.of(8, 0),
-                LocalTime.of(20, 0),
+                dailyStartTime,
+                dailyEndTime,
                 mustVisitPlaces,
                 List.of(),
                 null

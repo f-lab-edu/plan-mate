@@ -19,6 +19,11 @@ public enum ItineraryErrorCode implements ErrorCode {
             "GENERATION_ITINERARY_STATE_INCONSISTENT",
             "Itinerary generation and persisted itinerary state are inconsistent."
     ),
+    GENERATION_TIME_WINDOW_INVALID(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "GENERATION_TIME_WINDOW_INVALID",
+            "The itinerary generation contains an invalid daily time window."
+    ),
     NO_RECOMMENDATION_CANDIDATES(HttpStatus.CONFLICT, "NO_RECOMMENDATION_CANDIDATES", "No usable recommendation candidates were found."),
     UNSUPPORTED_PROMPT_VERSION(HttpStatus.CONFLICT, "UNSUPPORTED_PROMPT_VERSION", "Itinerary prompt version is not supported."),
     INVALID_AI_RESPONSE(HttpStatus.BAD_REQUEST, "INVALID_AI_RESPONSE", "Invalid itinerary response."),

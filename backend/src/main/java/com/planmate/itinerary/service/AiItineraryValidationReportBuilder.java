@@ -5,6 +5,7 @@ import com.planmate.itinerary.api.validation.ValidationIssue;
 import com.planmate.itinerary.api.validation.ValidationIssueCode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 class AiItineraryValidationReportBuilder {
 
@@ -20,6 +21,16 @@ class AiItineraryValidationReportBuilder {
             String placeId
     ) {
         errors.add(ValidationIssue.of(code, path, day, sequence, placeId));
+    }
+
+    void error(ValidationIssue issue) {
+        errors.add(Objects.requireNonNull(issue));
+    }
+
+    void errors(List<ValidationIssue> issues) {
+        if (issues != null) {
+            issues.forEach(this::error);
+        }
     }
 
     void warning(

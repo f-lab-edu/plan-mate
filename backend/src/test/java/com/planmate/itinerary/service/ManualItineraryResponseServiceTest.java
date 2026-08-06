@@ -49,7 +49,8 @@ class ManualItineraryResponseServiceTest {
     private final TripAccessChecker tripAccessChecker = Mockito.mock(TripAccessChecker.class);
     private final GenerationInputSnapshotStore generationInputSnapshotStore = Mockito.mock(GenerationInputSnapshotStore.class);
     private final GenerationCandidateSnapshotStore generationCandidateSnapshotStore = Mockito.mock(GenerationCandidateSnapshotStore.class);
-    private final AiItineraryDraftValidationService aiItineraryDraftValidationService = new AiItineraryDraftValidationService();
+    private final AiItineraryDraftValidationService aiItineraryDraftValidationService =
+            new AiItineraryDraftValidationService(new AiItineraryTimeValidationRule());
     private final AiItineraryDraftNormalizer aiItineraryDraftNormalizer = new AiItineraryDraftNormalizer();
     private final ItineraryGenerationRepository generationRepository = Mockito.mock(ItineraryGenerationRepository.class);
     private final ItineraryRepository itineraryRepository = Mockito.mock(ItineraryRepository.class);
@@ -156,6 +157,37 @@ class ManualItineraryResponseServiceTest {
         verify(itineraryRepository, never()).save(Mockito.any());
         verify(itineraryDayRepository, never()).save(Mockito.any());
         verify(itineraryItemRepository, never()).save(Mockito.any());
+        verify(eventPublisher, never()).publishEvent(Mockito.any());
+        verifyNoInteractions(generationInputSnapshotStore, generationCandidateSnapshotStore);
+    }
+
+    @Test
+    void completedReplayDoesNotRunTimeValidation() {
+        generation.markCompleted(Instant.now(clock));
+        given(itineraryRepository.findByGeneration_Id(10L)).willReturn(Optional.of(persistedItinerary(
+                List.of(
+                        persistedDay(1, List.of(
+                                persistedItem(1, "place-1", "09:00", 120),
+                                persistedItem(2, "place-2", "10:00", 60)
+                        )),
+                        persistedDay(2, persistedItem(1, "place-2", "23:30", 90))
+                )
+        )));
+        AiItineraryDraft replay = new AiItineraryDraft(
+                "10",
+                List.of(
+                        day(1, List.of(
+                                item(1, "place-1", "09:00", 120),
+                                item(2, "place-2", "10:00", 60)
+                        )),
+                        day(2, item(1, "place-2", "23:30", 90))
+                )
+        );
+
+        service.submit(99L, 1L, 10L, replay);
+
+        assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.COMPLETED);
+        verify(itineraryRepository, never()).save(Mockito.any());
         verify(eventPublisher, never()).publishEvent(Mockito.any());
         verifyNoInteractions(generationInputSnapshotStore, generationCandidateSnapshotStore);
     }
@@ -299,6 +331,36 @@ class ManualItineraryResponseServiceTest {
     }
 
     @Test
+    void rejectsDraftWhenTimeValidationFailsBeforeSavingOrPublishing() {
+        AiItineraryDraft draft = new AiItineraryDraft(
+                "10",
+                List.of(
+                        day(1, List.of(
+                                item(1, "place-1", "07:00", 120),
+                                item(2, "place-2", "08:00", 60)
+                        )),
+                        day(2, item(1, "place-1", "23:30", 90))
+                )
+        );
+
+        assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
+                .isInstanceOf(AiItineraryValidationException.class)
+                .hasMessage("AI itinerary draft validation failed.")
+                .satisfies(exception -> {
+                    AiItineraryValidationException validationException = (AiItineraryValidationException) exception;
+                    assertThat(validationException.validationReport().errors())
+                            .extracting(ValidationIssue::code)
+                            .containsExactly(
+                                    ValidationIssueCode.OUTSIDE_DAILY_WINDOW,
+                                    ValidationIssueCode.ITEM_TIME_OVERLAP,
+                                    ValidationIssueCode.ITEM_CROSSES_DAY_BOUNDARY
+                            );
+                });
+        verifyNoItinerarySaved();
+        verify(eventPublisher, never()).publishEvent(Mockito.any());
+    }
+
+    @Test
     void validateReturnsReportWithoutSavingOrPublishing() {
         AiItineraryDraft draft = new AiItineraryDraft(
                 "10",
@@ -313,6 +375,29 @@ class ManualItineraryResponseServiceTest {
         assertThat(report.errors())
                 .extracting(ValidationIssue::code)
                 .containsExactly(ValidationIssueCode.CANDIDATE_NOT_ALLOWED);
+        assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
+        verifyNoItinerarySaved();
+        verify(eventPublisher, never()).publishEvent(Mockito.any());
+    }
+
+    @Test
+    void validateReturnsTimeErrorsWithoutSavingOrPublishing() {
+        AiItineraryDraft draft = new AiItineraryDraft(
+                "10",
+                List.of(
+                        day(1, List.of(
+                                item(1, "place-1", "09:00", 120),
+                                item(2, "place-2", "10:00", 60)
+                        )),
+                        day(2, item(1, "place-2", "09:00", 120))
+                )
+        );
+
+        AiItineraryValidationReport report = service.validate(99L, 1L, 10L, draft);
+
+        assertThat(report.errors())
+                .extracting(ValidationIssue::code)
+                .containsExactly(ValidationIssueCode.ITEM_TIME_OVERLAP);
         assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
         verifyNoItinerarySaved();
         verify(eventPublisher, never()).publishEvent(Mockito.any());
@@ -396,8 +481,16 @@ class ManualItineraryResponseServiceTest {
         return new ItineraryDraftDay(day, List.of(item));
     }
 
+    private ItineraryDraftDay day(int day, List<ItineraryDraftItem> items) {
+        return new ItineraryDraftDay(day, items);
+    }
+
     private ItineraryDraftItem item(int sequence, String placeId) {
         return new ItineraryDraftItem(sequence, placeId, "09:00", 120);
+    }
+
+    private ItineraryDraftItem item(int sequence, String placeId, String startTime, int durationMinutes) {
+        return new ItineraryDraftItem(sequence, placeId, startTime, durationMinutes);
     }
 
     private ItineraryEntity persistedItinerary(List<ItineraryDayEntity> days) {
@@ -407,13 +500,17 @@ class ManualItineraryResponseServiceTest {
     }
 
     private ItineraryDayEntity persistedDay(int day, ItineraryItemEntity item) {
+        return persistedDay(day, List.of(item));
+    }
+
+    private ItineraryDayEntity persistedDay(int day, List<ItineraryItemEntity> items) {
         ItineraryDayEntity entity = ItineraryDayEntity.create(
                 ItineraryEntity.create(generation, Instant.now(clock)),
                 day,
                 LocalDate.of(2026, 10, 8).plusDays(day)
         );
-        ReflectionTestUtils.setField(entity, "items", List.of(item));
-        ReflectionTestUtils.setField(item, "day", entity);
+        ReflectionTestUtils.setField(entity, "items", items);
+        items.forEach(item -> ReflectionTestUtils.setField(item, "day", entity));
         return entity;
     }
 

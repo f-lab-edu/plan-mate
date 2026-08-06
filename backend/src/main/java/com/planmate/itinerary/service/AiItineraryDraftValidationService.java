@@ -10,7 +10,6 @@ import com.planmate.itinerary.dto.ItineraryDraftItem;
 import com.planmate.itinerary.exception.ItineraryErrorCode;
 import com.planmate.itinerary.exception.ItineraryException;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -22,7 +21,11 @@ import org.springframework.util.StringUtils;
 @Component
 public class AiItineraryDraftValidationService {
 
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+    private final AiItineraryTimeValidationRule timeValidationRule;
+
+    public AiItineraryDraftValidationService(AiItineraryTimeValidationRule timeValidationRule) {
+        this.timeValidationRule = timeValidationRule;
+    }
 
     public AiItineraryValidationReport validate(
             Long generationId,
@@ -51,6 +54,7 @@ public class AiItineraryDraftValidationService {
             );
             default -> throw new ItineraryException(ItineraryErrorCode.UNSUPPORTED_PROMPT_VERSION);
         }
+        builder.errors(timeValidationRule.validate(promptVersion, inputSnapshot, structure.items()));
         return builder.build();
     }
 
@@ -81,7 +85,7 @@ public class AiItineraryDraftValidationService {
 
         Set<Integer> dayNumbers = new HashSet<>();
         Set<String> includedPlaceIds = new HashSet<>();
-        List<DraftItemReference> items = new java.util.ArrayList<>();
+        List<ValidatedDraftItem> items = new java.util.ArrayList<>();
         for (int dayIndex = 0; dayIndex < draft.days().size(); dayIndex++) {
             validateDay(
                     tripDayCount,
@@ -102,7 +106,7 @@ public class AiItineraryDraftValidationService {
             int dayIndex,
             Set<Integer> dayNumbers,
             Set<String> includedPlaceIds,
-            List<DraftItemReference> items,
+            List<ValidatedDraftItem> items,
             AiItineraryValidationReportBuilder builder
     ) {
         String dayPath = "days[" + dayIndex + "]";
@@ -147,7 +151,7 @@ public class AiItineraryDraftValidationService {
             int day,
             Set<Integer> sequences,
             Set<String> includedPlaceIds,
-            List<DraftItemReference> items,
+            List<ValidatedDraftItem> items,
             AiItineraryValidationReportBuilder builder
     ) {
         String itemPath = "days[" + dayIndex + "].items[" + itemIndex + "]";
@@ -171,19 +175,30 @@ public class AiItineraryDraftValidationService {
         } else {
             includedPlaceIds.add(placeId);
         }
-        if (!isValidTime(item.startTime())) {
+        LocalTime startTime = parseTime(item.startTime());
+        if (startTime == null) {
             builder.error(ValidationIssueCode.INVALID_START_TIME, itemPath + ".startTime", day, sequenceValid ? item.sequence() : null, placeIdOrNull(placeId));
         }
-        if (item.durationMinutes() <= 0) {
+        boolean durationValid = item.durationMinutes() > 0;
+        if (!durationValid) {
             builder.error(ValidationIssueCode.INVALID_DURATION, itemPath + ".durationMinutes", day, sequenceValid ? item.sequence() : null, placeIdOrNull(placeId));
         }
 
-        items.add(new DraftItemReference(
-                itemPath,
-                day,
-                item.sequence(),
-                placeId
-        ));
+        if (sequenceValid && StringUtils.hasText(placeId) && startTime != null && durationValid) {
+            long startMinute = AiItineraryTimeParser.minuteOfDay(startTime);
+            items.add(new ValidatedDraftItem(
+                    itemPath,
+                    dayIndex,
+                    itemIndex,
+                    day,
+                    item.sequence(),
+                    placeId,
+                    startTime,
+                    startMinute,
+                    startMinute + item.durationMinutes(),
+                    item.durationMinutes()
+            ));
+        }
     }
 
     private void validateV1(
@@ -202,7 +217,7 @@ public class AiItineraryDraftValidationService {
     private void validateV2(
             List<GenerationCandidateSnapshot> candidates,
             Set<String> includedPlaceIds,
-            List<DraftItemReference> items,
+            List<ValidatedDraftItem> items,
             AiItineraryValidationReportBuilder builder
     ) {
         List<GenerationCandidateSnapshot> safeCandidates = candidates == null
@@ -228,7 +243,7 @@ public class AiItineraryDraftValidationService {
                 .filter(StringUtils::hasText)
                 .toList();
 
-        for (DraftItemReference item : items) {
+        for (ValidatedDraftItem item : items) {
             if (StringUtils.hasText(item.placeId()) && !allowedPlaceIds.contains(item.placeId())) {
                 builder.error(
                         ValidationIssueCode.CANDIDATE_NOT_ALLOWED,
@@ -246,12 +261,11 @@ public class AiItineraryDraftValidationService {
         }
     }
 
-    private boolean isValidTime(String value) {
+    private LocalTime parseTime(String value) {
         try {
-            LocalTime.parse(value, TIME_FORMATTER);
-            return true;
+            return AiItineraryTimeParser.parse(value);
         } catch (DateTimeParseException | NullPointerException exception) {
-            return false;
+            return null;
         }
     }
 
@@ -265,16 +279,8 @@ public class AiItineraryDraftValidationService {
 
     private record StructureValidationResult(
             AiItineraryValidationReport report,
-            List<DraftItemReference> items,
+            List<ValidatedDraftItem> items,
             Set<String> includedPlaceIds
-    ) {
-    }
-
-    private record DraftItemReference(
-            String path,
-            int day,
-            int sequence,
-            String placeId
     ) {
     }
 }
