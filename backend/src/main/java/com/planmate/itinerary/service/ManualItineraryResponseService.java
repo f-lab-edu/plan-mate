@@ -6,7 +6,7 @@ import com.planmate.itinerary.dto.AiItineraryDraft;
 import com.planmate.itinerary.entity.ItineraryDayEntity;
 import com.planmate.itinerary.entity.ItineraryEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
-import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.itinerary.entity.ItineraryItemCreatedSource;
 import com.planmate.itinerary.entity.ItineraryItemEntity;
 import com.planmate.itinerary.exception.ItineraryErrorCode;
@@ -99,7 +99,6 @@ public class ManualItineraryResponseService {
 
         Instant now = Instant.now(clock);
         ItineraryGenerationStatus previousStatus = generation.getStatus();
-        generation.markValidating(now);
         saveItinerary(generation, snapshot, normalizedDraft, now);
         generation.markCompleted(now);
         publishCompletedEvent(generation.getTripId(), generation, previousStatus, generationId);

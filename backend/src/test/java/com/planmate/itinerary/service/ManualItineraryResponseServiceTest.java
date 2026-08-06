@@ -15,7 +15,7 @@ import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.entity.ItineraryEntity;
 import com.planmate.itinerary.entity.ItineraryDayEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
-import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.itinerary.entity.ItineraryItemCreatedSource;
 import com.planmate.itinerary.entity.ItineraryItemEntity;
 import com.planmate.itinerary.exception.ItineraryErrorCode;
@@ -72,6 +72,7 @@ class ManualItineraryResponseServiceTest {
     @BeforeEach
     void setUp() {
         generation = ItineraryGenerationEntity.create(1L, ItineraryPromptService.CURRENT_PROMPT_VERSION, Instant.now(clock));
+        generation.markCollecting(Instant.now(clock));
         generation.markReady(Instant.now(clock));
         ReflectionTestUtils.setField(generation, "id", 10L);
 

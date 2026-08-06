@@ -5,8 +5,6 @@ export type GenerationStatus =
   | 'CREATED'
   | 'COLLECTING_CANDIDATES'
   | 'READY_FOR_PLANNING'
-  | 'PLANNING'
-  | 'VALIDATING'
   | 'COMPLETED'
   | 'FAILED'
 

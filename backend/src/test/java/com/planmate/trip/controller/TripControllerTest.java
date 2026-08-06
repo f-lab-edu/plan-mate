@@ -474,6 +474,8 @@ class TripControllerTest {
         ItineraryGenerationEntity generation = itineraryGenerationRepository.save(
                 ItineraryGenerationEntity.create(trip.getId(), "test", createdAt)
         );
+        generation.markCollecting(createdAt);
+        generation.markReady(createdAt);
         generation.markCompleted(createdAt);
         ItineraryEntity itinerary = itineraryRepository.save(
                 ItineraryEntity.create(generation, createdAt)

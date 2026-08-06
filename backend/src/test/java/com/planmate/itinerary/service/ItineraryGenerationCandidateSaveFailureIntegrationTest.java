@@ -8,7 +8,7 @@ import static org.mockito.BDDMockito.willThrow;
 
 import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
-import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.place.api.GeoPoint;
 import com.planmate.place.api.GeoViewport;

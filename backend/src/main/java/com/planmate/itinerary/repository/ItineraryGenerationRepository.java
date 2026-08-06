@@ -1,7 +1,7 @@
 package com.planmate.itinerary.repository;
 
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
-import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.Optional;

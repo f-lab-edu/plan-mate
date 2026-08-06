@@ -11,7 +11,7 @@ import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.dto.ItineraryGenerationCreateResponse;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
-import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.recommendation.api.CandidateRecommendationRequest;
 import com.planmate.recommendation.api.CandidateRecommender;
 import com.planmate.recommendation.api.RecommendedPlaceCandidate;

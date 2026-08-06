@@ -1,7 +1,7 @@
 package com.planmate.itinerary.service;
 
 import com.planmate.itinerary.dto.AiItineraryRequest;
-import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.itinerary.exception.ItineraryErrorCode;
 import com.planmate.itinerary.exception.ItineraryException;
 import com.planmate.itinerary.service.ItineraryGenerationPersistenceService.AiRequestContext;

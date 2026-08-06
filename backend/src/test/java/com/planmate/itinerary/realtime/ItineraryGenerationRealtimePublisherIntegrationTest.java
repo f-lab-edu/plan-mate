@@ -5,7 +5,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.planmate.common.realtime.RealtimeEventEnvelope;
-import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;

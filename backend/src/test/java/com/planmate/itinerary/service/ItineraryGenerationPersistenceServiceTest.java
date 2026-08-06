@@ -14,7 +14,7 @@ import com.planmate.common.outbox.OutboxEventRepository;
 import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
-import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.itinerary.exception.ItineraryException;
 import com.planmate.itinerary.realtime.ItineraryGenerationStatusChangedEvent;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
@@ -159,6 +159,7 @@ class ItineraryGenerationPersistenceServiceTest {
     @Test
     void markCollectingIfCreatedReturnsFalseForAlreadyProcessedGeneration() {
         ItineraryGenerationEntity generation = generation(123L, 45L);
+        generation.markCollecting(NOW);
         generation.markReady(NOW);
         given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
 
@@ -221,6 +222,7 @@ class ItineraryGenerationPersistenceServiceTest {
     @Test
     void saveCandidatesAndMarkReadyReturnsExistingCountWhenAlreadyReady() {
         ItineraryGenerationEntity generation = generation(123L, 45L);
+        generation.markCollecting(NOW);
         generation.markReady(NOW);
         given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
         given(generationCandidateSnapshotStore.countByGenerationId(123L)).willReturn(2L);
@@ -294,6 +296,7 @@ class ItineraryGenerationPersistenceServiceTest {
     @Test
     void getLatestReturnsLatestGenerationAfterTripAccessCheck() {
         ItineraryGenerationEntity generation = generation(123L, 45L);
+        generation.markCollecting(NOW);
         generation.markReady(NOW);
         given(generationRepository.findFirstByTripIdOrderByCreatedAtDesc(45L)).willReturn(Optional.of(generation));
         given(generationCandidateSnapshotStore.countByGenerationId(123L)).willReturn(4L);

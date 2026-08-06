@@ -1,8 +1,10 @@
 package com.planmate.itinerary.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.itinerary.repository.ItineraryRepository;
 import com.planmate.trip.entity.TripEntity;
@@ -88,6 +90,42 @@ class ItineraryEntityIntegrationTest {
     }
 
     @Test
+    void exposesGenerationStatusConstraintAndAllowsOnlyCurrentStatuses() {
+        Long tripId = createGeneration().getTripId();
+
+        Integer constraintCount = jdbcTemplate.queryForObject(
+                """
+                        SELECT COUNT(*)
+                          FROM pg_constraint
+                         WHERE conname = 'itinerary_generations_status_check'
+                """,
+                Integer.class
+        );
+        assertThat(constraintCount).isEqualTo(1);
+
+        for (ItineraryGenerationStatus status : ItineraryGenerationStatus.values()) {
+            assertThatCode(() -> insertGeneration(tripId, status.name()))
+                    .doesNotThrowAnyException();
+        }
+    }
+
+    @Test
+    void rejectsPlanningGenerationStatus() {
+        Long tripId = createGeneration().getTripId();
+
+        assertThatThrownBy(() -> insertGeneration(tripId, "PLANNING"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void rejectsValidatingGenerationStatus() {
+        Long tripId = createGeneration().getTripId();
+
+        assertThatThrownBy(() -> insertGeneration(tripId, "VALIDATING"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
     void deletesItineraryWhenGenerationIsDeleted() {
         ItineraryGenerationEntity generation = createGeneration();
         itineraryRepository.saveAndFlush(ItineraryEntity.create(generation, NOW));
@@ -127,5 +165,24 @@ class ItineraryEntityIntegrationTest {
                 NOW
         ));
         return generationRepository.saveAndFlush(ItineraryGenerationEntity.create(trip.getId(), "test", NOW));
+    }
+
+    private void insertGeneration(Long tripId, String status) {
+        jdbcTemplate.update(
+                """
+                        INSERT INTO itinerary_generations (
+                            trip_id,
+                            status,
+                            prompt_version,
+                            created_at,
+                            updated_at
+                        )
+                        VALUES (?, ?, 'test', ?, ?)
+                """,
+                tripId,
+                status,
+                java.sql.Timestamp.from(NOW),
+                java.sql.Timestamp.from(NOW)
+        );
     }
 }

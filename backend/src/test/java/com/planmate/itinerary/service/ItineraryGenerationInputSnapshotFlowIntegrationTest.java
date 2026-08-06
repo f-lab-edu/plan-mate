@@ -13,7 +13,7 @@ import com.planmate.itinerary.dto.ItineraryDraftDay;
 import com.planmate.itinerary.dto.ItineraryDraftItem;
 import com.planmate.itinerary.dto.ItineraryGenerationDetailResponse;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
-import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.itinerary.exception.ItineraryException;
 import com.planmate.itinerary.repository.ItineraryGenerationInputRepository;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
@@ -196,6 +196,7 @@ class ItineraryGenerationInputSnapshotFlowIntegrationTest {
                 ItineraryPromptService.CURRENT_PROMPT_VERSION,
                 NOW
         ));
+        generation.markCollecting(NOW);
         generation.markReady(NOW);
         entityManager.flush();
 

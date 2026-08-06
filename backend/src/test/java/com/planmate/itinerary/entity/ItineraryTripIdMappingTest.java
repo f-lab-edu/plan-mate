@@ -2,6 +2,7 @@ package com.planmate.itinerary.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;

@@ -1,5 +1,6 @@
 package com.planmate.itinerary.entity;
 
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -53,32 +54,49 @@ public class ItineraryGenerationEntity {
     }
 
     public void markCollecting(Instant now) {
+        requireStatus(ItineraryGenerationStatus.CREATED);
         status = ItineraryGenerationStatus.COLLECTING_CANDIDATES;
         failureReason = null;
         updatedAt = now;
     }
 
     public void markReady(Instant now) {
+        requireStatus(ItineraryGenerationStatus.COLLECTING_CANDIDATES);
         status = ItineraryGenerationStatus.READY_FOR_PLANNING;
         failureReason = null;
         updatedAt = now;
     }
 
-    public void markValidating(Instant now) {
-        status = ItineraryGenerationStatus.VALIDATING;
-        updatedAt = now;
-    }
-
     public void markCompleted(Instant now) {
+        requireStatus(ItineraryGenerationStatus.READY_FOR_PLANNING);
         status = ItineraryGenerationStatus.COMPLETED;
         failureReason = null;
         updatedAt = now;
     }
 
     public void markFailed(String reason, Instant now) {
+        if (status != ItineraryGenerationStatus.CREATED
+                && status != ItineraryGenerationStatus.COLLECTING_CANDIDATES) {
+            throw new IllegalStateException(
+                    "Cannot transition itinerary generation from "
+                            + status
+                            + ", expected CREATED or COLLECTING_CANDIDATES"
+            );
+        }
         status = ItineraryGenerationStatus.FAILED;
         failureReason = reason;
         updatedAt = now;
+    }
+
+    private void requireStatus(ItineraryGenerationStatus expected) {
+        if (status != expected) {
+            throw new IllegalStateException(
+                    "Cannot transition itinerary generation from "
+                            + status
+                            + ", expected "
+                            + expected
+            );
+        }
     }
 
     public Long getId() {

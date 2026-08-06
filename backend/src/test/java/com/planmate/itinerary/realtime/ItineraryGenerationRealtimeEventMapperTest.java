@@ -3,7 +3,7 @@ package com.planmate.itinerary.realtime;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.planmate.common.realtime.RealtimeEventEnvelope;
-import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;

@@ -9,7 +9,7 @@ import static org.mockito.Mockito.verify;
 import com.planmate.itinerary.dto.ItineraryGenerationDetailResponse;
 import com.planmate.itinerary.entity.GenerationCandidateSnapshotEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
-import com.planmate.itinerary.entity.ItineraryGenerationStatus;
+import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.itinerary.messaging.ItineraryGenerationRequestedMessage;
 import com.planmate.itinerary.repository.GenerationCandidateSnapshotRepository;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
