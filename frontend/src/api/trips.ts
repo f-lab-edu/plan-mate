@@ -1,4 +1,5 @@
 import { bearerHeaders, request, requestText } from './client'
+import type { AiItineraryValidationReport } from './itineraryValidation'
 
 export type TripStatus = 'PLANNING' | 'UPCOMING' | 'COMPLETED'
 export type GenerationStatus =
@@ -317,6 +318,19 @@ export function submitManualResponse(
   payload: AiItineraryDraft,
 ) {
   return request<ItineraryGenerationDetailResponse>(`/api/trips/${tripId}/itinerary-generations/${generationId}/manual-response`, {
+    method: 'POST',
+    headers: bearerHeaders(accessToken),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function validateManualResponse(
+  accessToken: string,
+  tripId: string,
+  generationId: string,
+  payload: AiItineraryDraft,
+) {
+  return request<AiItineraryValidationReport>(`/api/trips/${tripId}/itinerary-generations/${generationId}/manual-response/validate`, {
     method: 'POST',
     headers: bearerHeaders(accessToken),
     body: JSON.stringify(payload),

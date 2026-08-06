@@ -7,6 +7,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.planmate.itinerary.api.validation.AiItineraryValidationReport;
+import com.planmate.itinerary.api.validation.ValidationIssue;
+import com.planmate.itinerary.api.validation.ValidationIssueCode;
 import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.dto.AiItineraryDraft;
 import com.planmate.itinerary.dto.ItineraryDraftDay;
@@ -18,6 +21,7 @@ import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.itinerary.entity.ItineraryItemCreatedSource;
 import com.planmate.itinerary.entity.ItineraryItemEntity;
+import com.planmate.itinerary.exception.AiItineraryValidationException;
 import com.planmate.itinerary.exception.ItineraryErrorCode;
 import com.planmate.itinerary.exception.ItineraryException;
 import com.planmate.itinerary.api.event.ItineraryGenerationStatusChangedEvent;
@@ -76,6 +80,7 @@ class ManualItineraryResponseServiceTest {
         generation.markReady(Instant.now(clock));
         ReflectionTestUtils.setField(generation, "id", 10L);
 
+        given(generationRepository.findById(10L)).willReturn(Optional.of(generation));
         given(generationRepository.findWithLockById(10L)).willReturn(Optional.of(generation));
         given(itineraryRepository.findByGeneration_Id(10L)).willReturn(Optional.empty());
         given(generationInputSnapshotStore.getRequired(10L)).willReturn(snapshot());
@@ -217,10 +222,15 @@ class ManualItineraryResponseServiceTest {
         AiItineraryDraft draft = new AiItineraryDraft("999", validDraft().days());
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
-                .isInstanceOf(ItineraryException.class)
+                .isInstanceOf(AiItineraryValidationException.class)
                 .hasMessage("AI itinerary draft validation failed.")
-                .satisfies(exception -> assertThat(((ItineraryException) exception).code())
-                        .isEqualTo(ItineraryErrorCode.AI_RESPONSE_VALIDATION_FAILED.code()));
+                .satisfies(exception -> {
+                    AiItineraryValidationException validationException = (AiItineraryValidationException) exception;
+                    assertThat(validationException.code()).isEqualTo(ItineraryErrorCode.AI_RESPONSE_VALIDATION_FAILED.code());
+                    assertThat(validationException.validationReport().errors())
+                            .extracting(ValidationIssue::code)
+                            .containsExactly(ValidationIssueCode.GENERATION_ID_MISMATCH);
+                });
         verifyNoItinerarySaved();
     }
 
@@ -232,7 +242,7 @@ class ManualItineraryResponseServiceTest {
         );
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
-                .isInstanceOf(ItineraryException.class)
+                .isInstanceOf(AiItineraryValidationException.class)
                 .hasMessage("AI itinerary draft validation failed.");
         verifyNoItinerarySaved();
     }
@@ -248,10 +258,15 @@ class ManualItineraryResponseServiceTest {
         );
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
-                .isInstanceOf(ItineraryException.class)
+                .isInstanceOf(AiItineraryValidationException.class)
                 .hasMessage("AI itinerary draft validation failed.")
-                .satisfies(exception -> assertThat(((ItineraryException) exception).code())
-                        .isEqualTo(ItineraryErrorCode.AI_RESPONSE_VALIDATION_FAILED.code()));
+                .satisfies(exception -> {
+                    AiItineraryValidationException validationException = (AiItineraryValidationException) exception;
+                    assertThat(validationException.code()).isEqualTo(ItineraryErrorCode.AI_RESPONSE_VALIDATION_FAILED.code());
+                    assertThat(validationException.validationReport().errors())
+                            .extracting(ValidationIssue::code)
+                            .containsExactly(ValidationIssueCode.CANDIDATE_NOT_ALLOWED);
+                });
         verifyNoItinerarySaved();
     }
 
@@ -278,9 +293,82 @@ class ManualItineraryResponseServiceTest {
         );
 
         assertThatThrownBy(() -> service.submit(99L, 1L, 10L, draft))
-                .isInstanceOf(ItineraryException.class)
+                .isInstanceOf(AiItineraryValidationException.class)
                 .hasMessage("AI itinerary draft validation failed.");
         verifyNoItinerarySaved();
+    }
+
+    @Test
+    void validateReturnsReportWithoutSavingOrPublishing() {
+        AiItineraryDraft draft = new AiItineraryDraft(
+                "10",
+                List.of(
+                        day(1, item(1, "place-1")),
+                        day(2, item(1, "outside"))
+                )
+        );
+
+        AiItineraryValidationReport report = service.validate(99L, 1L, 10L, draft);
+
+        assertThat(report.errors())
+                .extracting(ValidationIssue::code)
+                .containsExactly(ValidationIssueCode.CANDIDATE_NOT_ALLOWED);
+        assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
+        verifyNoItinerarySaved();
+        verify(eventPublisher, never()).publishEvent(Mockito.any());
+    }
+
+    @Test
+    void validateRejectsGenerationThatIsNotReady() {
+        generation.markCompleted(Instant.now(clock));
+
+        assertThatThrownBy(() -> service.validate(99L, 1L, 10L, validDraft()))
+                .isInstanceOf(ItineraryException.class)
+                .hasMessage("Itinerary generation is not ready for planning.")
+                .satisfies(exception -> assertThat(((ItineraryException) exception).code())
+                        .isEqualTo(ItineraryErrorCode.GENERATION_NOT_READY.code()));
+
+        verifyNoInteractions(generationInputSnapshotStore, generationCandidateSnapshotStore);
+        verify(eventPublisher, never()).publishEvent(Mockito.any());
+    }
+
+    @Test
+    void warningAndUnverifiedOnlyReportDoesNotBlockPersistence() {
+        AiItineraryDraftValidationService validationService = Mockito.mock(AiItineraryDraftValidationService.class);
+        ManualItineraryResponseService serviceWithValidationReport = new ManualItineraryResponseService(
+                tripAccessChecker,
+                generationInputSnapshotStore,
+                generationCandidateSnapshotStore,
+                validationService,
+                aiItineraryDraftNormalizer,
+                generationRepository,
+                itineraryRepository,
+                itineraryDayRepository,
+                itineraryItemRepository,
+                clock,
+                eventPublisher
+        );
+        given(validationService.validate(
+                Mockito.eq(10L),
+                Mockito.eq(generation.getPromptVersion()),
+                Mockito.any(GenerationInputSnapshot.class),
+                Mockito.anyList(),
+                Mockito.eq(validDraft())
+        )).willReturn(new AiItineraryValidationReport(
+                List.of(),
+                List.of(ValidationIssue.of(ValidationIssueCode.REQUIRED_PLACE_MISSING, "days", null, null, "warning-place")),
+                List.of(ValidationIssue.of(ValidationIssueCode.CANDIDATE_NOT_ALLOWED, "days", null, null, "unverified-place"))
+        ));
+        given(itineraryRepository.save(Mockito.any())).willAnswer(invocation -> invocation.getArgument(0));
+        given(itineraryDayRepository.save(Mockito.any())).willAnswer(invocation -> invocation.getArgument(0));
+        given(itineraryItemRepository.save(Mockito.any())).willAnswer(invocation -> invocation.getArgument(0));
+        given(generationCandidateSnapshotStore.countByGenerationId(10L)).willReturn(2L);
+
+        serviceWithValidationReport.submit(99L, 1L, 10L, validDraft());
+
+        assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.COMPLETED);
+        verify(itineraryRepository).save(Mockito.any());
+        verify(eventPublisher).publishEvent(Mockito.any(ItineraryGenerationStatusChangedEvent.class));
     }
 
     @Test

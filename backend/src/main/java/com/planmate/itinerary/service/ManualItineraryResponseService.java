@@ -10,6 +10,7 @@ import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.itinerary.entity.ItineraryItemCreatedSource;
 import com.planmate.itinerary.entity.ItineraryItemEntity;
+import com.planmate.itinerary.exception.AiItineraryValidationException;
 import com.planmate.itinerary.exception.ItineraryErrorCode;
 import com.planmate.itinerary.exception.ItineraryException;
 import com.planmate.itinerary.api.event.ItineraryGenerationStatusChangedEvent;
@@ -84,6 +85,29 @@ public class ManualItineraryResponseService {
             return;
         }
         throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_READY);
+    }
+
+    @Transactional(readOnly = true)
+    public AiItineraryValidationReport validate(Long userId, Long tripId, Long generationId, AiItineraryDraft draft) {
+        tripAccessChecker.checkAccessible(userId, tripId);
+        ItineraryGenerationEntity generation = generationRepository.findById(generationId)
+                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
+        if (!generation.getTripId().equals(tripId)) {
+            throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
+        }
+        if (generation.getStatus() != ItineraryGenerationStatus.READY_FOR_PLANNING) {
+            throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_READY);
+        }
+
+        GenerationInputSnapshot snapshot = generationInputSnapshotStore.getRequired(generationId);
+        List<GenerationCandidateSnapshot> candidates = generationCandidateSnapshotStore.findAllByGenerationId(generationId);
+        return aiItineraryDraftValidationService.validate(
+                generationId,
+                generation.getPromptVersion(),
+                snapshot,
+                candidates,
+                draft
+        );
     }
 
     private void handleFirstSubmit(ItineraryGenerationEntity generation, AiItineraryDraft draft) {
@@ -169,7 +193,7 @@ public class ManualItineraryResponseService {
 
     private void throwIfValidationFailed(AiItineraryValidationReport report) {
         if (report.hasErrors()) {
-            throw new ItineraryException(ItineraryErrorCode.AI_RESPONSE_VALIDATION_FAILED);
+            throw new AiItineraryValidationException(report);
         }
     }
 }
