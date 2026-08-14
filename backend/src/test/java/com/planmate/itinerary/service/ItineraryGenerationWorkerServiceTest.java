@@ -15,6 +15,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import com.planmate.itinerary.config.ItineraryGenerationWorkerProperties;
 import com.planmate.itinerary.messaging.ItineraryGenerationRequestedMessage;
 import com.planmate.itinerary.metrics.ItineraryGenerationWorkerMetrics;
+import com.planmate.place.api.exception.PlaceProviderUnavailableException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,8 @@ class ItineraryGenerationWorkerServiceTest {
                 persistenceService,
                 generationService,
                 properties,
-                new ItineraryGenerationWorkerMetrics(meterRegistry)
+                new ItineraryGenerationWorkerMetrics(meterRegistry),
+                new WorkerFailureClassifier()
         );
     }
 
@@ -81,17 +83,17 @@ class ItineraryGenerationWorkerServiceTest {
     @Test
     void processRetriesAndMarksFailedWhenCandidateCollectionKeepsFailing() {
         ItineraryGenerationRequestedMessage message = new ItineraryGenerationRequestedMessage(123L, 45L, 7L);
-        RuntimeException failure = new IllegalStateException("google places unavailable");
+        RuntimeException failure = new PlaceProviderUnavailableException();
         given(persistenceService.claimCollection(45L, 123L, false, properties.getProcessingLease()))
                 .willReturn(new ItineraryGenerationPersistenceService.CollectionClaim(true, 4L));
         doThrow(failure).when(generationService).collectCandidates(45L, 123L, 4L);
-        given(persistenceService.markFailed(123L, 4L, "IllegalStateException")).willReturn(true);
+        given(persistenceService.markFailed(123L, 4L, "PLACE_PROVIDER_UNAVAILABLE")).willReturn(true);
 
         assertThatThrownBy(() -> workerService.process(message))
                 .isSameAs(failure);
 
         verify(generationService, times(2)).collectCandidates(45L, 123L, 4L);
-        verify(persistenceService).markFailed(123L, 4L, "IllegalStateException");
+        verify(persistenceService).markFailed(123L, 4L, "PLACE_PROVIDER_UNAVAILABLE");
         assertProcessedCount("failed", 1.0);
         assertDurationCount("failed", 1L);
         assertRetryCount(1.0);
@@ -111,17 +113,47 @@ class ItineraryGenerationWorkerServiceTest {
     }
 
     @Test
+    void nonRetryableFailureMarksFailedAfterFirstAttempt() {
+        ItineraryGenerationRequestedMessage message = new ItineraryGenerationRequestedMessage(123L, 45L, 7L);
+        RuntimeException failure = new IllegalStateException("invalid internal candidate data");
+        given(persistenceService.claimCollection(45L, 123L, false, properties.getProcessingLease()))
+                .willReturn(new ItineraryGenerationPersistenceService.CollectionClaim(true, 4L));
+        doThrow(failure).when(generationService).collectCandidates(45L, 123L, 4L);
+        given(persistenceService.markFailed(123L, 4L, "WORKER_PROCESSING_FAILED")).willReturn(true);
+
+        assertThatThrownBy(() -> workerService.process(message))
+                .isSameAs(failure);
+
+        verify(generationService).collectCandidates(45L, 123L, 4L);
+        verify(persistenceService).markFailed(123L, 4L, "WORKER_PROCESSING_FAILED");
+        assertThat(meterRegistry.find("planmate.itinerary.generation.worker.retry").counter()).isNull();
+    }
+
+    @Test
     void staleClaimFailureIsIgnoredWithoutExceptionPropagation() {
         ItineraryGenerationRequestedMessage message = new ItineraryGenerationRequestedMessage(123L, 45L, null);
-        RuntimeException failure = new IllegalStateException("late failure");
+        RuntimeException failure = new PlaceProviderUnavailableException();
         given(persistenceService.claimCollection(45L, 123L, true, properties.getProcessingLease()))
                 .willReturn(new ItineraryGenerationPersistenceService.CollectionClaim(true, 2L));
         doThrow(failure).when(generationService).collectCandidates(45L, 123L, 2L);
-        given(persistenceService.markFailed(123L, 2L, "IllegalStateException")).willReturn(false);
+        given(persistenceService.markFailed(123L, 2L, "PLACE_PROVIDER_UNAVAILABLE")).willReturn(false);
 
         workerService.process(message, true);
 
         verify(generationService, times(2)).collectCandidates(45L, 123L, 2L);
+        assertProcessedCount("skipped", 1.0);
+    }
+
+    @Test
+    void staleClaimSuccessReturnsNormallyWithoutReadyTransition() {
+        ItineraryGenerationRequestedMessage message = new ItineraryGenerationRequestedMessage(123L, 45L, null);
+        given(persistenceService.claimCollection(45L, 123L, true, properties.getProcessingLease()))
+                .willReturn(new ItineraryGenerationPersistenceService.CollectionClaim(true, 2L));
+        given(generationService.collectCandidates(45L, 123L, 2L)).willReturn(false);
+
+        workerService.process(message, true);
+
+        verify(persistenceService, never()).markFailed(anyLong(), anyLong(), anyString());
         assertProcessedCount("skipped", 1.0);
     }
 

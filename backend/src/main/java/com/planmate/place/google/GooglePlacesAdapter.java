@@ -15,6 +15,8 @@ import com.planmate.place.api.PlaceTextSearchResult;
 import com.planmate.place.api.PlaceTextSearcher;
 import com.planmate.place.api.ResolvedPlace;
 import com.planmate.place.api.exception.InvalidPlaceIdException;
+import com.planmate.place.api.exception.PlaceProviderConfigurationException;
+import com.planmate.place.api.exception.PlaceProviderRequestRejectedException;
 import com.planmate.place.api.exception.PlaceProviderUnavailableException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -217,6 +219,13 @@ public class GooglePlacesAdapter implements
                     .body(GoogleTextSearchResponse.class);
 
             return normalizeTextSearch(response);
+        } catch (RestClientResponseException exception) {
+            if (exception.getStatusCode().value() == 408
+                    || exception.getStatusCode().value() == 429
+                    || exception.getStatusCode().is5xxServerError()) {
+                throw new PlaceProviderUnavailableException(exception);
+            }
+            throw new PlaceProviderRequestRejectedException(exception);
         } catch (RestClientException exception) {
             throw new PlaceProviderUnavailableException(exception);
         }
@@ -243,7 +252,7 @@ public class GooglePlacesAdapter implements
 
     private void assertApiKeyConfigured() {
         if (!StringUtils.hasText(apiKey)) {
-            throw new PlaceProviderUnavailableException();
+            throw new PlaceProviderConfigurationException();
         }
     }
 

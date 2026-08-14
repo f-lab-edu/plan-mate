@@ -1,6 +1,5 @@
 package com.planmate.itinerary.service;
 
-import com.planmate.common.exception.PlanMateException;
 import com.planmate.itinerary.config.ItineraryGenerationWorkerProperties;
 import com.planmate.itinerary.messaging.ItineraryGenerationRequestedMessage;
 import com.planmate.itinerary.metrics.ItineraryGenerationWorkerMetrics;
@@ -14,17 +13,20 @@ public class ItineraryGenerationWorkerService {
     private final ItineraryGenerationService generationService;
     private final ItineraryGenerationWorkerProperties properties;
     private final ItineraryGenerationWorkerMetrics metrics;
+    private final WorkerFailureClassifier failureClassifier;
 
     public ItineraryGenerationWorkerService(
             ItineraryGenerationPersistenceService persistenceService,
             ItineraryGenerationService generationService,
             ItineraryGenerationWorkerProperties properties,
-            ItineraryGenerationWorkerMetrics metrics
+            ItineraryGenerationWorkerMetrics metrics,
+            WorkerFailureClassifier failureClassifier
     ) {
         this.persistenceService = persistenceService;
         this.generationService = generationService;
         this.properties = properties;
         this.metrics = metrics;
+        this.failureClassifier = failureClassifier;
     }
 
     public void process(ItineraryGenerationRequestedMessage message, boolean redelivered) {
@@ -57,11 +59,16 @@ public class ItineraryGenerationWorkerService {
 
     private boolean collectCandidatesWithRetry(ItineraryGenerationRequestedMessage message, long claimVersion) {
         RuntimeException lastFailure = null;
+        WorkerFailureClassifier.WorkerFailure classifiedFailure = null;
         for (int attempt = 1; attempt <= properties.getMaxAttempts(); attempt++) {
             try {
                 return generationService.collectCandidates(message.tripId(), message.generationId(), claimVersion);
             } catch (RuntimeException exception) {
                 lastFailure = exception;
+                classifiedFailure = failureClassifier.classify(exception);
+                if (!classifiedFailure.retryable()) {
+                    break;
+                }
                 if (attempt < properties.getMaxAttempts()) {
                     metrics.recordRetry();
                 }
@@ -71,7 +78,7 @@ public class ItineraryGenerationWorkerService {
         boolean failed = persistenceService.markFailed(
                 message.generationId(),
                 claimVersion,
-                safeFailureReason(lastFailure)
+                classifiedFailure.reason()
         );
         if (failed) {
             throw lastFailure;
@@ -85,10 +92,4 @@ public class ItineraryGenerationWorkerService {
         }
     }
 
-    private String safeFailureReason(RuntimeException exception) {
-        if (exception instanceof PlanMateException planMateException) {
-            return planMateException.code();
-        }
-        return exception.getClass().getSimpleName();
-    }
 }

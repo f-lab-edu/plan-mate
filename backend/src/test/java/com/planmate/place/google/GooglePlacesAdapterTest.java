@@ -9,6 +9,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withResourceNotFound;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.planmate.place.api.GeoPoint;
@@ -19,6 +20,8 @@ import com.planmate.place.api.PlaceTextSearchQuery;
 import com.planmate.place.api.PlaceTextSearchResult;
 import com.planmate.place.api.ResolvedPlace;
 import com.planmate.place.api.exception.InvalidPlaceIdException;
+import com.planmate.place.api.exception.PlaceProviderConfigurationException;
+import com.planmate.place.api.exception.PlaceProviderRequestRejectedException;
 import com.planmate.place.api.exception.PlaceProviderUnavailableException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -26,6 +29,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.util.StreamUtils;
@@ -249,6 +253,56 @@ class GooglePlacesAdapterTest {
         assertThatThrownBy(() -> service.autocompleteAccommodation("Dormy Inn", "place-kyoto", "ko"))
                 .isInstanceOf(PlaceProviderUnavailableException.class);
         server.verify();
+    }
+
+    @Test
+    void searchTextClassifiesRateLimitAndServerErrorsAsProviderUnavailable() {
+        for (HttpStatus status : List.of(
+                HttpStatus.REQUEST_TIMEOUT,
+                HttpStatus.TOO_MANY_REQUESTS,
+                HttpStatus.INTERNAL_SERVER_ERROR
+        )) {
+            RestClient.Builder builder = RestClient.builder();
+            MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+            GooglePlacesAdapter service = new GooglePlacesAdapter(builder, "test-key", 30000);
+            server.expect(requestTo(containsString("/places:searchText")))
+                    .andRespond(withStatus(status));
+
+            assertThatThrownBy(() -> service.searchText(textSearchQuery()))
+                    .isInstanceOf(PlaceProviderUnavailableException.class);
+            server.verify();
+        }
+    }
+
+    @Test
+    void searchTextClassifiesNonRateLimitClientErrorAsRejectedRequest() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GooglePlacesAdapter service = new GooglePlacesAdapter(builder, "test-key", 30000);
+        server.expect(requestTo(containsString("/places:searchText")))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST));
+
+        assertThatThrownBy(() -> service.searchText(textSearchQuery()))
+                .isInstanceOf(PlaceProviderRequestRejectedException.class);
+        server.verify();
+    }
+
+    @Test
+    void searchTextClassifiesMissingApiKeyAsConfigurationFailure() {
+        GooglePlacesAdapter service = new GooglePlacesAdapter(RestClient.builder(), " ", 30000);
+
+        assertThatThrownBy(() -> service.searchText(textSearchQuery()))
+                .isInstanceOf(PlaceProviderConfigurationException.class);
+    }
+
+    private PlaceTextSearchQuery textSearchQuery() {
+        return new PlaceTextSearchQuery(
+                "Kyoto attractions",
+                "ko",
+                20,
+                PlaceSearchArea.circle(new GeoPoint(35.0, 135.0)),
+                null
+        );
     }
 
     private String fixture(String path) throws IOException {
