@@ -88,4 +88,31 @@ class AiItineraryValidationReportTest {
         assertThat(json.get("unverifiedConditions").isArray()).isTrue();
         assertThat(json.get("unverifiedConditions")).isEmpty();
     }
+
+    @Test
+    void serializesConditionOnlyForAvoidIssues() throws Exception {
+        AiItineraryValidationReport report = new AiItineraryValidationReport(
+                List.of(ValidationIssue.forCondition(
+                        ValidationIssueCode.AVOID_CONDITION_VIOLATED,
+                        "days[0].items[0].placeId",
+                        1,
+                        1,
+                        "mall",
+                        "SHOPPING"
+                )),
+                List.of(ValidationIssue.of(
+                        ValidationIssueCode.REPEATED_PLACE,
+                        "days[1].items[0].placeId",
+                        2,
+                        1,
+                        "mall"
+                )),
+                List.of()
+        );
+
+        JsonNode json = objectMapper.readTree(objectMapper.writeValueAsString(report));
+
+        assertThat(json.get("errors").get(0).get("condition").asText()).isEqualTo("SHOPPING");
+        assertThat(json.get("warnings").get(0).has("condition")).isFalse();
+    }
 }

@@ -17,6 +17,9 @@ export type ValidationIssueCode =
   | 'ITEM_TIME_OVERLAP'
   | 'OUTSIDE_DAILY_WINDOW'
   | 'ITEM_CROSSES_DAY_BOUNDARY'
+  | 'REPEATED_PLACE'
+  | 'AVOID_CONDITION_VIOLATED'
+  | 'AVOID_CONDITION_NOT_VERIFIED'
 
 export type ValidationTarget = {
   path?: string
@@ -28,6 +31,7 @@ export type ValidationTarget = {
 export type ValidationIssue = ValidationTarget & {
   code: ValidationIssueCode
   message: string
+  condition?: string
   relatedTargets: ValidationTarget[]
 }
 
@@ -56,6 +60,9 @@ const VALIDATION_ISSUE_CODES: Set<string> = new Set([
   'ITEM_TIME_OVERLAP',
   'OUTSIDE_DAILY_WINDOW',
   'ITEM_CROSSES_DAY_BOUNDARY',
+  'REPEATED_PLACE',
+  'AVOID_CONDITION_VIOLATED',
+  'AVOID_CONDITION_NOT_VERIFIED',
 ])
 
 export function parseAiItineraryValidationReport(value: unknown): AiItineraryValidationReport | undefined {
@@ -97,6 +104,7 @@ function parseIssue(value: unknown): ValidationIssue | undefined {
   return {
     code: value.code as ValidationIssueCode,
     message: value.message,
+    ...(typeof value.condition === 'string' ? { condition: value.condition } : {}),
     ...parseTargetFields(value),
     relatedTargets,
   }

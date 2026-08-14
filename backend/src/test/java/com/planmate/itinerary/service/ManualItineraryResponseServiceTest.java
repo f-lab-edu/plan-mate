@@ -50,7 +50,11 @@ class ManualItineraryResponseServiceTest {
     private final GenerationInputSnapshotStore generationInputSnapshotStore = Mockito.mock(GenerationInputSnapshotStore.class);
     private final GenerationCandidateSnapshotStore generationCandidateSnapshotStore = Mockito.mock(GenerationCandidateSnapshotStore.class);
     private final AiItineraryDraftValidationService aiItineraryDraftValidationService =
-            new AiItineraryDraftValidationService(new AiItineraryTimeValidationRule());
+            new AiItineraryDraftValidationService(
+                    new AiItineraryTimeValidationRule(),
+                    new AiItineraryAvoidConditionValidationRule(),
+                    new AiItineraryRepeatedPlaceValidationRule()
+            );
     private final AiItineraryDraftNormalizer aiItineraryDraftNormalizer = new AiItineraryDraftNormalizer();
     private final ItineraryGenerationRepository generationRepository = Mockito.mock(ItineraryGenerationRepository.class);
     private final ItineraryRepository itineraryRepository = Mockito.mock(ItineraryRepository.class);

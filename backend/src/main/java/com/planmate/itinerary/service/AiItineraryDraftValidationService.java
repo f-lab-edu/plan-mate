@@ -22,9 +22,17 @@ import org.springframework.util.StringUtils;
 public class AiItineraryDraftValidationService {
 
     private final AiItineraryTimeValidationRule timeValidationRule;
+    private final AiItineraryAvoidConditionValidationRule avoidConditionValidationRule;
+    private final AiItineraryRepeatedPlaceValidationRule repeatedPlaceValidationRule;
 
-    public AiItineraryDraftValidationService(AiItineraryTimeValidationRule timeValidationRule) {
+    public AiItineraryDraftValidationService(
+            AiItineraryTimeValidationRule timeValidationRule,
+            AiItineraryAvoidConditionValidationRule avoidConditionValidationRule,
+            AiItineraryRepeatedPlaceValidationRule repeatedPlaceValidationRule
+    ) {
         this.timeValidationRule = timeValidationRule;
+        this.avoidConditionValidationRule = avoidConditionValidationRule;
+        this.repeatedPlaceValidationRule = repeatedPlaceValidationRule;
     }
 
     public AiItineraryValidationReport validate(
@@ -55,6 +63,18 @@ public class AiItineraryDraftValidationService {
             default -> throw new ItineraryException(ItineraryErrorCode.UNSUPPORTED_PROMPT_VERSION);
         }
         builder.errors(timeValidationRule.validate(promptVersion, inputSnapshot, structure.items()));
+        if (ItineraryPromptService.VERSION_V2.equals(promptVersion)) {
+            AiItineraryAvoidConditionValidationRule.Result avoidResult = avoidConditionValidationRule.validate(
+                    inputSnapshot,
+                    candidates,
+                    structure.items()
+            );
+            builder.errors(avoidResult.errors());
+            repeatedPlaceValidationRule.validate(structure.items()).forEach(builder::warning);
+            avoidResult.unverifiedConditions().forEach(builder::unverifiedCondition);
+        } else {
+            repeatedPlaceValidationRule.validate(structure.items()).forEach(builder::warning);
+        }
         return builder.build();
     }
 

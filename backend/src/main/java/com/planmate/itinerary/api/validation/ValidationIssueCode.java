@@ -55,6 +55,15 @@ public enum ValidationIssueCode {
     ),
     ITEM_CROSSES_DAY_BOUNDARY(
             "Itinerary item must not continue past the end of the day."
+    ),
+    REPEATED_PLACE(
+            "The same place appears multiple times in the itinerary."
+    ),
+    AVOID_CONDITION_VIOLATED(
+            "The itinerary includes a place that violates an avoid condition."
+    ),
+    AVOID_CONDITION_NOT_VERIFIED(
+            "The avoid condition could not be verified with the available data."
     );
 
     private final String defaultMessage;

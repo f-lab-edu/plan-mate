@@ -25,7 +25,11 @@ import org.springframework.http.HttpStatus;
 class AiItineraryDraftValidationServiceTest {
 
     private final AiItineraryDraftValidationService validationService =
-            new AiItineraryDraftValidationService(new AiItineraryTimeValidationRule());
+            new AiItineraryDraftValidationService(
+                    new AiItineraryTimeValidationRule(),
+                    new AiItineraryAvoidConditionValidationRule(),
+                    new AiItineraryRepeatedPlaceValidationRule()
+            );
 
     @Test
     void acceptsV1DraftWithoutCandidateSnapshotsAndWithoutWhitelist() {
@@ -39,6 +43,23 @@ class AiItineraryDraftValidationServiceTest {
 
         assertThat(report.canPersist()).isTrue();
         assertThat(report.errors()).isEmpty();
+    }
+
+    @Test
+    void appliesRepeatedPlaceWarningButSkipsAvoidConditionsForV1() {
+        AiItineraryValidationReport report = validationService.validate(
+                10L,
+                ItineraryPromptService.VERSION_V1,
+                inputSnapshot(List.of(), List.of("SHOPPING", "LONG_WALK")),
+                List.of(),
+                draft(" place-1 ", "place-1")
+        );
+
+        assertThat(report.errors()).isEmpty();
+        assertThat(report.warnings()).extracting(ValidationIssue::code)
+                .containsExactly(ValidationIssueCode.REPEATED_PLACE);
+        assertThat(report.unverifiedConditions()).isEmpty();
+        assertThat(report.canPersist()).isTrue();
     }
 
     @Test
@@ -75,6 +96,51 @@ class AiItineraryDraftValidationServiceTest {
         assertThat(report.hasErrors()).isFalse();
         assertThat(report.warnings()).isEmpty();
         assertThat(report.unverifiedConditions()).isEmpty();
+    }
+
+    @Test
+    void forcedMustVisitRepeatedPlaceStillCreatesWarning() {
+        AiItineraryValidationReport report = validationService.validate(
+                10L,
+                ItineraryPromptService.VERSION_V2,
+                inputSnapshot(List.of()),
+                List.of(candidate(1, "place-1", true)),
+                draft("place-1", "place-1")
+        );
+
+        assertThat(report.errors()).isEmpty();
+        assertThat(report.warnings()).extracting(ValidationIssue::code)
+                .containsExactly(ValidationIssueCode.REPEATED_PLACE);
+        assertThat(report.canPersist()).isTrue();
+    }
+
+    @Test
+    void collectsV2AvoidErrorsAfterTimeErrorsAndUnverifiedConditionsSeparately() {
+        GenerationCandidateSnapshot shopping = new GenerationCandidateSnapshot(
+                1, "place-1", "Mall", "Address",
+                new GenerationCandidateSnapshot.Location(35.0, 135.0),
+                "shopping_mall", List.of("shopping_mall"), "OPERATIONAL",
+                4.5, 100, List.of(), List.of(), false, 100.0, 42.5
+        );
+        AiItineraryValidationReport report = validationService.validate(
+                10L,
+                ItineraryPromptService.VERSION_V2,
+                inputSnapshot(List.of(), List.of("SHOPPING", "LONG_WALK")),
+                List.of(shopping, candidate(2, "place-2", false)),
+                new AiItineraryDraft("10", List.of(
+                        day(1, item(1, "place-1", "07:00", 60)),
+                        day(2, item(1, "place-2"))
+                ))
+        );
+
+        assertThat(report.errors()).extracting(ValidationIssue::code)
+                .containsExactly(
+                        ValidationIssueCode.OUTSIDE_DAILY_WINDOW,
+                        ValidationIssueCode.AVOID_CONDITION_VIOLATED
+                );
+        assertThat(report.errors().get(1).condition()).isEqualTo("SHOPPING");
+        assertThat(report.unverifiedConditions()).extracting(ValidationIssue::condition)
+                .containsExactly("LONG_WALK");
     }
 
     @Test
@@ -463,7 +529,14 @@ class AiItineraryDraftValidationServiceTest {
     }
 
     private GenerationInputSnapshot inputSnapshot(List<GenerationInputSnapshot.MustVisitPlace> mustVisitPlaces) {
-        return inputSnapshotWithWindow(mustVisitPlaces, LocalTime.of(8, 0), LocalTime.of(20, 0));
+        return inputSnapshot(mustVisitPlaces, List.of());
+    }
+
+    private GenerationInputSnapshot inputSnapshot(
+            List<GenerationInputSnapshot.MustVisitPlace> mustVisitPlaces,
+            List<String> avoidConditions
+    ) {
+        return inputSnapshotWithWindow(mustVisitPlaces, avoidConditions, LocalTime.of(8, 0), LocalTime.of(20, 0));
     }
 
     private GenerationInputSnapshot inputSnapshotWithWindow(LocalTime dailyStartTime, LocalTime dailyEndTime) {
@@ -472,6 +545,15 @@ class AiItineraryDraftValidationServiceTest {
 
     private GenerationInputSnapshot inputSnapshotWithWindow(
             List<GenerationInputSnapshot.MustVisitPlace> mustVisitPlaces,
+            LocalTime dailyStartTime,
+            LocalTime dailyEndTime
+    ) {
+        return inputSnapshotWithWindow(mustVisitPlaces, List.of(), dailyStartTime, dailyEndTime);
+    }
+
+    private GenerationInputSnapshot inputSnapshotWithWindow(
+            List<GenerationInputSnapshot.MustVisitPlace> mustVisitPlaces,
+            List<String> avoidConditions,
             LocalTime dailyStartTime,
             LocalTime dailyEndTime
     ) {
@@ -497,7 +579,7 @@ class AiItineraryDraftValidationServiceTest {
                 dailyStartTime,
                 dailyEndTime,
                 mustVisitPlaces,
-                List.of(),
+                avoidConditions,
                 null
         );
     }
