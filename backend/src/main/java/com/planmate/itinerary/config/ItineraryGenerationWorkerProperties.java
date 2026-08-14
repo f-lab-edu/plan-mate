@@ -1,5 +1,6 @@
 package com.planmate.itinerary.config;
 
+import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +16,7 @@ public class ItineraryGenerationWorkerProperties {
     private String deadLetterExchange = "planmate.itinerary.dlx";
     private String deadLetterQueue = "planmate.itinerary.generation.requested.dlq";
     private String deadLetterRoutingKey = "itinerary.generation.requested.dlq";
+    private Duration processingLease = Duration.ofMinutes(15);
 
     public boolean isEnabled() {
         return enabled;
@@ -78,5 +80,16 @@ public class ItineraryGenerationWorkerProperties {
 
     public void setDeadLetterRoutingKey(String deadLetterRoutingKey) {
         this.deadLetterRoutingKey = deadLetterRoutingKey;
+    }
+
+    public Duration getProcessingLease() {
+        return processingLease;
+    }
+
+    public void setProcessingLease(Duration processingLease) {
+        if (processingLease == null || processingLease.isZero() || processingLease.isNegative()) {
+            throw new IllegalArgumentException("processingLease must be positive");
+        }
+        this.processingLease = processingLease;
     }
 }

@@ -134,6 +134,7 @@ app:
     generation-worker:
       enabled: ${APP_ITINERARY_GENERATION_WORKER_ENABLED:true}
       max-attempts: ${APP_ITINERARY_GENERATION_WORKER_MAX_ATTEMPTS:3}
+      processing-lease: ${APP_ITINERARY_GENERATION_WORKER_PROCESSING_LEASE:15m}
       exchange: ${APP_ITINERARY_GENERATION_EXCHANGE:planmate.itinerary}
       queue: ${APP_ITINERARY_GENERATION_QUEUE:planmate.itinerary.generation.requested}
       routing-key: ${APP_ITINERARY_GENERATION_ROUTING_KEY:itinerary.generation.requested}

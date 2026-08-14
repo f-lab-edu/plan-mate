@@ -27,34 +27,39 @@ public class ItineraryGenerationWorkerService {
         this.metrics = metrics;
     }
 
-    public void process(ItineraryGenerationRequestedMessage message) {
+    public void process(ItineraryGenerationRequestedMessage message, boolean redelivered) {
         Timer.Sample sample = metrics.start();
         String result = ItineraryGenerationWorkerMetrics.RESULT_FAILED;
         try {
             validate(message);
-            boolean shouldProcess = persistenceService.markCollectingIfCreated(
-                    message.userId(),
+            ItineraryGenerationPersistenceService.CollectionClaim claim = persistenceService.claimCollection(
                     message.tripId(),
-                    message.generationId()
+                    message.generationId(),
+                    redelivered,
+                    properties.getProcessingLease()
             );
-            if (!shouldProcess) {
+            if (!claim.claimed()) {
                 result = ItineraryGenerationWorkerMetrics.RESULT_SKIPPED;
                 return;
             }
 
-            collectCandidatesWithRetry(message);
-            result = ItineraryGenerationWorkerMetrics.RESULT_SUCCESS;
+            result = collectCandidatesWithRetry(message, claim.claimVersion())
+                    ? ItineraryGenerationWorkerMetrics.RESULT_SUCCESS
+                    : ItineraryGenerationWorkerMetrics.RESULT_SKIPPED;
         } finally {
             metrics.recordProcessed(result, sample);
         }
     }
 
-    private void collectCandidatesWithRetry(ItineraryGenerationRequestedMessage message) {
+    public void process(ItineraryGenerationRequestedMessage message) {
+        process(message, false);
+    }
+
+    private boolean collectCandidatesWithRetry(ItineraryGenerationRequestedMessage message, long claimVersion) {
         RuntimeException lastFailure = null;
         for (int attempt = 1; attempt <= properties.getMaxAttempts(); attempt++) {
             try {
-                generationService.collectCandidates(message.userId(), message.tripId(), message.generationId());
-                return;
+                return generationService.collectCandidates(message.tripId(), message.generationId(), claimVersion);
             } catch (RuntimeException exception) {
                 lastFailure = exception;
                 if (attempt < properties.getMaxAttempts()) {
@@ -63,13 +68,20 @@ public class ItineraryGenerationWorkerService {
             }
         }
 
-        persistenceService.markFailed(message.generationId(), safeFailureReason(lastFailure));
-        throw lastFailure;
+        boolean failed = persistenceService.markFailed(
+                message.generationId(),
+                claimVersion,
+                safeFailureReason(lastFailure)
+        );
+        if (failed) {
+            throw lastFailure;
+        }
+        return false;
     }
 
     private void validate(ItineraryGenerationRequestedMessage message) {
-        if (message.generationId() == null || message.tripId() == null || message.userId() == null) {
-            throw new IllegalArgumentException("itinerary generation message must include generationId, tripId, and userId");
+        if (message.generationId() == null || message.tripId() == null) {
+            throw new IllegalArgumentException("itinerary generation message must include generationId and tripId");
         }
     }
 

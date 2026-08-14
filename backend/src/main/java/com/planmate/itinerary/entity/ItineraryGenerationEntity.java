@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Duration;
 import java.time.Instant;
 
 @Entity
@@ -38,6 +39,12 @@ public class ItineraryGenerationEntity {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "collection_claim_version", nullable = false)
+    private long collectionClaimVersion;
+
+    @Column(name = "collection_lease_expires_at")
+    private Instant collectionLeaseExpiresAt;
+
     protected ItineraryGenerationEntity() {
     }
 
@@ -58,6 +65,28 @@ public class ItineraryGenerationEntity {
         status = ItineraryGenerationStatus.COLLECTING_CANDIDATES;
         failureReason = null;
         updatedAt = now;
+    }
+
+    public long claimCollection(Instant now, Duration leaseDuration, boolean redelivered) {
+        if (status == ItineraryGenerationStatus.CREATED) {
+            markCollecting(now);
+        } else if (status != ItineraryGenerationStatus.COLLECTING_CANDIDATES
+                || (!redelivered && hasValidCollectionLease(now))) {
+            return -1L;
+        }
+        collectionClaimVersion++;
+        collectionLeaseExpiresAt = now.plus(leaseDuration);
+        updatedAt = now;
+        return collectionClaimVersion;
+    }
+
+    public boolean ownsCollectionClaim(long claimVersion) {
+        return status == ItineraryGenerationStatus.COLLECTING_CANDIDATES
+                && collectionClaimVersion == claimVersion;
+    }
+
+    private boolean hasValidCollectionLease(Instant now) {
+        return collectionLeaseExpiresAt != null && collectionLeaseExpiresAt.isAfter(now);
     }
 
     public void markReady(Instant now) {
@@ -125,5 +154,13 @@ public class ItineraryGenerationEntity {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public long getCollectionClaimVersion() {
+        return collectionClaimVersion;
+    }
+
+    public Instant getCollectionLeaseExpiresAt() {
+        return collectionLeaseExpiresAt;
     }
 }

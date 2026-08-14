@@ -90,26 +90,37 @@ public class ItineraryGenerationPersistenceService {
     }
 
     @Transactional
-    public boolean markCollectingIfCreated(Long userId, Long tripId, Long generationId) {
-        tripAccessChecker.checkAccessible(userId, tripId);
+    public CollectionClaim claimCollection(
+            Long tripId,
+            Long generationId,
+            boolean redelivered,
+            java.time.Duration processingLease
+    ) {
         ItineraryGenerationEntity generation = generationRepository.findWithLockById(generationId)
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
         if (!generationBelongsToTrip(generation, tripId)) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
-        if (generation.getStatus() != ItineraryGenerationStatus.CREATED) {
-            return false;
-        }
         ItineraryGenerationStatus previousStatus = generation.getStatus();
         Instant now = Instant.now(clock);
-        generation.markCollecting(now);
-        publishStatusChanged(tripId, generation, previousStatus, 0);
-        return true;
+        long claimVersion = generation.claimCollection(now, processingLease, redelivered);
+        if (claimVersion < 0) {
+            return CollectionClaim.notClaimed();
+        }
+        if (previousStatus == ItineraryGenerationStatus.CREATED) {
+            publishStatusChanged(tripId, generation, previousStatus, 0);
+        }
+        return CollectionClaim.claimed(claimVersion);
+    }
+
+    @Transactional
+    public boolean markCollectingIfCreated(Long userId, Long tripId, Long generationId) {
+        tripAccessChecker.checkAccessible(userId, tripId);
+        return claimCollection(tripId, generationId, false, java.time.Duration.ofMinutes(15)).claimed();
     }
 
     @Transactional(readOnly = true)
-    public GenerationCollectionContext loadCollectionContext(Long userId, Long tripId, Long generationId) {
-        tripAccessChecker.checkAccessible(userId, tripId);
+    public GenerationCollectionContext loadCollectionContext(Long tripId, Long generationId) {
         ItineraryGenerationEntity generation = generationRepository.findById(generationId)
                 .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
         if (!generationBelongsToTrip(generation, tripId)) {
@@ -120,9 +131,19 @@ public class ItineraryGenerationPersistenceService {
         return new GenerationCollectionContext(generation.getId(), snapshot);
     }
 
+    @Transactional(readOnly = true)
+    public GenerationCollectionContext loadCollectionContext(Long userId, Long tripId, Long generationId) {
+        tripAccessChecker.checkAccessible(userId, tripId);
+        return loadCollectionContext(tripId, generationId);
+    }
+
     @Transactional
-    public void markFailed(Long generationId, String safeReason) {
-        ItineraryGenerationEntity generation = findGeneration(generationId);
+    public boolean markFailed(Long generationId, long claimVersion, String safeReason) {
+        ItineraryGenerationEntity generation = generationRepository.findWithLockById(generationId)
+                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
+        if (!generation.ownsCollectionClaim(claimVersion)) {
+            return false;
+        }
         ItineraryGenerationStatus previousStatus = generation.getStatus();
         generation.markFailed(safeReason, Instant.now(clock));
         long candidateCount = generationCandidateSnapshotStore.countByGenerationId(generationId);
@@ -132,6 +153,40 @@ public class ItineraryGenerationPersistenceService {
                 previousStatus,
                 candidateCount
         );
+        return true;
+    }
+
+    @Transactional
+    public void markFailed(Long generationId, String safeReason) {
+        ItineraryGenerationEntity generation = findGeneration(generationId);
+        ItineraryGenerationStatus previousStatus = generation.getStatus();
+        generation.markFailed(safeReason, Instant.now(clock));
+        long candidateCount = generationCandidateSnapshotStore.countByGenerationId(generationId);
+        publishStatusChanged(generation.getTripId(), generation, previousStatus, candidateCount);
+    }
+
+    @Transactional
+    public CandidateSaveResult saveCandidatesAndMarkReady(
+            Long generationId,
+            long claimVersion,
+            List<GenerationCandidateSnapshot> candidates
+    ) {
+        ItineraryGenerationEntity generation = generationRepository.findWithLockById(generationId)
+                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
+        if (!generation.ownsCollectionClaim(claimVersion)) {
+            return CandidateSaveResult.stale();
+        }
+
+        List<GenerationCandidateSnapshot> safeCandidates = candidates == null
+                ? List.of()
+                : List.copyOf(candidates);
+        validateCandidates(safeCandidates);
+
+        ItineraryGenerationStatus previousStatus = generation.getStatus();
+        int candidateCount = generationCandidateSnapshotStore.replaceAll(generation, safeCandidates);
+        generation.markReady(Instant.now(clock));
+        publishStatusChanged(generation.getTripId(), generation, previousStatus, candidateCount);
+        return CandidateSaveResult.applied(candidateCount);
     }
 
     @Transactional
@@ -144,20 +199,11 @@ public class ItineraryGenerationPersistenceService {
         if (generation.getStatus() == ItineraryGenerationStatus.READY_FOR_PLANNING) {
             return Math.toIntExact(generationCandidateSnapshotStore.countByGenerationId(generationId));
         }
-        if (generation.getStatus() != ItineraryGenerationStatus.COLLECTING_CANDIDATES) {
-            throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_READY);
-        }
-
-        List<GenerationCandidateSnapshot> safeCandidates = candidates == null
-                ? List.of()
-                : List.copyOf(candidates);
-        validateCandidates(safeCandidates);
-
-        ItineraryGenerationStatus previousStatus = generation.getStatus();
-        int candidateCount = generationCandidateSnapshotStore.replaceAll(generation, safeCandidates);
-        generation.markReady(Instant.now(clock));
-        publishStatusChanged(generation.getTripId(), generation, previousStatus, candidateCount);
-        return candidateCount;
+        return saveCandidatesAndMarkReady(
+                generationId,
+                generation.getCollectionClaimVersion(),
+                candidates
+        ).candidateCount();
     }
 
     @Transactional(readOnly = true)
@@ -321,6 +367,26 @@ public class ItineraryGenerationPersistenceService {
             Long generationId,
             GenerationInputSnapshot snapshot
     ) {
+    }
+
+    public record CollectionClaim(boolean claimed, long claimVersion) {
+        static CollectionClaim claimed(long claimVersion) {
+            return new CollectionClaim(true, claimVersion);
+        }
+
+        static CollectionClaim notClaimed() {
+            return new CollectionClaim(false, 0L);
+        }
+    }
+
+    public record CandidateSaveResult(boolean applied, int candidateCount) {
+        static CandidateSaveResult applied(int candidateCount) {
+            return new CandidateSaveResult(true, candidateCount);
+        }
+
+        static CandidateSaveResult stale() {
+            return new CandidateSaveResult(false, 0);
+        }
     }
 
     public record AiRequestContext(

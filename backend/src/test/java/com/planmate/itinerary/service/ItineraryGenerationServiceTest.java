@@ -77,19 +77,22 @@ class ItineraryGenerationServiceTest {
         CandidateRecommendationRequest request = request();
         RecommendedPlaceCandidate recommended = recommendedCandidate(1, "place-1");
         GenerationCandidateSnapshot candidateSnapshot = candidateSnapshot(1, "place-1");
-        given(persistenceService.loadCollectionContext(7L, 45L, 123L))
+        given(persistenceService.loadCollectionContext(45L, 123L))
                 .willReturn(new ItineraryGenerationPersistenceService.GenerationCollectionContext(123L, snapshot));
         given(candidateRecommendationRequestMapper.map(snapshot)).willReturn(request);
         given(candidateRecommender.recommend(request)).willReturn(List.of(recommended));
         given(generationCandidateSnapshotMapper.map(recommended)).willReturn(candidateSnapshot);
 
-        service.collectCandidates(7L, 45L, 123L);
+        given(persistenceService.saveCandidatesAndMarkReady(123L, 7L, List.of(candidateSnapshot)))
+                .willReturn(ItineraryGenerationPersistenceService.CandidateSaveResult.applied(1));
 
-        verify(persistenceService).loadCollectionContext(7L, 45L, 123L);
+        assertThat(service.collectCandidates(45L, 123L, 7L)).isTrue();
+
+        verify(persistenceService).loadCollectionContext(45L, 123L);
         verify(candidateRecommendationRequestMapper).map(snapshot);
         verify(candidateRecommender).recommend(request);
         verify(generationCandidateSnapshotMapper).map(recommended);
-        verify(persistenceService).saveCandidatesAndMarkReady(123L, List.of(candidateSnapshot));
+        verify(persistenceService).saveCandidatesAndMarkReady(123L, 7L, List.of(candidateSnapshot));
     }
 
     private ItineraryGenerationEntity generation(Long generationId, Long tripId) {

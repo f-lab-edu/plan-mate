@@ -44,15 +44,15 @@ public class ItineraryGenerationService {
         );
     }
 
-    public void collectCandidates(Long userId, Long tripId, Long generationId) {
+    public boolean collectCandidates(Long tripId, Long generationId, long claimVersion) {
         ItineraryGenerationPersistenceService.GenerationCollectionContext context =
-                persistenceService.loadCollectionContext(userId, tripId, generationId);
+                persistenceService.loadCollectionContext(tripId, generationId);
         CandidateRecommendationRequest request = candidateRecommendationRequestMapper.map(context.snapshot());
         List<RecommendedPlaceCandidate> recommendedCandidates = candidateRecommender.recommend(request);
         List<GenerationCandidateSnapshot> snapshots = recommendedCandidates.stream()
                 .map(generationCandidateSnapshotMapper::map)
                 .toList();
-        persistenceService.saveCandidatesAndMarkReady(generationId, snapshots);
+        return persistenceService.saveCandidatesAndMarkReady(generationId, claimVersion, snapshots).applied();
     }
 
     public ItineraryGenerationDetailResponse getDetail(Long userId, Long tripId, Long generationId) {

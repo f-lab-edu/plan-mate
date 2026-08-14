@@ -22,6 +22,7 @@ import com.planmate.trip.api.TripAccessChecker;
 import com.planmate.trip.api.TripPlanningSnapshot;
 import com.planmate.trip.api.TripPlanningSnapshotReader;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -383,6 +384,52 @@ class ItineraryGenerationPersistenceServiceTest {
         assertThatThrownBy(() -> service.loadAiRequestContext(7L, 46L, 123L))
                 .isInstanceOf(ItineraryException.class)
                 .hasMessage("Itinerary generation not found.");
+    }
+
+    @Test
+    void staleClaimCannotStoreCandidatesOrMarkReady() {
+        ItineraryGenerationEntity generation = generation(123L, 45L);
+        long firstClaim = generation.claimCollection(NOW, Duration.ofMinutes(15), false);
+        generation.claimCollection(NOW.plusSeconds(1), Duration.ofMinutes(15), true);
+        given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
+
+        ItineraryGenerationPersistenceService.CandidateSaveResult result =
+                service.saveCandidatesAndMarkReady(123L, firstClaim, List.of(candidate(1, "place-1")));
+
+        assertThat(result.applied()).isFalse();
+        assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.COLLECTING_CANDIDATES);
+        verifyNoInteractions(generationCandidateSnapshotStore, eventPublisher);
+    }
+
+    @Test
+    void staleClaimCannotMarkGenerationFailed() {
+        ItineraryGenerationEntity generation = generation(123L, 45L);
+        long firstClaim = generation.claimCollection(NOW, Duration.ofMinutes(15), false);
+        generation.claimCollection(NOW.plusSeconds(1), Duration.ofMinutes(15), true);
+        given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
+
+        boolean failed = service.markFailed(123L, firstClaim, "provider failure");
+
+        assertThat(failed).isFalse();
+        assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.COLLECTING_CANDIDATES);
+        verifyNoInteractions(generationCandidateSnapshotStore, eventPublisher);
+    }
+
+    @Test
+    void currentClaimStoresSingleCandidateSetAndMarksReady() {
+        ItineraryGenerationEntity generation = generation(123L, 45L);
+        long claimVersion = generation.claimCollection(NOW, Duration.ofMinutes(15), false);
+        GenerationCandidateSnapshot candidate = candidate(1, "place-1");
+        given(generationRepository.findWithLockById(123L)).willReturn(Optional.of(generation));
+        given(generationCandidateSnapshotStore.replaceAll(generation, List.of(candidate))).willReturn(1);
+
+        ItineraryGenerationPersistenceService.CandidateSaveResult result =
+                service.saveCandidatesAndMarkReady(123L, claimVersion, List.of(candidate));
+
+        assertThat(result).isEqualTo(new ItineraryGenerationPersistenceService.CandidateSaveResult(true, 1));
+        assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
+        verify(generationCandidateSnapshotStore).replaceAll(generation, List.of(candidate));
+        verify(eventPublisher).publishEvent(any(ItineraryGenerationStatusChangedEvent.class));
     }
 
     private ItineraryGenerationEntity generation(Long generationId, Long tripId) {
