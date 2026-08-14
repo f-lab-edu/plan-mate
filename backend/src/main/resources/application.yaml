@@ -110,6 +110,12 @@ management:
         include: health,info,prometheus
 
 app:
+  outbox:
+    retention:
+      enabled: ${APP_OUTBOX_RETENTION_ENABLED:true}
+      retention: ${APP_OUTBOX_RETENTION:7d}
+      cleanup-interval: ${APP_OUTBOX_CLEANUP_INTERVAL:1h}
+      batch-size: ${APP_OUTBOX_CLEANUP_BATCH_SIZE:1000}
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:[*],http://127.0.0.1:[*]}
   frontend:
