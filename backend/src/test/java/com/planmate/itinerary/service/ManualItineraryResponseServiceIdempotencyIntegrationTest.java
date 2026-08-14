@@ -13,6 +13,7 @@ import com.planmate.itinerary.exception.ItineraryErrorCode;
 import com.planmate.itinerary.exception.ItineraryException;
 import com.planmate.itinerary.api.event.ItineraryGenerationStatusChangedEvent;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
+import com.planmate.itinerary.route.RouteTravelTimePort;
 import com.planmate.trip.domain.AccommodationArea;
 import com.planmate.trip.domain.AccommodationMode;
 import com.planmate.trip.domain.AvoidCondition;
@@ -31,10 +32,12 @@ import com.planmate.trip.service.TripCreationPersistenceService;
 import com.planmate.user.entity.UserEntity;
 import com.planmate.user.repository.UserRepository;
 import java.time.Instant;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -42,13 +45,17 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @SpringBootTest
 @RecordApplicationEvents
@@ -81,8 +88,20 @@ class ManualItineraryResponseServiceIdempotencyIntegrationTest {
     @Autowired
     private ApplicationEvents applicationEvents;
 
+    @MockitoBean
+    private RouteTravelTimePort routeTravelTimePort;
+
     private final List<Long> tripIds = new ArrayList<>();
     private final List<Long> userIds = new ArrayList<>();
+
+    @BeforeEach
+    void setUpRouteProvider() {
+        Mockito.when(routeTravelTimePort.findRoute(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenAnswer(invocation -> {
+                    assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+                    return Optional.of(new RouteTravelTimePort.RouteTravelTime(Duration.ofMinutes(30), 1_000));
+                });
+    }
 
     @AfterEach
     void tearDown() {
@@ -121,6 +140,46 @@ class ManualItineraryResponseServiceIdempotencyIntegrationTest {
         assertThat(completedEventCount(fixture.generationId())).isEqualTo(1);
         assertThat(generationRepository.findById(fixture.generationId()).orElseThrow().getUpdatedAt())
                 .isEqualTo(completedUpdatedAt);
+    }
+
+    @Test
+    void validateAndSubmitCallRouteProviderOutsideTransaction() {
+        TripFixture fixture = createReadyGeneration();
+        AiItineraryDraft draft = draft(fixture.generationId(), "place-1", "place-2", "place-3");
+
+        assertThat(manualItineraryResponseService.validate(
+                fixture.userId(), fixture.tripId(), fixture.generationId(), draft
+        ).hasErrors()).isFalse();
+        manualItineraryResponseService.submit(
+                fixture.userId(), fixture.tripId(), fixture.generationId(), draft
+        );
+
+        Mockito.verify(routeTravelTimePort, Mockito.times(2))
+                .findRoute(Mockito.any(), Mockito.any(), Mockito.eq(RouteTravelTimePort.TravelMode.WALK));
+        assertThat(generationRepository.findById(fixture.generationId()).orElseThrow().getStatus())
+                .isEqualTo(ItineraryGenerationStatus.COMPLETED);
+    }
+
+    @Test
+    void routeProviderFailureKeepsGenerationReadyWithoutPersistenceOrEvent() {
+        TripFixture fixture = createReadyGeneration();
+        AiItineraryDraft draft = draft(fixture.generationId(), "place-1", "place-2", "place-3");
+        Mockito.when(routeTravelTimePort.findRoute(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenThrow(new ItineraryException(ItineraryErrorCode.ROUTE_PROVIDER_UNAVAILABLE));
+
+        assertThatThrownBy(() -> manualItineraryResponseService.submit(
+                fixture.userId(), fixture.tripId(), fixture.generationId(), draft
+        )).isInstanceOf(ItineraryException.class)
+                .satisfies(exception -> {
+                    ItineraryException itineraryException = (ItineraryException) exception;
+                    assertThat(itineraryException.code()).isEqualTo(ItineraryErrorCode.ROUTE_PROVIDER_UNAVAILABLE.code());
+                    assertThat(itineraryException.status().value()).isEqualTo(503);
+                });
+
+        assertThat(generationRepository.findById(fixture.generationId()).orElseThrow().getStatus())
+                .isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
+        assertThat(itineraryCount(fixture.generationId())).isZero();
+        assertThat(completedEventCount(fixture.generationId())).isZero();
     }
 
     @Test
@@ -293,7 +352,7 @@ class ManualItineraryResponseServiceIdempotencyIntegrationTest {
                 new TripCreateRequest.CompanionRequest(2, CompanionType.FRIENDS, false, 0, null, false, 0),
                 new TripCreateRequest.BudgetRequest(CurrencyCode.KRW, 1_000_000L, BudgetLevel.BALANCED, List.of(BudgetItem.FOOD)),
                 new TripCreateRequest.PreferenceRequest(TravelPace.BALANCED, List.of(TripInterest.FOOD)),
-                new TripCreateRequest.TransportationRequest(TransportMode.PUBLIC_TRANSIT, List.of(TransportMode.WALK)),
+                new TripCreateRequest.TransportationRequest(TransportMode.WALK, List.of()),
                 new TripCreateRequest.AccommodationRequest(AccommodationMode.UNDECIDED, AccommodationArea.TRANSIT, null, null, null),
                 new TripCreateRequest.SchedulePreferenceRequest(LocalTime.of(8, 0), LocalTime.of(20, 0)),
                 new TripCreateRequest.AdditionalRequest(List.of(), List.of(AvoidCondition.LONG_WALK), null)

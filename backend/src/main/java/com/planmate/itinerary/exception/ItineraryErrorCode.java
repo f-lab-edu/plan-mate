@@ -29,7 +29,11 @@ public enum ItineraryErrorCode implements ErrorCode {
     INVALID_AI_RESPONSE(HttpStatus.BAD_REQUEST, "INVALID_AI_RESPONSE", "Invalid itinerary response."),
     AI_RESPONSE_VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "AI_RESPONSE_VALIDATION_FAILED", "AI itinerary draft validation failed."),
     PLANNING_PROFILE_NOT_FOUND(HttpStatus.CONFLICT, "PLANNING_PROFILE_NOT_FOUND", "Trip planning profile not found."),
-    DESTINATION_NOT_RESOLVED(HttpStatus.CONFLICT, "DESTINATION_NOT_RESOLVED", "Trip destination has not been resolved.");
+    DESTINATION_NOT_RESOLVED(HttpStatus.CONFLICT, "DESTINATION_NOT_RESOLVED", "Trip destination has not been resolved."),
+    ROUTE_PROVIDER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "ROUTE_PROVIDER_UNAVAILABLE", "Route provider is unavailable."),
+    ROUTE_PROVIDER_REQUEST_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "ROUTE_PROVIDER_REQUEST_FAILED", "Route provider request failed."),
+    ROUTE_TRANSPORT_MODE_UNSUPPORTED(HttpStatus.INTERNAL_SERVER_ERROR, "ROUTE_TRANSPORT_MODE_UNSUPPORTED", "Route transport mode is unsupported."),
+    GENERATION_CANDIDATE_LOCATION_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "GENERATION_CANDIDATE_LOCATION_INVALID", "Itinerary generation candidate location is invalid.");
 
     private final HttpStatus status;
     private final String code;

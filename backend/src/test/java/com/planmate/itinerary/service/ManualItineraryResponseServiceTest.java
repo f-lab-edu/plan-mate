@@ -29,8 +29,10 @@ import com.planmate.itinerary.repository.ItineraryDayRepository;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.itinerary.repository.ItineraryItemRepository;
 import com.planmate.itinerary.repository.ItineraryRepository;
+import com.planmate.itinerary.route.RouteTravelTimePort;
 import com.planmate.trip.api.TripAccessChecker;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -49,11 +51,13 @@ class ManualItineraryResponseServiceTest {
     private final TripAccessChecker tripAccessChecker = Mockito.mock(TripAccessChecker.class);
     private final GenerationInputSnapshotStore generationInputSnapshotStore = Mockito.mock(GenerationInputSnapshotStore.class);
     private final GenerationCandidateSnapshotStore generationCandidateSnapshotStore = Mockito.mock(GenerationCandidateSnapshotStore.class);
+    private final RouteTravelTimePort routeTravelTimePort = Mockito.mock(RouteTravelTimePort.class);
     private final AiItineraryDraftValidationService aiItineraryDraftValidationService =
             new AiItineraryDraftValidationService(
                     new AiItineraryTimeValidationRule(),
                     new AiItineraryAvoidConditionValidationRule(),
-                    new AiItineraryRepeatedPlaceValidationRule()
+                    new AiItineraryRepeatedPlaceValidationRule(),
+                    new AiItineraryRouteValidationRule(routeTravelTimePort)
             );
     private final AiItineraryDraftNormalizer aiItineraryDraftNormalizer = new AiItineraryDraftNormalizer();
     private final ItineraryGenerationRepository generationRepository = Mockito.mock(ItineraryGenerationRepository.class);
@@ -101,6 +105,8 @@ class ManualItineraryResponseServiceTest {
                 candidate(1, "place-1", false),
                 candidate(2, "place-2", false)
         ));
+        given(routeTravelTimePort.findRoute(Mockito.any(), Mockito.any(), Mockito.any()))
+                .willReturn(Optional.of(new RouteTravelTimePort.RouteTravelTime(Duration.ZERO, 0)));
     }
 
     @Test
@@ -370,6 +376,7 @@ class ManualItineraryResponseServiceTest {
                 });
         verifyNoItinerarySaved();
         verify(eventPublisher, never()).publishEvent(Mockito.any());
+        verify(routeTravelTimePort, never()).findRoute(Mockito.any(), Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -411,6 +418,36 @@ class ManualItineraryResponseServiceTest {
                 .extracting(ValidationIssue::code)
                 .containsExactly(ValidationIssueCode.ITEM_TIME_OVERLAP);
         assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
+        verifyNoItinerarySaved();
+        verify(eventPublisher, never()).publishEvent(Mockito.any());
+    }
+
+    @Test
+    void validateReturnsRouteConstraintViolationWithoutSavingOrPublishing() {
+        given(routeTravelTimePort.findRoute(Mockito.any(), Mockito.any(), Mockito.any()))
+                .willReturn(Optional.of(new RouteTravelTimePort.RouteTravelTime(Duration.ofMinutes(61), 5_000)));
+
+        AiItineraryValidationReport report = service.validate(99L, 1L, 10L, routeDraft());
+
+        assertThat(report.errors()).extracting(ValidationIssue::code)
+                .containsExactly(ValidationIssueCode.INSUFFICIENT_TRAVEL_TIME);
+        assertThat(generation.getStatus()).isEqualTo(ItineraryGenerationStatus.READY_FOR_PLANNING);
+        verifyNoItinerarySaved();
+        verify(eventPublisher, never()).publishEvent(Mockito.any());
+    }
+
+    @Test
+    void submitRejectsRouteConstraintViolationBeforeSavingOrPublishing() {
+        given(routeTravelTimePort.findRoute(Mockito.any(), Mockito.any(), Mockito.any()))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.submit(99L, 1L, 10L, routeDraft()))
+                .isInstanceOf(AiItineraryValidationException.class)
+                .satisfies(exception -> assertThat(
+                        ((AiItineraryValidationException) exception).validationReport().errors()
+                ).extracting(ValidationIssue::code)
+                        .containsExactly(ValidationIssueCode.ADJACENT_ROUTE_NOT_FOUND));
+
         verifyNoItinerarySaved();
         verify(eventPublisher, never()).publishEvent(Mockito.any());
     }
@@ -497,6 +534,19 @@ class ManualItineraryResponseServiceTest {
         );
     }
 
+    private AiItineraryDraft routeDraft() {
+        return new AiItineraryDraft(
+                "10",
+                List.of(
+                        day(1, List.of(
+                                item(1, "place-1", "09:00", 60),
+                                item(2, "place-2", "11:00", 60)
+                        )),
+                        day(2, item(1, "place-1"))
+                )
+        );
+    }
+
     private ItineraryDraftDay day(int day, ItineraryDraftItem item) {
         return new ItineraryDraftDay(day, List.of(item));
     }
@@ -563,7 +613,7 @@ class ManualItineraryResponseServiceTest {
                 new GenerationInputSnapshot.Companion(2, "FRIENDS", false, 0, null, false, 0),
                 new GenerationInputSnapshot.Budget("KRW", 1_000_000L, "BALANCED", List.of("FOOD")),
                 new GenerationInputSnapshot.Preference("BALANCED", List.of("FOOD")),
-                new GenerationInputSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
+                new GenerationInputSnapshot.Transportation("WALK", List.of()),
                 new GenerationInputSnapshot.Accommodation("UNDECIDED", null, null, null, null, null, null, List.of(), null, null, null),
                 LocalTime.of(8, 0),
                 LocalTime.of(20, 0),

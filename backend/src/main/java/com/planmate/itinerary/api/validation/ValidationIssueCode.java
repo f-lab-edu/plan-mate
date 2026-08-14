@@ -64,6 +64,18 @@ public enum ValidationIssueCode {
     ),
     AVOID_CONDITION_NOT_VERIFIED(
             "The avoid condition could not be verified with the available data."
+    ),
+    ITEM_SEQUENCE_TIME_ORDER_INVALID(
+            "Itinerary item sequence must follow chronological order."
+    ),
+    INSUFFICIENT_TRAVEL_TIME(
+            "The available gap is shorter than the required travel time."
+    ),
+    ADJACENT_ROUTE_NOT_FOUND(
+            "No route was found between adjacent itinerary items."
+    ),
+    ADJACENT_ROUTE_NOT_VERIFIED(
+            "Routes between adjacent itinerary items could not be verified."
     );
 
     private final String defaultMessage;

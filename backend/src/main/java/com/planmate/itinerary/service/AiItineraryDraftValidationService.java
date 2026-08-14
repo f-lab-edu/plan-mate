@@ -24,15 +24,18 @@ public class AiItineraryDraftValidationService {
     private final AiItineraryTimeValidationRule timeValidationRule;
     private final AiItineraryAvoidConditionValidationRule avoidConditionValidationRule;
     private final AiItineraryRepeatedPlaceValidationRule repeatedPlaceValidationRule;
+    private final AiItineraryRouteValidationRule routeValidationRule;
 
     public AiItineraryDraftValidationService(
             AiItineraryTimeValidationRule timeValidationRule,
             AiItineraryAvoidConditionValidationRule avoidConditionValidationRule,
-            AiItineraryRepeatedPlaceValidationRule repeatedPlaceValidationRule
+            AiItineraryRepeatedPlaceValidationRule repeatedPlaceValidationRule,
+            AiItineraryRouteValidationRule routeValidationRule
     ) {
         this.timeValidationRule = timeValidationRule;
         this.avoidConditionValidationRule = avoidConditionValidationRule;
         this.repeatedPlaceValidationRule = repeatedPlaceValidationRule;
+        this.routeValidationRule = routeValidationRule;
     }
 
     public AiItineraryValidationReport validate(
@@ -72,6 +75,15 @@ public class AiItineraryDraftValidationService {
             builder.errors(avoidResult.errors());
             repeatedPlaceValidationRule.validate(structure.items()).forEach(builder::warning);
             avoidResult.unverifiedConditions().forEach(builder::unverifiedCondition);
+            if (!builder.hasErrors()) {
+                AiItineraryRouteValidationRule.Result routeResult = routeValidationRule.validate(
+                        inputSnapshot,
+                        candidates,
+                        structure.items()
+                );
+                builder.errors(routeResult.errors());
+                routeResult.unverifiedConditions().forEach(builder::unverifiedCondition);
+            }
         } else {
             repeatedPlaceValidationRule.validate(structure.items()).forEach(builder::warning);
         }

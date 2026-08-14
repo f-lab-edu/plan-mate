@@ -14,11 +14,14 @@ import com.planmate.itinerary.dto.ItineraryDraftDay;
 import com.planmate.itinerary.dto.ItineraryDraftItem;
 import com.planmate.itinerary.exception.ItineraryErrorCode;
 import com.planmate.itinerary.exception.ItineraryException;
+import com.planmate.itinerary.route.RouteTravelTimePort;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
@@ -28,8 +31,15 @@ class AiItineraryDraftValidationServiceTest {
             new AiItineraryDraftValidationService(
                     new AiItineraryTimeValidationRule(),
                     new AiItineraryAvoidConditionValidationRule(),
-                    new AiItineraryRepeatedPlaceValidationRule()
+                    new AiItineraryRepeatedPlaceValidationRule(),
+                    new AiItineraryRouteValidationRule(successfulRoutePort())
             );
+
+    private static RouteTravelTimePort successfulRoutePort() {
+        return (origin, destination, travelMode) -> Optional.of(
+                new RouteTravelTimePort.RouteTravelTime(Duration.ZERO, 0)
+        );
+    }
 
     @Test
     void acceptsV1DraftWithoutCandidateSnapshotsAndWithoutWhitelist() {
@@ -574,7 +584,7 @@ class AiItineraryDraftValidationServiceTest {
                 new GenerationInputSnapshot.Companion(2, "FRIENDS", false, 0, null, false, 0),
                 new GenerationInputSnapshot.Budget("KRW", 1_000_000L, "BALANCED", List.of("FOOD")),
                 new GenerationInputSnapshot.Preference("BALANCED", List.of("FOOD")),
-                new GenerationInputSnapshot.Transportation("PUBLIC_TRANSIT", List.of("WALK")),
+                new GenerationInputSnapshot.Transportation("WALK", List.of()),
                 new GenerationInputSnapshot.Accommodation("UNDECIDED", null, null, null, null, null, null, List.of(), null, null, null),
                 dailyStartTime,
                 dailyEndTime,

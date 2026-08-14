@@ -20,6 +20,10 @@ export type ValidationIssueCode =
   | 'REPEATED_PLACE'
   | 'AVOID_CONDITION_VIOLATED'
   | 'AVOID_CONDITION_NOT_VERIFIED'
+  | 'ITEM_SEQUENCE_TIME_ORDER_INVALID'
+  | 'INSUFFICIENT_TRAVEL_TIME'
+  | 'ADJACENT_ROUTE_NOT_FOUND'
+  | 'ADJACENT_ROUTE_NOT_VERIFIED'
 
 export type ValidationTarget = {
   path?: string
@@ -63,6 +67,10 @@ const VALIDATION_ISSUE_CODES: Set<string> = new Set([
   'REPEATED_PLACE',
   'AVOID_CONDITION_VIOLATED',
   'AVOID_CONDITION_NOT_VERIFIED',
+  'ITEM_SEQUENCE_TIME_ORDER_INVALID',
+  'INSUFFICIENT_TRAVEL_TIME',
+  'ADJACENT_ROUTE_NOT_FOUND',
+  'ADJACENT_ROUTE_NOT_VERIFIED',
 ])
 
 export function parseAiItineraryValidationReport(value: unknown): AiItineraryValidationReport | undefined {
