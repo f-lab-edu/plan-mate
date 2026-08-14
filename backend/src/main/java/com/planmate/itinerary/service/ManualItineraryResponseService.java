@@ -9,6 +9,7 @@ import com.planmate.itinerary.api.ItineraryGenerationStatus;
 import com.planmate.itinerary.exception.AiItineraryValidationException;
 import com.planmate.itinerary.exception.ItineraryErrorCode;
 import com.planmate.itinerary.exception.ItineraryException;
+import com.planmate.itinerary.metrics.AiItineraryValidationMetrics;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
 import com.planmate.trip.api.TripAccessChecker;
 import java.util.List;
@@ -24,6 +25,7 @@ public class ManualItineraryResponseService {
     private final AiItineraryDraftNormalizer aiItineraryDraftNormalizer;
     private final ItineraryGenerationRepository generationRepository;
     private final ManualItineraryResponsePersistenceService persistenceService;
+    private final AiItineraryValidationMetrics validationMetrics;
 
     public ManualItineraryResponseService(
             TripAccessChecker tripAccessChecker,
@@ -32,7 +34,8 @@ public class ManualItineraryResponseService {
             AiItineraryDraftValidationService aiItineraryDraftValidationService,
             AiItineraryDraftNormalizer aiItineraryDraftNormalizer,
             ItineraryGenerationRepository generationRepository,
-            ManualItineraryResponsePersistenceService persistenceService
+            ManualItineraryResponsePersistenceService persistenceService,
+            AiItineraryValidationMetrics validationMetrics
     ) {
         this.tripAccessChecker = tripAccessChecker;
         this.generationInputSnapshotStore = generationInputSnapshotStore;
@@ -41,6 +44,7 @@ public class ManualItineraryResponseService {
         this.aiItineraryDraftNormalizer = aiItineraryDraftNormalizer;
         this.generationRepository = generationRepository;
         this.persistenceService = persistenceService;
+        this.validationMetrics = validationMetrics;
     }
 
     public void submit(Long userId, Long tripId, Long generationId, AiItineraryDraft draft) {
@@ -57,6 +61,7 @@ public class ManualItineraryResponseService {
                     candidates,
                     draft
             );
+            validationMetrics.recordSubmit(report);
             throwIfValidationFailed(report);
             NormalizedAiItineraryDraft normalizedDraft = aiItineraryDraftNormalizer.normalize(generationId, draft);
             persistenceService.persistOrReplay(tripId, generationId, snapshot, draft, normalizedDraft);
@@ -78,13 +83,15 @@ public class ManualItineraryResponseService {
 
         GenerationInputSnapshot snapshot = generationInputSnapshotStore.getRequired(generationId);
         List<GenerationCandidateSnapshot> candidates = generationCandidateSnapshotStore.findAllByGenerationId(generationId);
-        return aiItineraryDraftValidationService.validate(
+        AiItineraryValidationReport report = aiItineraryDraftValidationService.validate(
                 generationId,
                 generation.getPromptVersion(),
                 snapshot,
                 candidates,
                 draft
         );
+        validationMetrics.recordValidate(report);
+        return report;
     }
 
     private ItineraryGenerationEntity getGeneration(Long tripId, Long generationId) {

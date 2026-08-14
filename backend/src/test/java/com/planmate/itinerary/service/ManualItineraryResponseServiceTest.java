@@ -24,6 +24,7 @@ import com.planmate.itinerary.entity.ItineraryItemEntity;
 import com.planmate.itinerary.exception.AiItineraryValidationException;
 import com.planmate.itinerary.exception.ItineraryErrorCode;
 import com.planmate.itinerary.exception.ItineraryException;
+import com.planmate.itinerary.metrics.AiItineraryValidationMetrics;
 import com.planmate.itinerary.api.event.ItineraryGenerationStatusChangedEvent;
 import com.planmate.itinerary.repository.ItineraryDayRepository;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
@@ -65,6 +66,7 @@ class ManualItineraryResponseServiceTest {
     private final ItineraryDayRepository itineraryDayRepository = Mockito.mock(ItineraryDayRepository.class);
     private final ItineraryItemRepository itineraryItemRepository = Mockito.mock(ItineraryItemRepository.class);
     private final ApplicationEventPublisher eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
+    private final AiItineraryValidationMetrics validationMetrics = Mockito.mock(AiItineraryValidationMetrics.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
     private final ManualItineraryResponsePersistenceService persistenceService =
             new ManualItineraryResponsePersistenceService(
@@ -85,7 +87,8 @@ class ManualItineraryResponseServiceTest {
             aiItineraryDraftValidationService,
             aiItineraryDraftNormalizer,
             generationRepository,
-            persistenceService
+            persistenceService,
+            validationMetrics
     );
 
     private ItineraryGenerationEntity generation;
@@ -177,6 +180,7 @@ class ManualItineraryResponseServiceTest {
         verify(itineraryItemRepository, never()).save(Mockito.any());
         verify(eventPublisher, never()).publishEvent(Mockito.any());
         verifyNoInteractions(generationInputSnapshotStore, generationCandidateSnapshotStore);
+        verifyNoInteractions(validationMetrics);
     }
 
     @Test
@@ -488,7 +492,8 @@ class ManualItineraryResponseServiceTest {
                 validationService,
                 aiItineraryDraftNormalizer,
                 generationRepository,
-                persistenceServiceWithValidationReport
+                persistenceServiceWithValidationReport,
+                validationMetrics
         );
         given(validationService.validate(
                 Mockito.eq(10L),

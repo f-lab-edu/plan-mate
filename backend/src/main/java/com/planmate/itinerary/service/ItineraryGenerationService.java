@@ -4,6 +4,7 @@ import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.dto.ItineraryGenerationCreateResponse;
 import com.planmate.itinerary.dto.ItineraryGenerationDetailResponse;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
+import com.planmate.itinerary.metrics.ItineraryGenerationPipelineMetrics;
 import com.planmate.recommendation.api.CandidateRecommendationRequest;
 import com.planmate.recommendation.api.CandidateRecommender;
 import com.planmate.recommendation.api.RecommendedPlaceCandidate;
@@ -18,17 +19,20 @@ public class ItineraryGenerationService {
     private final CandidateRecommendationRequestMapper candidateRecommendationRequestMapper;
     private final CandidateRecommender candidateRecommender;
     private final GenerationCandidateSnapshotMapper generationCandidateSnapshotMapper;
+    private final ItineraryGenerationPipelineMetrics pipelineMetrics;
 
     public ItineraryGenerationService(
             ItineraryGenerationPersistenceService persistenceService,
             CandidateRecommendationRequestMapper candidateRecommendationRequestMapper,
             CandidateRecommender candidateRecommender,
-            GenerationCandidateSnapshotMapper generationCandidateSnapshotMapper
+            GenerationCandidateSnapshotMapper generationCandidateSnapshotMapper,
+            ItineraryGenerationPipelineMetrics pipelineMetrics
     ) {
         this.persistenceService = persistenceService;
         this.candidateRecommendationRequestMapper = candidateRecommendationRequestMapper;
         this.candidateRecommender = candidateRecommender;
         this.generationCandidateSnapshotMapper = generationCandidateSnapshotMapper;
+        this.pipelineMetrics = pipelineMetrics;
     }
 
     public ItineraryGenerationCreateResponse create(Long userId, Long tripId) {
@@ -52,7 +56,12 @@ public class ItineraryGenerationService {
         List<GenerationCandidateSnapshot> snapshots = recommendedCandidates.stream()
                 .map(generationCandidateSnapshotMapper::map)
                 .toList();
-        return persistenceService.saveCandidatesAndMarkReady(generationId, claimVersion, snapshots).applied();
+        ItineraryGenerationPersistenceService.CandidateSaveResult saveResult =
+                persistenceService.saveCandidatesAndMarkReady(generationId, claimVersion, snapshots);
+        if (saveResult.applied()) {
+            pipelineMetrics.recordCandidateCount(saveResult.candidateCount());
+        }
+        return saveResult.applied();
     }
 
     public ItineraryGenerationDetailResponse getDetail(Long userId, Long tripId, Long generationId) {
