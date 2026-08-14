@@ -4,27 +4,15 @@ import com.planmate.itinerary.domain.GenerationCandidateSnapshot;
 import com.planmate.itinerary.domain.GenerationInputSnapshot;
 import com.planmate.itinerary.api.validation.AiItineraryValidationReport;
 import com.planmate.itinerary.dto.AiItineraryDraft;
-import com.planmate.itinerary.entity.ItineraryDayEntity;
-import com.planmate.itinerary.entity.ItineraryEntity;
 import com.planmate.itinerary.entity.ItineraryGenerationEntity;
 import com.planmate.itinerary.api.ItineraryGenerationStatus;
-import com.planmate.itinerary.entity.ItineraryItemCreatedSource;
-import com.planmate.itinerary.entity.ItineraryItemEntity;
 import com.planmate.itinerary.exception.AiItineraryValidationException;
 import com.planmate.itinerary.exception.ItineraryErrorCode;
 import com.planmate.itinerary.exception.ItineraryException;
-import com.planmate.itinerary.api.event.ItineraryGenerationStatusChangedEvent;
-import com.planmate.itinerary.repository.ItineraryDayRepository;
 import com.planmate.itinerary.repository.ItineraryGenerationRepository;
-import com.planmate.itinerary.repository.ItineraryItemRepository;
-import com.planmate.itinerary.repository.ItineraryRepository;
 import com.planmate.trip.api.TripAccessChecker;
-import java.time.Clock;
-import java.time.Instant;
 import java.util.List;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ManualItineraryResponseService {
@@ -35,11 +23,7 @@ public class ManualItineraryResponseService {
     private final AiItineraryDraftValidationService aiItineraryDraftValidationService;
     private final AiItineraryDraftNormalizer aiItineraryDraftNormalizer;
     private final ItineraryGenerationRepository generationRepository;
-    private final ItineraryRepository itineraryRepository;
-    private final ItineraryDayRepository itineraryDayRepository;
-    private final ItineraryItemRepository itineraryItemRepository;
-    private final Clock clock;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ManualItineraryResponsePersistenceService persistenceService;
 
     public ManualItineraryResponseService(
             TripAccessChecker tripAccessChecker,
@@ -48,11 +32,7 @@ public class ManualItineraryResponseService {
             AiItineraryDraftValidationService aiItineraryDraftValidationService,
             AiItineraryDraftNormalizer aiItineraryDraftNormalizer,
             ItineraryGenerationRepository generationRepository,
-            ItineraryRepository itineraryRepository,
-            ItineraryDayRepository itineraryDayRepository,
-            ItineraryItemRepository itineraryItemRepository,
-            Clock clock,
-            ApplicationEventPublisher eventPublisher
+            ManualItineraryResponsePersistenceService persistenceService
     ) {
         this.tripAccessChecker = tripAccessChecker;
         this.generationInputSnapshotStore = generationInputSnapshotStore;
@@ -60,41 +40,38 @@ public class ManualItineraryResponseService {
         this.aiItineraryDraftValidationService = aiItineraryDraftValidationService;
         this.aiItineraryDraftNormalizer = aiItineraryDraftNormalizer;
         this.generationRepository = generationRepository;
-        this.itineraryRepository = itineraryRepository;
-        this.itineraryDayRepository = itineraryDayRepository;
-        this.itineraryItemRepository = itineraryItemRepository;
-        this.clock = clock;
-        this.eventPublisher = eventPublisher;
+        this.persistenceService = persistenceService;
     }
 
-    @Transactional
     public void submit(Long userId, Long tripId, Long generationId, AiItineraryDraft draft) {
         tripAccessChecker.checkAccessible(userId, tripId);
-        ItineraryGenerationEntity generation = generationRepository.findWithLockById(generationId)
-                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
-        if (!generation.getTripId().equals(tripId)) {
-            throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
-        }
+        ItineraryGenerationEntity generation = getGeneration(tripId, generationId);
 
         if (generation.getStatus() == ItineraryGenerationStatus.READY_FOR_PLANNING) {
-            handleFirstSubmit(generation, draft);
+            GenerationInputSnapshot snapshot = generationInputSnapshotStore.getRequired(generationId);
+            List<GenerationCandidateSnapshot> candidates = generationCandidateSnapshotStore.findAllByGenerationId(generationId);
+            AiItineraryValidationReport report = aiItineraryDraftValidationService.validate(
+                    generationId,
+                    generation.getPromptVersion(),
+                    snapshot,
+                    candidates,
+                    draft
+            );
+            throwIfValidationFailed(report);
+            NormalizedAiItineraryDraft normalizedDraft = aiItineraryDraftNormalizer.normalize(generationId, draft);
+            persistenceService.persistOrReplay(tripId, generationId, snapshot, draft, normalizedDraft);
             return;
         }
         if (generation.getStatus() == ItineraryGenerationStatus.COMPLETED) {
-            handleCompletedReplay(generation.getId(), draft);
+            persistenceService.persistOrReplay(tripId, generationId, null, draft, null);
             return;
         }
         throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_READY);
     }
 
-    @Transactional(readOnly = true)
     public AiItineraryValidationReport validate(Long userId, Long tripId, Long generationId, AiItineraryDraft draft) {
         tripAccessChecker.checkAccessible(userId, tripId);
-        ItineraryGenerationEntity generation = generationRepository.findById(generationId)
-                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
-        if (!generation.getTripId().equals(tripId)) {
-            throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
-        }
+        ItineraryGenerationEntity generation = getGeneration(tripId, generationId);
         if (generation.getStatus() != ItineraryGenerationStatus.READY_FOR_PLANNING) {
             throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_READY);
         }
@@ -110,85 +87,13 @@ public class ManualItineraryResponseService {
         );
     }
 
-    private void handleFirstSubmit(ItineraryGenerationEntity generation, AiItineraryDraft draft) {
-        Long generationId = generation.getId();
-        if (itineraryRepository.findByGeneration_Id(generationId).isPresent()) {
-            throw new ItineraryException(ItineraryErrorCode.GENERATION_ITINERARY_STATE_INCONSISTENT);
+    private ItineraryGenerationEntity getGeneration(Long tripId, Long generationId) {
+        ItineraryGenerationEntity generation = generationRepository.findById(generationId)
+                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND));
+        if (!generation.getTripId().equals(tripId)) {
+            throw new ItineraryException(ItineraryErrorCode.GENERATION_NOT_FOUND);
         }
-
-        GenerationInputSnapshot snapshot = generationInputSnapshotStore.getRequired(generationId);
-        List<GenerationCandidateSnapshot> candidates = generationCandidateSnapshotStore.findAllByGenerationId(generationId);
-        AiItineraryValidationReport report = aiItineraryDraftValidationService.validate(
-                generationId,
-                generation.getPromptVersion(),
-                snapshot,
-                candidates,
-                draft
-        );
-        throwIfValidationFailed(report);
-        NormalizedAiItineraryDraft normalizedDraft = aiItineraryDraftNormalizer.normalize(generationId, draft);
-
-        Instant now = Instant.now(clock);
-        ItineraryGenerationStatus previousStatus = generation.getStatus();
-        saveItinerary(generation, snapshot, normalizedDraft, now);
-        generation.markCompleted(now);
-        publishCompletedEvent(generation.getTripId(), generation, previousStatus, generationId);
-    }
-
-    private void handleCompletedReplay(Long generationId, AiItineraryDraft draft) {
-        ItineraryEntity itinerary = itineraryRepository.findByGeneration_Id(generationId)
-                .orElseThrow(() -> new ItineraryException(ItineraryErrorCode.GENERATION_ITINERARY_STATE_INCONSISTENT));
-        AiItineraryValidationReport report = aiItineraryDraftValidationService.validateStructure(generationId, draft);
-        throwIfValidationFailed(report);
-        NormalizedAiItineraryDraft incomingDraft = aiItineraryDraftNormalizer.normalize(generationId, draft);
-        NormalizedAiItineraryDraft persistedDraft = aiItineraryDraftNormalizer.normalize(itinerary);
-        if (!incomingDraft.equals(persistedDraft)) {
-            throw new ItineraryException(ItineraryErrorCode.GENERATION_ALREADY_COMPLETED_WITH_DIFFERENT_DRAFT);
-        }
-    }
-
-    private void saveItinerary(
-            ItineraryGenerationEntity generation,
-            GenerationInputSnapshot snapshot,
-            NormalizedAiItineraryDraft normalizedDraft,
-            Instant now
-    ) {
-        ItineraryEntity itinerary = itineraryRepository.save(ItineraryEntity.create(generation, now));
-        for (NormalizedAiItineraryDraft.Day responseDay : normalizedDraft.days()) {
-            ItineraryDayEntity day = itineraryDayRepository.save(ItineraryDayEntity.create(
-                    itinerary,
-                    responseDay.day(),
-                    snapshot.startDate().plusDays(responseDay.day() - 1L)
-            ));
-            for (NormalizedAiItineraryDraft.Item responseItem : responseDay.items()) {
-                itineraryItemRepository.save(ItineraryItemEntity.create(
-                        day,
-                        responseItem.sequence(),
-                        responseItem.placeId(),
-                        responseItem.startTime(),
-                        responseItem.durationMinutes(),
-                        ItineraryItemCreatedSource.AI_DRAFT
-                ));
-            }
-        }
-    }
-
-    private void publishCompletedEvent(
-            Long tripId,
-            ItineraryGenerationEntity generation,
-            ItineraryGenerationStatus previousStatus,
-            Long generationId
-    ) {
-        long candidateCount = generationCandidateSnapshotStore.countByGenerationId(generationId);
-        eventPublisher.publishEvent(new ItineraryGenerationStatusChangedEvent(
-                tripId,
-                generation.getId(),
-                previousStatus,
-                generation.getStatus(),
-                candidateCount,
-                generation.getFailureReason(),
-                generation.getUpdatedAt()
-        ));
+        return generation;
     }
 
     private void throwIfValidationFailed(AiItineraryValidationReport report) {

@@ -62,6 +62,18 @@ class ManualItineraryResponseServiceTest {
     private final ItineraryItemRepository itineraryItemRepository = Mockito.mock(ItineraryItemRepository.class);
     private final ApplicationEventPublisher eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
+    private final ManualItineraryResponsePersistenceService persistenceService =
+            new ManualItineraryResponsePersistenceService(
+                    aiItineraryDraftValidationService,
+                    aiItineraryDraftNormalizer,
+                    generationCandidateSnapshotStore,
+                    generationRepository,
+                    itineraryRepository,
+                    itineraryDayRepository,
+                    itineraryItemRepository,
+                    clock,
+                    eventPublisher
+            );
     private final ManualItineraryResponseService service = new ManualItineraryResponseService(
             tripAccessChecker,
             generationInputSnapshotStore,
@@ -69,11 +81,7 @@ class ManualItineraryResponseServiceTest {
             aiItineraryDraftValidationService,
             aiItineraryDraftNormalizer,
             generationRepository,
-            itineraryRepository,
-            itineraryDayRepository,
-            itineraryItemRepository,
-            clock,
-            eventPublisher
+            persistenceService
     );
 
     private ItineraryGenerationEntity generation;
@@ -424,6 +432,18 @@ class ManualItineraryResponseServiceTest {
     @Test
     void warningAndUnverifiedOnlyReportDoesNotBlockPersistence() {
         AiItineraryDraftValidationService validationService = Mockito.mock(AiItineraryDraftValidationService.class);
+        ManualItineraryResponsePersistenceService persistenceServiceWithValidationReport =
+                new ManualItineraryResponsePersistenceService(
+                        validationService,
+                        aiItineraryDraftNormalizer,
+                        generationCandidateSnapshotStore,
+                        generationRepository,
+                        itineraryRepository,
+                        itineraryDayRepository,
+                        itineraryItemRepository,
+                        clock,
+                        eventPublisher
+                );
         ManualItineraryResponseService serviceWithValidationReport = new ManualItineraryResponseService(
                 tripAccessChecker,
                 generationInputSnapshotStore,
@@ -431,11 +451,7 @@ class ManualItineraryResponseServiceTest {
                 validationService,
                 aiItineraryDraftNormalizer,
                 generationRepository,
-                itineraryRepository,
-                itineraryDayRepository,
-                itineraryItemRepository,
-                clock,
-                eventPublisher
+                persistenceServiceWithValidationReport
         );
         given(validationService.validate(
                 Mockito.eq(10L),
